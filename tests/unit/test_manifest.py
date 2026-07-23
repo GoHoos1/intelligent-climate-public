@@ -1,0 +1,78 @@
+"""Test manifest and HACS repository invariants."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from custom_components.intelligent_climate.const import DOMAIN
+
+ROOT = Path(__file__).parents[2]
+CUSTOM_COMPONENTS_DIR = ROOT / "custom_components"
+INTEGRATION_DIR = ROOT / "custom_components" / DOMAIN
+HACS_REQUIRED_MANIFEST_FIELDS = {
+    "codeowners",
+    "documentation",
+    "domain",
+    "issue_tracker",
+    "name",
+    "version",
+}
+
+
+def test_exactly_one_custom_integration_exists() -> None:
+    """Test the repository contains one HACS-manageable integration."""
+    integrations = [
+        path.name
+        for path in CUSTOM_COMPONENTS_DIR.iterdir()
+        if path.is_dir() and not path.name.startswith("__")
+    ]
+
+    assert integrations == [DOMAIN]
+
+
+def test_integration_directory_matches_manifest_domain() -> None:
+    """Test the HACS integration directory matches manifest domain."""
+    manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
+
+    assert isinstance(manifest, dict)
+    assert INTEGRATION_DIR.name == manifest["domain"]
+
+
+def test_manifest_matches_foundation_scope() -> None:
+    """Test manifest metadata does not claim unimplemented features."""
+    manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
+
+    assert isinstance(manifest, dict)
+    assert manifest["domain"] == DOMAIN
+    assert manifest["name"] == "Intelligent Climate"
+    assert manifest["version"] == "0.0.0"
+    assert manifest["codeowners"] == ["@GoHoos1"]
+    assert manifest["config_flow"] is True
+    assert manifest["dependencies"] == []
+    assert manifest["documentation"] == "https://github.com/GoHoos1/intelligent-climate-public"
+    assert manifest["integration_type"] == "hub"
+    assert manifest["iot_class"] == "calculated"
+    assert (
+        manifest["issue_tracker"]
+        == "https://github.com/GoHoos1/intelligent-climate-public/issues"
+    )
+    assert manifest["requirements"] == []
+
+
+def test_manifest_contains_hacs_required_fields() -> None:
+    """Test HACS-required integration manifest fields are present."""
+    manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
+
+    assert isinstance(manifest, dict)
+    assert manifest.keys() >= HACS_REQUIRED_MANIFEST_FIELDS
+
+
+def test_hacs_manifest_declares_integration_name() -> None:
+    """Test HACS metadata declares only the integration package."""
+    hacs_manifest = json.loads((ROOT / "hacs.json").read_text())
+
+    assert isinstance(hacs_manifest, dict)
+    assert set(hacs_manifest) == {"name"}
+    assert hacs_manifest["name"] == "Intelligent Climate"
+    assert "render_readme" not in hacs_manifest

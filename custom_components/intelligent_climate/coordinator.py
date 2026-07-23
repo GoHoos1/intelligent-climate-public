@@ -1,0 +1,685 @@
+"""Event-driven, entry-scoped observation coordinator."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from functools import partial
+
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_point_in_utc_time,
+    async_track_state_change_event,
+)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util.dt import utcnow
+
+from .aggregation import (
+    aggregate_humidity_sources,
+    aggregate_temperature_sources,
+)
+from .capability import discover_thermostat_capabilities
+from .climate_state import normalize_climate_state
+from .const import DOMAIN, STATE_CHANGE_DEBOUNCE_SECONDS
+from .health import evaluate_humidity_health, evaluate_temperature_health
+from .models import (
+    AggregationReason,
+    AggregationStatus,
+    ControlState,
+    EntryObservationSnapshot,
+    EntryRuntimeConfiguration,
+    ObservationSourceId,
+    PendingJumpCandidate,
+    SourceAggregationResult,
+    SourceBaseline,
+    SourceHealthEvaluation,
+    SourceObservation,
+    SourceQuality,
+    ThermostatRuntimeSnapshot,
+    ZoneConfig,
+    ZoneId,
+    ZoneObservation,
+)
+from .observation import observe_humidity_source, observe_temperature_source
+from .type_aliases import IntelligentClimateConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
+_STALE_BOUNDARY_INCREMENT = timedelta(microseconds=1)
+
+type NowFunction = Callable[[], datetime]
+
+
+class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapshot]):
+    """Coordinate live observation without polling or physical control."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: IntelligentClimateConfigEntry,
+        configuration: EntryRuntimeConfiguration,
+        *,
+        now_fn: NowFunction = utcnow,
+    ) -> None:
+        """Initialize deterministic indexes and private orchestration state."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=DOMAIN,
+            update_interval=None,
+        )
+        self.entry = entry
+        self.configuration = configuration
+        self._now_fn = now_fn
+
+        self._zones_by_id = {zone.zone_id: zone for zone in configuration.zones}
+        self._source_to_zones: dict[str, tuple[ZoneId, ...]]
+        self._thermostat_to_zones: dict[str, tuple[ZoneId, ...]]
+        self._source_id_to_zones: dict[ObservationSourceId, tuple[ZoneId, ...]]
+        (
+            self._source_to_zones,
+            self._thermostat_to_zones,
+            self._source_id_to_zones,
+        ) = self._build_dependency_indexes()
+
+        self._source_baselines: dict[ObservationSourceId, SourceBaseline] = {}
+        self._pending_temperature_jumps: dict[
+            ObservationSourceId, PendingJumpCandidate
+        ] = {}
+        self._source_observations: dict[
+            ObservationSourceId, SourceObservation[float]
+        ] = {}
+        self._thermostat_snapshots: dict[str, ThermostatRuntimeSnapshot] = {}
+
+        self._pending_zone_ids: set[ZoneId] = set()
+        self._pending_thermostat_entity_ids: set[str] = set()
+        self._cancel_debounce: CALLBACK_TYPE | None = None
+        self._cancel_reconciliation: CALLBACK_TYPE | None = None
+        self._cancel_watchdog: CALLBACK_TYPE | None = None
+        self._cancel_subscription: CALLBACK_TYPE | None = None
+        self._debounce_generation = 0
+        self._reconciliation_generation = 0
+        self._watchdog_generation = 0
+        self._revision = 0
+        self._reconciling = False
+        self._shutdown = False
+
+    @property
+    def source_dependency_index(self) -> dict[str, tuple[ZoneId, ...]]:
+        """Return a defensive copy of the deterministic source index."""
+        return dict(self._source_to_zones)
+
+    @property
+    def thermostat_dependency_index(self) -> dict[str, tuple[ZoneId, ...]]:
+        """Return a defensive copy of the deterministic thermostat index."""
+        return dict(self._thermostat_to_zones)
+
+    async def async_start(self) -> None:
+        """Subscribe, publish the initial snapshot, then schedule deadlines."""
+        if self._shutdown:
+            raise RuntimeError("coordinator has shut down")
+        if self._runtime_is_active:
+            self._register_state_subscription()
+        await self.async_config_entry_first_refresh()
+        if self._runtime_is_active:
+            self._schedule_reconciliation()
+            self._schedule_watchdog(self.data.calculated_at)
+
+    @property
+    def _runtime_is_active(self) -> bool:
+        return (
+            self.configuration.options.observation_enabled
+            and not self.configuration.transitional_empty_skeleton
+        )
+
+    async def _async_update_data(self) -> EntryObservationSnapshot:
+        """Build the first snapshot through the supported first-refresh path."""
+        calculated_at = self._now()
+        if self.configuration.transitional_empty_skeleton:
+            return self._new_snapshot(
+                thermostats=(),
+                zones=(),
+                reconciling=False,
+                calculated_at=calculated_at,
+            )
+        if not self.configuration.options.observation_enabled:
+            thermostats = self._unavailable_thermostats(calculated_at)
+            self._thermostat_snapshots = {item.entity_id: item for item in thermostats}
+            zones = tuple(
+                self._disabled_zone(zone, calculated_at)
+                for zone in self.configuration.zones
+            )
+            return self._new_snapshot(
+                thermostats=thermostats,
+                zones=zones,
+                reconciling=False,
+                calculated_at=calculated_at,
+            )
+
+        self._reconciling = True
+        thermostats = self._refresh_thermostats(
+            self._configured_thermostat_entity_ids,
+            calculated_at,
+        )
+        zones = tuple(
+            self._evaluate_zone(zone, calculated_at)
+            for zone in self.configuration.zones
+        )
+        return self._new_snapshot(
+            thermostats=thermostats,
+            zones=zones,
+            reconciling=True,
+            calculated_at=calculated_at,
+        )
+
+    @property
+    def _configured_thermostat_entity_ids(self) -> tuple[str, ...]:
+        return tuple(
+            binding.entity_id
+            for binding in self.configuration.equipment_group.thermostats
+        )
+
+    def _build_dependency_indexes(
+        self,
+    ) -> tuple[
+        dict[str, tuple[ZoneId, ...]],
+        dict[str, tuple[ZoneId, ...]],
+        dict[ObservationSourceId, tuple[ZoneId, ...]],
+    ]:
+        source_entities: dict[str, list[ZoneId]] = {}
+        thermostat_entities: dict[str, list[ZoneId]] = {}
+        source_ids: dict[ObservationSourceId, list[ZoneId]] = {}
+        for zone in self.configuration.zones:
+            for temperature_source in zone.temperature_sources:
+                if not temperature_source.enabled:
+                    continue
+                _append_unique(
+                    source_entities,
+                    temperature_source.entity_id,
+                    zone.zone_id,
+                )
+                _append_unique(
+                    source_ids,
+                    temperature_source.source_id,
+                    zone.zone_id,
+                )
+            for humidity_source in zone.humidity_sources:
+                if not humidity_source.enabled:
+                    continue
+                _append_unique(
+                    source_entities,
+                    humidity_source.entity_id,
+                    zone.zone_id,
+                )
+                _append_unique(
+                    source_ids,
+                    humidity_source.source_id,
+                    zone.zone_id,
+                )
+            for entity_id in zone.thermostat_entity_ids:
+                _append_unique(thermostat_entities, entity_id, zone.zone_id)
+        return (
+            {key: tuple(value) for key, value in source_entities.items()},
+            {key: tuple(value) for key, value in thermostat_entities.items()},
+            {key: tuple(value) for key, value in source_ids.items()},
+        )
+
+    def _register_state_subscription(self) -> None:
+        entity_ids = list(self._source_to_zones)
+        entity_ids.extend(
+            entity_id
+            for entity_id in self._configured_thermostat_entity_ids
+            if entity_id not in self._source_to_zones
+        )
+        if entity_ids:
+            self._cancel_subscription = async_track_state_change_event(
+                self.hass,
+                entity_ids,
+                self._async_state_changed,
+            )
+
+    @callback
+    def _async_state_changed(
+        self,
+        event: Event[EventStateChangedData],
+    ) -> None:
+        """Collect affected dependencies and replace the short debounce."""
+        if self._shutdown:
+            return
+        entity_id = event.data["entity_id"]
+        self._pending_zone_ids.update(self._source_to_zones.get(entity_id, ()))
+        thermostat_zones = self._thermostat_to_zones.get(entity_id)
+        if thermostat_zones is not None:
+            self._pending_zone_ids.update(thermostat_zones)
+            self._pending_thermostat_entity_ids.add(entity_id)
+        if not self._pending_zone_ids and not self._pending_thermostat_entity_ids:
+            return
+
+        self._debounce_generation += 1
+        generation = self._debounce_generation
+        _cancel(self._cancel_debounce)
+        self._cancel_debounce = async_call_later(
+            self.hass,
+            STATE_CHANGE_DEBOUNCE_SECONDS,
+            partial(self._async_debounce_elapsed, generation=generation),
+        )
+
+    async def _async_debounce_elapsed(
+        self,
+        fire_time: datetime,
+        *,
+        generation: int,
+    ) -> None:
+        """Publish one targeted update for the complete coalesced burst."""
+        if self._shutdown or generation != self._debounce_generation:
+            return
+        _cancel(self._cancel_debounce)
+        self._cancel_debounce = None
+        zone_ids = set(self._pending_zone_ids)
+        thermostat_ids = set(self._pending_thermostat_entity_ids)
+        self._pending_zone_ids.clear()
+        self._pending_thermostat_entity_ids.clear()
+        if not zone_ids and not thermostat_ids:
+            return
+        self._refresh_thermostats(thermostat_ids, fire_time)
+        self._publish_targeted(zone_ids, fire_time)
+
+    def _refresh_thermostats(
+        self,
+        entity_ids: set[str] | tuple[str, ...],
+        calculated_at: datetime,
+    ) -> tuple[ThermostatRuntimeSnapshot, ...]:
+        requested = set(entity_ids)
+        unit = self.hass.config.units.temperature_unit
+        for entity_id in self._configured_thermostat_entity_ids:
+            if entity_id not in requested:
+                continue
+            state = self.hass.states.get(entity_id)
+            self._thermostat_snapshots[entity_id] = ThermostatRuntimeSnapshot(
+                entity_id=entity_id,
+                state=normalize_climate_state(
+                    entity_id,
+                    state,
+                    observed_at=calculated_at,
+                    climate_temperature_unit=unit,
+                ),
+                capability_discovery=discover_thermostat_capabilities(
+                    entity_id,
+                    state,
+                    discovered_at=calculated_at,
+                ),
+            )
+        return tuple(
+            self._thermostat_snapshots[entity_id]
+            for entity_id in self._configured_thermostat_entity_ids
+        )
+
+    def _unavailable_thermostats(
+        self,
+        calculated_at: datetime,
+    ) -> tuple[ThermostatRuntimeSnapshot, ...]:
+        unit = self.hass.config.units.temperature_unit
+        return tuple(
+            ThermostatRuntimeSnapshot(
+                entity_id=entity_id,
+                state=normalize_climate_state(
+                    entity_id,
+                    None,
+                    observed_at=calculated_at,
+                    climate_temperature_unit=unit,
+                ),
+                capability_discovery=discover_thermostat_capabilities(
+                    entity_id,
+                    None,
+                    discovered_at=calculated_at,
+                ),
+            )
+            for entity_id in self._configured_thermostat_entity_ids
+        )
+
+    def _evaluate_zone(
+        self,
+        zone: ZoneConfig,
+        calculated_at: datetime,
+    ) -> ZoneObservation:
+        options = self.configuration.options
+        climate_unit = self.hass.config.units.temperature_unit
+        temperature_observations: list[SourceObservation[float]] = []
+        for temperature_source in zone.temperature_sources:
+            if not temperature_source.enabled:
+                continue
+            normalized = observe_temperature_source(
+                temperature_source,
+                self.hass.states.get(temperature_source.entity_id),
+                observed_at=calculated_at,
+                climate_temperature_unit=climate_unit,
+            )
+            health = evaluate_temperature_health(
+                normalized,
+                baseline=self._source_baselines.get(temperature_source.source_id),
+                pending_jump=self._pending_temperature_jumps.get(
+                    temperature_source.source_id
+                ),
+                stale_after_seconds=options.source_stale_after_seconds,
+                plausible_min_c=options.indoor_temperature_min_c,
+                plausible_max_c=options.indoor_temperature_max_c,
+                jump_limit_c_per_5_minutes=options.jump_limit_c_per_5_minutes,
+            )
+            self._update_health_state(temperature_source.source_id, health)
+            temperature_observations.append(health.observation)
+
+        humidity_observations: list[SourceObservation[float]] = []
+        for humidity_source in zone.humidity_sources:
+            if not humidity_source.enabled:
+                continue
+            normalized = observe_humidity_source(
+                humidity_source,
+                self.hass.states.get(humidity_source.entity_id),
+                observed_at=calculated_at,
+            )
+            health = evaluate_humidity_health(
+                normalized,
+                stale_after_seconds=options.source_stale_after_seconds,
+                baseline=self._source_baselines.get(humidity_source.source_id),
+            )
+            self._update_health_state(humidity_source.source_id, health)
+            humidity_observations.append(health.observation)
+
+        temperature_aggregation = aggregate_temperature_sources(
+            zone.temperature_sources,
+            tuple(temperature_observations),
+            strategy=options.temperature_strategy,
+            min_valid_sources=options.min_valid_temperature_sources,
+            outlier_floor_c=options.outlier_floor_c,
+            calculated_at=calculated_at,
+        )
+        humidity_aggregation = (
+            aggregate_humidity_sources(
+                zone.humidity_sources,
+                tuple(humidity_observations),
+                strategy=options.humidity_strategy,
+                min_valid_sources=options.min_valid_humidity_sources,
+                calculated_at=calculated_at,
+            )
+            if zone.humidity_sources
+            else None
+        )
+        thermostat_states = tuple(
+            self._thermostat_snapshots[entity_id].state
+            for entity_id in zone.thermostat_entity_ids
+        )
+        return ZoneObservation(
+            zone_id=zone.zone_id,
+            temperature_observations=tuple(temperature_observations),
+            humidity_observations=tuple(humidity_observations),
+            temperature_aggregation=temperature_aggregation,
+            humidity_aggregation=humidity_aggregation,
+            thermostat_states=thermostat_states,
+            sensor_data_degraded=(
+                temperature_aggregation.status is not AggregationStatus.HEALTHY
+                or (
+                    humidity_aggregation is not None
+                    and humidity_aggregation.status is not AggregationStatus.HEALTHY
+                )
+            ),
+            thermostat_data_degraded=any(
+                not state.available for state in thermostat_states
+            ),
+            calculated_at=calculated_at,
+        )
+
+    def _update_health_state(
+        self,
+        source_id: ObservationSourceId,
+        health: SourceHealthEvaluation,
+    ) -> None:
+        if health.next_baseline is not None:
+            self._source_baselines[source_id] = health.next_baseline
+        else:
+            self._source_baselines.pop(source_id, None)
+        if health.pending_jump is not None:
+            self._pending_temperature_jumps[source_id] = health.pending_jump
+        else:
+            self._pending_temperature_jumps.pop(source_id, None)
+        self._source_observations[source_id] = health.observation
+
+    def _disabled_zone(
+        self,
+        zone: ZoneConfig,
+        calculated_at: datetime,
+    ) -> ZoneObservation:
+        temperature = _empty_aggregation(calculated_at)
+        humidity = _empty_aggregation(calculated_at) if zone.humidity_sources else None
+        return ZoneObservation(
+            zone_id=zone.zone_id,
+            temperature_observations=(),
+            humidity_observations=(),
+            temperature_aggregation=temperature,
+            humidity_aggregation=humidity,
+            thermostat_states=tuple(
+                self._thermostat_snapshots[entity_id].state
+                for entity_id in zone.thermostat_entity_ids
+            ),
+            sensor_data_degraded=False,
+            thermostat_data_degraded=False,
+            calculated_at=calculated_at,
+        )
+
+    def _publish_targeted(
+        self,
+        affected_zone_ids: set[ZoneId],
+        calculated_at: datetime,
+    ) -> None:
+        if self._shutdown or not affected_zone_ids:
+            return
+        zones = tuple(
+            (
+                self._evaluate_zone(self._zones_by_id[item.zone_id], calculated_at)
+                if item.zone_id in affected_zone_ids
+                else item
+            )
+            for item in self.data.zones
+        )
+        snapshot = self._new_snapshot(
+            thermostats=tuple(
+                self._thermostat_snapshots[entity_id]
+                for entity_id in self._configured_thermostat_entity_ids
+            ),
+            zones=zones,
+            reconciling=self._reconciling,
+            calculated_at=calculated_at,
+        )
+        self.async_set_updated_data(snapshot)
+        self._schedule_watchdog(calculated_at)
+
+    def _new_snapshot(
+        self,
+        *,
+        thermostats: tuple[ThermostatRuntimeSnapshot, ...],
+        zones: tuple[ZoneObservation, ...],
+        reconciling: bool,
+        calculated_at: datetime,
+    ) -> EntryObservationSnapshot:
+        self._revision += 1
+        if reconciling:
+            control_state = ControlState.RECONCILING
+        elif not self.configuration.options.observation_enabled:
+            control_state = ControlState.DISABLED
+        elif any(
+            zone.sensor_data_degraded or zone.thermostat_data_degraded for zone in zones
+        ):
+            control_state = ControlState.DEGRADED
+        else:
+            control_state = ControlState.OBSERVING
+        return EntryObservationSnapshot(
+            entry_id=self.entry.entry_id,
+            equipment_group_id=self.configuration.equipment_group.equipment_group_id,
+            control_state=control_state,
+            reconciling=reconciling,
+            revision=self._revision,
+            thermostats=thermostats,
+            zones=zones,
+            calculated_at=calculated_at,
+        )
+
+    def _schedule_reconciliation(self) -> None:
+        self._reconciliation_generation += 1
+        generation = self._reconciliation_generation
+        _cancel(self._cancel_reconciliation)
+        self._cancel_reconciliation = async_call_later(
+            self.hass,
+            self.configuration.options.startup_reconciliation_seconds,
+            partial(self._async_reconciliation_complete, generation=generation),
+        )
+
+    async def _async_reconciliation_complete(
+        self,
+        fire_time: datetime,
+        *,
+        generation: int,
+    ) -> None:
+        if self._shutdown or generation != self._reconciliation_generation:
+            return
+        _cancel(self._cancel_reconciliation)
+        self._cancel_reconciliation = None
+        self._reconciling = False
+        self._refresh_thermostats(
+            self._configured_thermostat_entity_ids,
+            fire_time,
+        )
+        zones = tuple(
+            self._evaluate_zone(zone, fire_time) for zone in self.configuration.zones
+        )
+        snapshot = self._new_snapshot(
+            thermostats=tuple(
+                self._thermostat_snapshots[entity_id]
+                for entity_id in self._configured_thermostat_entity_ids
+            ),
+            zones=zones,
+            reconciling=False,
+            calculated_at=fire_time,
+        )
+        self.async_set_updated_data(snapshot)
+        self._schedule_watchdog(fire_time)
+
+    def _schedule_watchdog(self, reference_time: datetime) -> None:
+        self._watchdog_generation += 1
+        generation = self._watchdog_generation
+        _cancel(self._cancel_watchdog)
+        self._cancel_watchdog = None
+        deadlines = tuple(
+            self._stale_deadline(observation)
+            for observation in self._source_observations.values()
+            if observation.quality is SourceQuality.VALID
+            and observation.source_last_updated is not None
+        )
+        future_deadlines = tuple(
+            deadline for deadline in deadlines if deadline > reference_time
+        )
+        if not future_deadlines or self._shutdown:
+            return
+        self._cancel_watchdog = async_track_point_in_utc_time(
+            self.hass,
+            partial(self._async_watchdog_elapsed, generation=generation),
+            min(future_deadlines),
+        )
+
+    def _stale_deadline(self, observation: SourceObservation[float]) -> datetime:
+        source_last_updated = observation.source_last_updated
+        if source_last_updated is None:
+            raise ValueError("accepted source observation requires last_updated")
+        return (
+            source_last_updated
+            + timedelta(seconds=self.configuration.options.source_stale_after_seconds)
+            + _STALE_BOUNDARY_INCREMENT
+        )
+
+    async def _async_watchdog_elapsed(
+        self,
+        fire_time: datetime,
+        *,
+        generation: int,
+    ) -> None:
+        if self._shutdown or generation != self._watchdog_generation:
+            return
+        _cancel(self._cancel_watchdog)
+        self._cancel_watchdog = None
+        due_source_ids = {
+            source_id
+            for source_id, observation in self._source_observations.items()
+            if observation.quality is SourceQuality.VALID
+            and observation.source_last_updated is not None
+            and self._stale_deadline(observation) <= fire_time
+        }
+        affected_zone_ids = {
+            zone_id
+            for source_id in due_source_ids
+            for zone_id in self._source_id_to_zones.get(source_id, ())
+        }
+        if not affected_zone_ids:
+            self._schedule_watchdog(fire_time)
+            return
+        self._publish_targeted(affected_zone_ids, fire_time)
+
+    def _now(self) -> datetime:
+        result = self._now_fn()
+        if result.tzinfo is None or result.utcoffset() is None:
+            raise ValueError("now_fn must return a timezone-aware datetime")
+        return result
+
+    async def async_shutdown(self) -> None:
+        """Idempotently cancel every owned subscription and timer."""
+        if self._shutdown:
+            return
+        self._shutdown = True
+        self._debounce_generation += 1
+        self._reconciliation_generation += 1
+        self._watchdog_generation += 1
+        _cancel(self._cancel_subscription)
+        _cancel(self._cancel_debounce)
+        _cancel(self._cancel_reconciliation)
+        _cancel(self._cancel_watchdog)
+        self._cancel_subscription = None
+        self._cancel_debounce = None
+        self._cancel_reconciliation = None
+        self._cancel_watchdog = None
+        self._pending_zone_ids.clear()
+        self._pending_thermostat_entity_ids.clear()
+        await super().async_shutdown()
+
+
+def _append_unique[KeyT](
+    index: dict[KeyT, list[ZoneId]],
+    key: KeyT,
+    zone_id: ZoneId,
+) -> None:
+    zones = index.setdefault(key, [])
+    if zone_id not in zones:
+        zones.append(zone_id)
+
+
+def _empty_aggregation(calculated_at: datetime) -> SourceAggregationResult:
+    return SourceAggregationResult(
+        effective_value=None,
+        spread=None,
+        valid_source_ids=(),
+        contributing_source_ids=(),
+        fallback_source_id=None,
+        excluded_observations=(),
+        status=AggregationStatus.UNAVAILABLE,
+        reasons=(AggregationReason.NO_VALID_SOURCES,),
+        calculated_at=calculated_at,
+    )
+
+
+def _cancel(cancel: CALLBACK_TYPE | None) -> None:
+    if cancel is not None:
+        cancel()

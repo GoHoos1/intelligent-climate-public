@@ -1,0 +1,29 @@
+﻿name: HACS
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain private repository limitation
+        if: ${{ github.event.repository.private == true }}
+        run: |
+          echo "::notice::Full HACS validation is deferred while this repository is private. Local HACS metadata tests, Quality, and Hassfest remain active. Make the repository public and remove the brands exception before public HACS release."
+
+      - name: Run HACS validation
+        if: ${{ github.event.repository.private == false }}
+        uses: hacs/action@main
+        with:
+          category: integration
+          comment: false
+          # Temporary during private pre-alpha development; remove before public HACS release.
+          ignore: brands

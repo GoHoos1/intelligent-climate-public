@@ -1,0 +1,46 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-cache-files-*/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+
+# Build output
+build/
+dist/
+*.egg-info/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Windows and macOS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Home Assistant
+config/
+.storage/
+secrets.yaml
+*.db
+*.db-shm
+*.db-wal
+home-assistant.log*
+
+# Credentials and local environment
+.env
+.env.*
+!.env.example
+*.token
+credentials.json
+*.pem
+*.key

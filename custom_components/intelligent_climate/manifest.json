@@ -1,0 +1,13 @@
+{
+  "domain": "intelligent_climate",
+  "name": "Intelligent Climate",
+  "codeowners": ["@GoHoos1"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/GoHoos1/intelligent-climate-public",
+  "integration_type": "hub",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/GoHoos1/intelligent-climate-public/issues",
+  "requirements": [],
+  "version": "0.0.0"
+}
