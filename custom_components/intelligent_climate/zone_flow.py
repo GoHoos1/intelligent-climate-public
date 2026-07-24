@@ -32,8 +32,8 @@ from .validation import (
     EntityValidationError,
     TemperatureBinding,
     parent_thermostat_entity_id,
-    validate_temperature_selection,
-    validate_thermostat_selection,
+    validate_live_temperature_selection,
+    validate_live_thermostat_selection,
 )
 
 _ZONE_FIELDS = {CONF_ZONE_NAME, CONF_TEMPERATURE_SOURCES}
@@ -107,7 +107,7 @@ def _parent_thermostat(
 ) -> str:
     """Validate the owning parent's one Task 5 thermostat."""
     entity_id = parent_thermostat_entity_id(entry)
-    validate_thermostat_selection(
+    validate_live_thermostat_selection(
         hass,
         entity_id,
         exclude_entry_id=entry.entry_id,
@@ -242,7 +242,7 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
 
             if not errors:
                 try:
-                    bindings = validate_temperature_selection(
+                    bindings = validate_live_temperature_selection(
                         self.hass,
                         user_input.get(CONF_TEMPERATURE_SOURCES),
                     )
@@ -327,7 +327,7 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
 
             if not errors:
                 try:
-                    bindings = validate_temperature_selection(
+                    bindings = validate_live_temperature_selection(
                         self.hass,
                         user_input.get(CONF_TEMPERATURE_SOURCES),
                     )

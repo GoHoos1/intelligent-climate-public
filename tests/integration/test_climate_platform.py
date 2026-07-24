@@ -35,6 +35,7 @@ from homeassistant.const import (
     ATTR_UNIT_OF_MEASUREMENT,
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
+    STATE_UNAVAILABLE,
     Platform,
     UnitOfTemperature,
 )
@@ -60,6 +61,7 @@ from custom_components.intelligent_climate.const import (
 )
 from custom_components.intelligent_climate.models import (
     DEFAULT_OPTIONS,
+    SourceQuality,
     encode_options,
 )
 
@@ -247,6 +249,57 @@ def _set_states(
     )
 
 
+def _set_thermostat(
+    hass: HomeAssistant,
+    *,
+    mode: HVACMode = HVACMode.HEAT,
+    action: HVACAction = HVACAction.HEATING,
+    current_temperature: float = 20.4,
+) -> None:
+    """Publish one physical thermostat state through Home Assistant."""
+    hass.states.async_set(
+        THERMOSTAT,
+        mode,
+        {
+            ATTR_HVAC_MODES: [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+            ATTR_SUPPORTED_FEATURES: int(ClimateEntityFeature.TARGET_TEMPERATURE),
+            ATTR_CURRENT_TEMPERATURE: current_temperature,
+            ATTR_HVAC_ACTION: action,
+            ATTR_TEMPERATURE: 21.0,
+        },
+    )
+
+
+def _set_temperature_sensor(
+    hass: HomeAssistant,
+    *,
+    entity_id: str = SENSORS[0],
+    state: str = "20.4",
+) -> None:
+    """Publish one temperature sensor state through Home Assistant."""
+    hass.states.async_set(
+        entity_id,
+        state,
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+        },
+    )
+
+
+async def _flush_entity_debounce(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Deliver real state events and advance the coordinator debounce."""
+    await hass.async_block_till_done()
+    async_fire_time_changed(
+        hass,
+        entry.runtime_data.data.calculated_at + timedelta(seconds=1),
+    )
+    await hass.async_block_till_done()
+
+
 async def _setup_entry(
     hass: HomeAssistant,
     entry: MockConfigEntry,
@@ -273,6 +326,166 @@ def _entity_id(hass: HomeAssistant, zone_id: str) -> str:
     )
     assert entity_id is not None
     return entity_id
+
+
+def _first_source_quality(entry: ConfigEntry) -> SourceQuality:
+    """Read the coordinator's current first-source quality."""
+    return cast(
+        SourceQuality,
+        entry.runtime_data.data.zones[0].temperature_observations[0].quality,
+    )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_missing_sensor_at_setup_recovers_from_real_state_event(
+    hass: HomeAssistant,
+) -> None:
+    _set_thermostat(hass)
+    entry = await _setup_entry(hass, _entry())
+    entity_id = _entity_id(hass, ZONE_IDS[0])
+
+    missing = hass.states.get(entity_id)
+    assert missing is not None
+    assert missing.state == STATE_UNAVAILABLE
+    assert _first_source_quality(entry) is SourceQuality.UNAVAILABLE
+
+    with patch.object(hass.config_entries, "async_schedule_reload") as reload:
+        _set_temperature_sensor(hass)
+        await _flush_entity_debounce(hass, entry)
+
+    recovered = hass.states.get(entity_id)
+    assert recovered is not None
+    assert recovered.state == HVACMode.HEAT
+    assert recovered.attributes[ATTR_CURRENT_TEMPERATURE] == 20.4
+    assert _first_source_quality(entry) is SourceQuality.VALID
+    reload.assert_not_called()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_missing_thermostat_at_setup_recovers_mode_and_action(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    entry = await _setup_entry(hass, _entry())
+    entity_id = _entity_id(hass, ZONE_IDS[0])
+    assert entry.runtime_data.data.thermostats[0].state.available is False
+    missing = hass.states.get(entity_id)
+    assert missing is not None
+    assert missing.state == STATE_UNAVAILABLE
+
+    _set_thermostat(
+        hass,
+        mode=HVACMode.COOL,
+        action=HVACAction.COOLING,
+    )
+    await _flush_entity_debounce(hass, entry)
+
+    snapshot = entry.runtime_data.data.thermostats[0].state
+    assert snapshot.available is True
+    assert snapshot.hvac_mode is HVACMode.COOL
+    assert snapshot.hvac_action is HVACAction.COOLING
+    recovered = hass.states.get(entity_id)
+    assert recovered is not None
+    assert recovered.state == HVACMode.COOL
+    assert recovered.attributes[ATTR_HVAC_ACTION] == HVACAction.COOLING
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_both_missing_at_setup_platform_subscribes_and_auto_recovers(
+    hass: HomeAssistant,
+) -> None:
+    entry = await _setup_entry(hass, _entry())
+    coordinator = entry.runtime_data
+    entity_id = _entity_id(hass, ZONE_IDS[0])
+
+    missing = hass.states.get(entity_id)
+    assert missing is not None
+    assert missing.state == STATE_UNAVAILABLE
+    assert coordinator._cancel_state_change_subscription is not None
+    assert coordinator._cancel_state_report_subscription is not None
+    assert set(coordinator.source_dependency_index) == {SENSORS[0]}
+    assert set(coordinator.thermostat_dependency_index) == {THERMOSTAT}
+
+    with patch.object(hass.config_entries, "async_schedule_reload") as reload:
+        _set_temperature_sensor(hass)
+        _set_thermostat(
+            hass,
+            mode=HVACMode.COOL,
+            action=HVACAction.COOLING,
+        )
+        await _flush_entity_debounce(hass, entry)
+
+    recovered = hass.states.get(entity_id)
+    assert recovered is not None
+    assert recovered.state == HVACMode.COOL
+    assert recovered.attributes[ATTR_CURRENT_TEMPERATURE] == 20.4
+    assert recovered.attributes[ATTR_HVAC_ACTION] == HVACAction.COOLING
+    reload.assert_not_called()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_missing_climate_temperature_source_auto_recovers(
+    hass: HomeAssistant,
+) -> None:
+    _set_thermostat(hass)
+    source_entity_id = "climate.dining_room"
+    zone = _zone_data(0)
+    zone["temperature_sources"] = [
+        {
+            **_temperature_source(0, entity_id=source_entity_id),
+            "attribute": ATTR_CURRENT_TEMPERATURE,
+        }
+    ]
+    entry = await _setup_entry(hass, _entry(zones=[_subentry(0, data=zone)]))
+    entity_id = _entity_id(hass, ZONE_IDS[0])
+
+    missing = hass.states.get(entity_id)
+    assert missing is not None
+    assert missing.state == STATE_UNAVAILABLE
+    assert _first_source_quality(entry) is SourceQuality.UNAVAILABLE
+
+    hass.states.async_set(
+        source_entity_id,
+        HVACMode.HEAT,
+        {
+            ATTR_CURRENT_TEMPERATURE: 19.6,
+            ATTR_HVAC_ACTION: HVACAction.IDLE,
+        },
+    )
+    await _flush_entity_debounce(hass, entry)
+
+    recovered = hass.states.get(entity_id)
+    assert recovered is not None
+    assert recovered.state == HVACMode.HEAT
+    assert recovered.attributes[ATTR_CURRENT_TEMPERATURE] == 19.6
+    assert _first_source_quality(entry) is SourceQuality.VALID
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("initial_state", ["unavailable", "unknown"])
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_unavailable_or_unknown_source_recovers_after_setup(
+    hass: HomeAssistant,
+    initial_state: str,
+) -> None:
+    _set_thermostat(hass)
+    _set_temperature_sensor(hass, state=initial_state)
+    entry = await _setup_entry(hass, _entry())
+    entity_id = _entity_id(hass, ZONE_IDS[0])
+    missing = hass.states.get(entity_id)
+    assert missing is not None
+    assert missing.state == STATE_UNAVAILABLE
+
+    _set_temperature_sensor(hass, state="21.2")
+    await _flush_entity_debounce(hass, entry)
+
+    recovered = hass.states.get(entity_id)
+    assert recovered is not None
+    assert recovered.attributes[ATTR_CURRENT_TEMPERATURE] == 21.2
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

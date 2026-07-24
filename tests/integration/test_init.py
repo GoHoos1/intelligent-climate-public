@@ -40,6 +40,7 @@ from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MINOR_VERSION,
     ControlState,
     RuntimeConfigurationState,
+    SourceQuality,
 )
 
 GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
@@ -236,7 +237,7 @@ async def test_malformed_parent_without_zones_fails_closed(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_missing_parent_thermostat_state_fails_closed(
+async def test_missing_parent_thermostat_state_starts_unavailable(
     hass: HomeAssistant,
 ) -> None:
     hass.states.async_set(
@@ -244,7 +245,20 @@ async def test_missing_parent_thermostat_state_fails_closed(
         "20",
         {ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
     )
-    await _assert_invalid(hass, _entry(zone_data=_zone_data()))
+    entry = _entry(zone_data=_zone_data())
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ) as forward:
+        assert await async_setup_entry(hass, entry)
+
+    forward.assert_awaited_once_with(entry, PLATFORMS)
+    thermostat = entry.runtime_data.data.thermostats[0].state
+    assert thermostat.entity_id == THERMOSTAT
+    assert thermostat.available is False
+    assert await async_unload_entry(hass, entry)
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -273,9 +287,73 @@ async def test_duplicate_parent_thermostat_ownership_fails_closed(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_missing_zone_source_fails_closed(hass: HomeAssistant) -> None:
+async def test_missing_sensor_source_starts_unavailable(
+    hass: HomeAssistant,
+) -> None:
     hass.states.async_set(THERMOSTAT, "heat")
-    await _assert_invalid(hass, _entry(zone_data=_zone_data()))
+    entry = _entry(zone_data=_zone_data())
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    zone = entry.runtime_data.data.zones[0]
+    assert zone.temperature_observations[0].quality is SourceQuality.UNAVAILABLE
+    assert zone.effective_temperature_c is None
+    assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_missing_climate_source_starts_unavailable(
+    hass: HomeAssistant,
+) -> None:
+    hass.states.async_set(THERMOSTAT, "heat")
+    climate_source = _source(
+        "climate.dining_room",
+        attribute="current_temperature",
+    )
+    entry = _entry(zone_data=_zone_data(sources=[climate_source]))
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    observation = entry.runtime_data.data.zones[0].temperature_observations[0]
+    assert observation.quality is SourceQuality.UNAVAILABLE
+    assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_missing_parent_and_source_start_with_both_subscriptions(
+    hass: HomeAssistant,
+) -> None:
+    entry = _entry(zone_data=_zone_data())
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ) as forward:
+        assert await async_setup_entry(hass, entry)
+
+    coordinator = entry.runtime_data
+    forward.assert_awaited_once_with(entry, PLATFORMS)
+    assert coordinator.data.thermostats[0].state.available is False
+    assert (
+        coordinator.data.zones[0].temperature_observations[0].quality
+        is SourceQuality.UNAVAILABLE
+    )
+    assert set(coordinator.source_dependency_index) == {SENSOR}
+    assert set(coordinator.thermostat_dependency_index) == {THERMOSTAT}
+    assert coordinator._cancel_state_change_subscription is not None
+    assert coordinator._cancel_state_report_subscription is not None
+    assert await async_unload_entry(hass, entry)
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -293,10 +371,20 @@ async def test_wrong_zone_source_domain_fails_closed(hass: HomeAssistant) -> Non
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_wrong_sensor_device_class_fails_closed(hass: HomeAssistant) -> None:
+async def test_persisted_sensor_does_not_require_live_device_class(
+    hass: HomeAssistant,
+) -> None:
     hass.states.async_set(THERMOSTAT, "heat")
     hass.states.async_set(SENSOR, "50", {ATTR_DEVICE_CLASS: "humidity"})
-    await _assert_invalid(hass, _entry(zone_data=_zone_data()))
+    entry = _entry(zone_data=_zone_data())
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+    assert await async_unload_entry(hass, entry)
 
 
 @pytest.mark.parametrize(
@@ -327,6 +415,35 @@ async def test_duplicate_source_binding_fails_closed(hass: HomeAssistant) -> Non
         hass,
         _entry(zone_data=_zone_data(sources=[_source(), duplicate])),
     )
+
+
+@pytest.mark.parametrize(
+    ("parent_entity_id", "source_entity_id"),
+    [
+        ("climate.invalid entity", SENSOR),
+        (THERMOSTAT, "sensor.invalid entity"),
+    ],
+)
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_invalid_persisted_entity_ids_fail_closed(
+    hass: HomeAssistant,
+    parent_entity_id: str,
+    source_entity_id: str,
+) -> None:
+    data = _parent_data(parent_entity_id)
+    zone = _zone_data(
+        thermostats=[parent_entity_id],
+        sources=[_source(source_entity_id)],
+    )
+    await _assert_invalid(hass, _entry(data=data, zone_data=zone))
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_persisted_zone_requires_temperature_source(
+    hass: HomeAssistant,
+) -> None:
+    zone = _zone_data(sources=[])
+    await _assert_invalid(hass, _entry(zone_data=zone))
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -407,6 +524,29 @@ async def test_malformed_data_leaves_no_runtime_residue(
         "Invalid persisted Intelligent Climate schema:" in record.getMessage()
         and "future_field" in record.getMessage()
         for record in caplog.records
+    )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_persisted_entity_validation_error_logs_code_before_generic_error(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(
+        logging.ERROR,
+        logger="custom_components.intelligent_climate",
+    )
+    data = _parent_data("sensor.not_a_thermostat")
+    zone = _zone_data(thermostats=["sensor.not_a_thermostat"])
+
+    await _assert_invalid(hass, _entry(data=data, zone_data=zone))
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any(
+        "config_entry_id=entry-1" in message
+        and "validation_code=wrong_domain" in message
+        and "structural_context=config_entry_hierarchy" in message
+        for message in messages
     )
 
 

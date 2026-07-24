@@ -65,6 +65,24 @@ orphan entity-registry record. Unload and reload cancel both subscriptions,
 debounce callbacks, reconciliation, and freshness deadlines without carrying
 baselines or pending jump candidates into the new runtime.
 
+Version 0.0.2 separates interactive entity validation from persisted startup
+validation. New thermostat and zone-source selections still require current
+Home Assistant states, correct domains, and a temperature device class for
+sensor sources. During entry setup, persisted entity references are validated
+structurally instead: they must have valid entity IDs, supported domain and
+attribute bindings, stable source identities, correct parent/zone
+relationships, and exclusive thermostat ownership, but their integrations do
+not need to have loaded yet.
+
+A zone may therefore start unavailable while a configured thermostat or
+temperature source is absent, unavailable, unknown, disabled, restoring, or
+still loading. The coordinator subscribes to the persisted entity IDs without
+polling; state-change and state-report events automatically reevaluate the
+affected zone when those entities appear. The read-only zone climate entity
+then recovers without an options edit, config-entry reload, or another Home
+Assistant restart. This startup-ordering behavior remains strictly
+observation-only and never calls a Home Assistant service to control equipment.
+
 Task 11 creates no sensor, binary-sensor, switch, event, equipment-group status,
 or placeholder entities. There is still no Store load or write, persistence,
 diagnostics, Repairs, activity history/event publication, integration service
