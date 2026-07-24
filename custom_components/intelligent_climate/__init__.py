@@ -49,7 +49,7 @@ def _decode_runtime_configuration(
     """Decode and validate one complete persisted config-entry hierarchy."""
     from .validation import (
         validate_persisted_temperature_sources,
-        validate_thermostat_selection,
+        validate_persisted_thermostat_reference,
     )
 
     equipment_group = decode_equipment_group_document(
@@ -122,7 +122,7 @@ def _decode_runtime_configuration(
             "invalid parent thermostat",
         )
     thermostat_entity_id = equipment_group.thermostats[0].entity_id
-    validate_thermostat_selection(
+    validate_persisted_thermostat_reference(
         hass,
         thermostat_entity_id,
         exclude_entry_id=entry.entry_id,
@@ -141,7 +141,7 @@ def _decode_runtime_configuration(
                 "thermostat_entity_ids",
                 "must contain the owning parent thermostat exactly once",
             )
-        validate_persisted_temperature_sources(hass, zone.temperature_sources)
+        validate_persisted_temperature_sources(zone.temperature_sources)
         for source in zone.temperature_sources:
             if source.source_id in source_ids:
                 raise SchemaValidationError(
@@ -172,11 +172,27 @@ async def async_setup_entry(
     from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
     from .coordinator import IntelligentClimateCoordinator
+    from .validation import EntityValidationError
 
     try:
         configuration = _decode_runtime_configuration(hass, entry)
+    except EntityValidationError as err:
+        _LOGGER.error(
+            (
+                "Invalid persisted Intelligent Climate entity reference: "
+                "config_entry_id=%s validation_code=%s "
+                "structural_context=config_entry_hierarchy"
+            ),
+            entry.entry_id,
+            err.code.value,
+        )
+        raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except SchemaValidationError as err:
-        _LOGGER.error("Invalid persisted Intelligent Climate schema: %s", err)
+        _LOGGER.error(
+            "Invalid persisted Intelligent Climate schema: config_entry_id=%s %s",
+            entry.entry_id,
+            err,
+        )
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except (KeyError, ValueError) as err:
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err

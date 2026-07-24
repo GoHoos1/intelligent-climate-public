@@ -410,6 +410,36 @@ Setup order is fixed:
 7. Forward entity platforms.
 8. Publish the first snapshot only after all configured sources have been examined.
 
+Startup validation distinguishes persisted structure from interactive entity
+selection. Persisted parent thermostat references must have concrete valid
+entity IDs, use the `climate` domain, describe exactly one primary thermostat
+for the supported single-system relationship, have no shared policy, remain
+exclusively owned across Intelligent Climate entries, and match every zone
+binding. Persisted temperature sources must have concrete valid entity IDs,
+use only `climate.current_temperature` or a `sensor` state binding, contain no
+duplicate `(entity_id, attribute)` pair, and retain unique source IDs across
+the entry. All schema and graph invariants remain fail-closed.
+
+Persisted startup validation does not require referenced entities to have
+created a current Home Assistant `State`, and it does not inspect a live sensor
+device class. A referenced entity may be absent, unavailable, unknown,
+disabled, restoring, or not yet loaded without making the config entry
+malformed. The initial coordinator snapshot represents missing temperature
+sources as `SourceQuality.UNAVAILABLE` and missing thermostats as unavailable
+normalized climate states. The climate platform still starts and creates the
+zone entity, which remains unavailable until its current observation satisfies
+the normal availability rules.
+
+The coordinator registers state-change and state-report subscriptions for the
+persisted entity IDs even when no current state exists. When a source or
+thermostat appears, the existing targeted debounce path reevaluates the
+affected zone and can make the read-only climate entity available without an
+entry reload, config-flow edit, or polling. Interactive initial thermostat,
+zone-add, and zone-reconfigure selections remain strict live checks: selected
+entities must exist, domains must match, and sensor sources must currently
+advertise the temperature device class. This startup recovery path remains
+observation-only and cannot issue physical HVAC commands.
+
 Unload order is the reverse. Timers are canceled, listeners removed, a bounded final store write is attempted, platforms unload, and the runtime object is removed. Unload never changes a physical thermostat.
 
 ## 7. Domain data models

@@ -42,8 +42,8 @@ from custom_components.intelligent_climate.models import (
 )
 from custom_components.intelligent_climate.validation import (
     EntityValidationError,
+    validate_live_temperature_selection,
     validate_persisted_temperature_sources,
-    validate_temperature_selection,
 )
 from custom_components.intelligent_climate.zone_flow import ZoneSubentryFlowHandler
 
@@ -250,6 +250,20 @@ async def test_add_form_has_name_and_multiple_filtered_entity_selector(
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_add_rejects_parent_without_thermostat(hass: HomeAssistant) -> None:
     entry = _make_parent(hass, data=_parent_data(thermostat=None))
+    _set_temperature_sensor(hass)
+
+    result = await _submit_add(hass, entry)
+
+    assert _errors(result)["base"] == "invalid_parent_thermostat"
+    assert entry.subentries == {}
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_add_rejects_parent_thermostat_without_current_state(
+    hass: HomeAssistant,
+) -> None:
+    entry = _make_parent(hass)
+    hass.states.async_remove(THERMOSTAT)
     _set_temperature_sensor(hass)
 
     result = await _submit_add(hass, entry)
@@ -815,6 +829,52 @@ async def test_reconfigure_rejects_wrong_parent_membership(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_reconfigure_rejects_missing_parent_thermostat_state(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass, subentries=[_subentry_data()])
+    hass.states.async_remove(THERMOSTAT)
+
+    result = await _start_reconfigure(hass, entry)
+
+    assert result["reason"] == "missing_entity"
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "device_class", "expected"),
+    [
+        ("sensor.missing", None, "missing_entity"),
+        ("binary_sensor.window", None, "wrong_domain"),
+        ("sensor.humidity", SensorDeviceClass.HUMIDITY, "wrong_device_class"),
+    ],
+)
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_reconfigure_keeps_strict_live_source_validation(
+    hass: HomeAssistant,
+    entity_id: str,
+    device_class: SensorDeviceClass | None,
+    expected: str,
+) -> None:
+    _set_temperature_sensor(hass)
+    if entity_id != "sensor.missing":
+        hass.states.async_set(
+            entity_id,
+            "20",
+            {} if device_class is None else {ATTR_DEVICE_CLASS: device_class},
+        )
+    entry = _make_parent(hass, subentries=[_subentry_data()])
+
+    result = await _submit_reconfigure(
+        hass,
+        await _start_reconfigure(hass, entry),
+        sources=[entity_id],
+    )
+
+    assert _errors(result)[CONF_TEMPERATURE_SOURCES] == expected
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_reconfigure_contains_input_sibling_and_schema_errors(
     hass: HomeAssistant,
 ) -> None:
@@ -865,7 +925,7 @@ async def test_validation_helpers_reject_nonlist_and_duplicate_persisted_sources
 ) -> None:
     _set_temperature_sensor(hass)
     with pytest.raises(EntityValidationError, match="invalid_entity_selection"):
-        validate_temperature_selection(hass, SENSOR)
+        validate_live_temperature_selection(hass, SENSOR)
 
     source = TemperatureSource(
         source_id=ObservationSourceId.parse(SOURCE_ID),
@@ -886,4 +946,4 @@ async def test_validation_helpers_reject_nonlist_and_duplicate_persisted_sources
         enabled=True,
     )
     with pytest.raises(EntityValidationError, match="duplicate_temperature_source"):
-        validate_persisted_temperature_sources(hass, (source, duplicate))
+        validate_persisted_temperature_sources((source, duplicate))

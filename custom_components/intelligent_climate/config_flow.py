@@ -43,7 +43,7 @@ from .validation import (
     CLIMATE_DOMAIN,
     EntityValidationCode,
     EntityValidationError,
-    validate_thermostat_selection,
+    validate_live_thermostat_selection,
 )
 from .zone_flow import ZoneSubentryFlowHandler
 
@@ -161,7 +161,7 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
 
             if not errors:
                 try:
-                    selected_entity_id = validate_thermostat_selection(
+                    selected_entity_id = validate_live_thermostat_selection(
                         self.hass,
                         user_input.get(CONF_THERMOSTAT_ENTITY_ID),
                     )

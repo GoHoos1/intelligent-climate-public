@@ -72,20 +72,51 @@ def parent_thermostat_entity_id(entry: config_entries.ConfigEntry) -> str:
     return group.thermostats[0].entity_id
 
 
-def validate_thermostat_selection(
+def validate_live_thermostat_selection(
     hass: HomeAssistant,
     value: object,
     *,
     exclude_entry_id: str | None = None,
 ) -> str:
-    """Validate a climate entity and exclusive parent-entry ownership."""
+    """Validate a current interactive climate selection and exclusive ownership."""
     entity_id = _entity_id(value)
     if split_entity_id(entity_id)[0] != CLIMATE_DOMAIN:
         raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
     if hass.states.get(entity_id) is None:
         raise EntityValidationError(EntityValidationCode.MISSING_ENTITY)
+    _validate_thermostat_ownership(
+        hass,
+        entity_id,
+        exclude_entry_id=exclude_entry_id,
+    )
+    return entity_id
 
-    owner_found = False
+
+def validate_persisted_thermostat_reference(
+    hass: HomeAssistant,
+    value: object,
+    *,
+    exclude_entry_id: str,
+) -> str:
+    """Validate a persisted climate reference without requiring a live state."""
+    entity_id = _entity_id(value)
+    if split_entity_id(entity_id)[0] != CLIMATE_DOMAIN:
+        raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
+    _validate_thermostat_ownership(
+        hass,
+        entity_id,
+        exclude_entry_id=exclude_entry_id,
+    )
+    return entity_id
+
+
+def _validate_thermostat_ownership(
+    hass: HomeAssistant,
+    entity_id: str,
+    *,
+    exclude_entry_id: str | None,
+) -> None:
+    """Reject ownership by another structurally valid integration entry."""
     for entry in hass.config_entries.async_entries(DOMAIN):
         if entry.entry_id == exclude_entry_id:
             continue
@@ -100,14 +131,10 @@ def validate_thermostat_selection(
                 EntityValidationCode.INVALID_EXISTING_CONFIGURATION
             ) from err
         if any(binding.entity_id == entity_id for binding in group.thermostats):
-            owner_found = True
-
-    if owner_found:
-        raise EntityValidationError(EntityValidationCode.DUPLICATE_THERMOSTAT_OWNER)
-    return entity_id
+            raise EntityValidationError(EntityValidationCode.DUPLICATE_THERMOSTAT_OWNER)
 
 
-def validate_temperature_selection(
+def validate_live_temperature_selection(
     hass: HomeAssistant,
     value: object,
 ) -> tuple[TemperatureBinding, ...]:
@@ -145,10 +172,9 @@ def validate_temperature_selection(
 
 
 def validate_persisted_temperature_sources(
-    hass: HomeAssistant,
     sources: tuple[TemperatureSource, ...],
 ) -> None:
-    """Validate persisted source bindings against current Home Assistant states."""
+    """Validate persisted source structure without requiring live states."""
     if not sources:
         raise EntityValidationError(EntityValidationCode.NO_TEMPERATURE_SOURCES)
 
@@ -156,9 +182,6 @@ def validate_persisted_temperature_sources(
     for source in sources:
         entity_id = _entity_id(source.entity_id)
         domain = split_entity_id(entity_id)[0]
-        state = hass.states.get(entity_id)
-        if state is None:
-            raise EntityValidationError(EntityValidationCode.MISSING_ENTITY)
         if domain == CLIMATE_DOMAIN:
             if source.attribute != CURRENT_TEMPERATURE_ATTRIBUTE:
                 raise EntityValidationError(
@@ -169,8 +192,6 @@ def validate_persisted_temperature_sources(
                 raise EntityValidationError(
                     EntityValidationCode.INVALID_ENTITY_SELECTION
                 )
-            if state.attributes.get(ATTR_DEVICE_CLASS) != SensorDeviceClass.TEMPERATURE:
-                raise EntityValidationError(EntityValidationCode.WRONG_DEVICE_CLASS)
         else:
             raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
 
