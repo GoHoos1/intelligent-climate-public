@@ -11,6 +11,7 @@ from homeassistant.core import (
     CALLBACK_TYPE,
     Event,
     EventStateChangedData,
+    EventStateReportedData,
     HomeAssistant,
     callback,
 )
@@ -18,6 +19,7 @@ from homeassistant.helpers.event import (
     async_call_later,
     async_track_point_in_utc_time,
     async_track_state_change_event,
+    async_track_state_report_event,
 )
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util.dt import utcnow
@@ -38,6 +40,7 @@ from .models import (
     EntryRuntimeConfiguration,
     ObservationSourceId,
     PendingJumpCandidate,
+    RuntimeConfigurationState,
     SourceAggregationResult,
     SourceBaseline,
     SourceHealthEvaluation,
@@ -104,7 +107,8 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self._cancel_debounce: CALLBACK_TYPE | None = None
         self._cancel_reconciliation: CALLBACK_TYPE | None = None
         self._cancel_watchdog: CALLBACK_TYPE | None = None
-        self._cancel_subscription: CALLBACK_TYPE | None = None
+        self._cancel_state_change_subscription: CALLBACK_TYPE | None = None
+        self._cancel_state_report_subscription: CALLBACK_TYPE | None = None
         self._debounce_generation = 0
         self._reconciliation_generation = 0
         self._watchdog_generation = 0
@@ -127,7 +131,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         if self._shutdown:
             raise RuntimeError("coordinator has shut down")
         if self._runtime_is_active:
-            self._register_state_subscription()
+            self._register_state_subscriptions()
         await self.async_config_entry_first_refresh()
         if self._runtime_is_active:
             self._schedule_reconciliation()
@@ -137,13 +141,20 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
     def _runtime_is_active(self) -> bool:
         return (
             self.configuration.options.observation_enabled
-            and not self.configuration.transitional_empty_skeleton
+            and self.configuration.state is RuntimeConfigurationState.CONFIGURED
         )
 
     async def _async_update_data(self) -> EntryObservationSnapshot:
         """Build the first snapshot through the supported first-refresh path."""
         calculated_at = self._now()
         if self.configuration.transitional_empty_skeleton:
+            return self._new_snapshot(
+                thermostats=(),
+                zones=(),
+                reconciling=False,
+                calculated_at=calculated_at,
+            )
+        if self.configuration.awaiting_first_zone:
             return self._new_snapshot(
                 thermostats=(),
                 zones=(),
@@ -232,7 +243,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             {key: tuple(value) for key, value in source_ids.items()},
         )
 
-    def _register_state_subscription(self) -> None:
+    def _register_state_subscriptions(self) -> None:
         entity_ids = list(self._source_to_zones)
         entity_ids.extend(
             entity_id
@@ -240,10 +251,15 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             if entity_id not in self._source_to_zones
         )
         if entity_ids:
-            self._cancel_subscription = async_track_state_change_event(
+            self._cancel_state_change_subscription = async_track_state_change_event(
                 self.hass,
                 entity_ids,
                 self._async_state_changed,
+            )
+            self._cancel_state_report_subscription = async_track_state_report_event(
+                self.hass,
+                entity_ids,
+                self._async_state_reported,
             )
 
     @callback
@@ -252,9 +268,20 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         event: Event[EventStateChangedData],
     ) -> None:
         """Collect affected dependencies and replace the short debounce."""
+        self._collect_entity_event(event.data["entity_id"])
+
+    @callback
+    def _async_state_reported(
+        self,
+        event: Event[EventStateReportedData],
+    ) -> None:
+        """Collect an unchanged state report through the shared debounce path."""
+        self._collect_entity_event(event.data["entity_id"])
+
+    def _collect_entity_event(self, entity_id: str) -> None:
+        """Collect one state change or unchanged report for targeted evaluation."""
         if self._shutdown:
             return
-        entity_id = event.data["entity_id"]
         self._pending_zone_ids.update(self._source_to_zones.get(entity_id, ()))
         thermostat_zones = self._thermostat_to_zones.get(entity_id)
         if thermostat_zones is not None:
@@ -412,6 +439,17 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             if zone.humidity_sources
             else None
         )
+        self._log_source_exclusions(
+            zone,
+            (
+                *temperature_aggregation.excluded_observations,
+                *(
+                    ()
+                    if humidity_aggregation is None
+                    else humidity_aggregation.excluded_observations
+                ),
+            ),
+        )
         thermostat_states = tuple(
             self._thermostat_snapshots[entity_id].state
             for entity_id in zone.thermostat_entity_ids
@@ -435,6 +473,37 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             ),
             calculated_at=calculated_at,
         )
+
+    def _log_source_exclusions(
+        self,
+        zone: ZoneConfig,
+        exclusions: tuple[SourceObservation[float], ...],
+    ) -> None:
+        """Log only bounded identifiers and quality metadata for exclusions."""
+        source_entities_by_id = {
+            source.source_id: source.entity_id for source in zone.temperature_sources
+        }
+        source_entities_by_id.update(
+            {source.source_id: source.entity_id for source in zone.humidity_sources}
+        )
+        for observation in exclusions:
+            reason = observation.exclusion_reason
+            _LOGGER.debug(
+                (
+                    "Configured source excluded: config_entry_id=%s zone_id=%s "
+                    "source_id=%s source_entity_id=%s source_quality=%s "
+                    "exclusion_reason=%s source_last_reported=%s "
+                    "observation_time=%s"
+                ),
+                self.entry.entry_id,
+                zone.zone_id,
+                observation.source_id,
+                source_entities_by_id[observation.source_id],
+                observation.quality.value,
+                None if reason is None else reason.value,
+                observation.source_last_reported,
+                observation.observed_at,
+            )
 
     def _update_health_state(
         self,
@@ -509,7 +578,9 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         calculated_at: datetime,
     ) -> EntryObservationSnapshot:
         self._revision += 1
-        if reconciling:
+        if self.configuration.awaiting_first_zone:
+            control_state = ControlState.INITIALIZING
+        elif reconciling:
             control_state = ControlState.RECONCILING
         elif not self.configuration.options.observation_enabled:
             control_state = ControlState.DISABLED
@@ -579,7 +650,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             self._stale_deadline(observation)
             for observation in self._source_observations.values()
             if observation.quality is SourceQuality.VALID
-            and observation.source_last_updated is not None
+            and observation.source_last_reported is not None
         )
         future_deadlines = tuple(
             deadline for deadline in deadlines if deadline > reference_time
@@ -593,11 +664,11 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         )
 
     def _stale_deadline(self, observation: SourceObservation[float]) -> datetime:
-        source_last_updated = observation.source_last_updated
-        if source_last_updated is None:
-            raise ValueError("accepted source observation requires last_updated")
+        source_last_reported = observation.source_last_reported
+        if source_last_reported is None:
+            raise ValueError("accepted source observation requires last_reported")
         return (
-            source_last_updated
+            source_last_reported
             + timedelta(seconds=self.configuration.options.source_stale_after_seconds)
             + _STALE_BOUNDARY_INCREMENT
         )
@@ -616,7 +687,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             source_id
             for source_id, observation in self._source_observations.items()
             if observation.quality is SourceQuality.VALID
-            and observation.source_last_updated is not None
+            and observation.source_last_reported is not None
             and self._stale_deadline(observation) <= fire_time
         }
         affected_zone_ids = {
@@ -643,11 +714,13 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self._debounce_generation += 1
         self._reconciliation_generation += 1
         self._watchdog_generation += 1
-        _cancel(self._cancel_subscription)
+        _cancel(self._cancel_state_change_subscription)
+        _cancel(self._cancel_state_report_subscription)
         _cancel(self._cancel_debounce)
         _cancel(self._cancel_reconciliation)
         _cancel(self._cancel_watchdog)
-        self._cancel_subscription = None
+        self._cancel_state_change_subscription = None
+        self._cancel_state_report_subscription = None
         self._cancel_debounce = None
         self._cancel_reconciliation = None
         self._cancel_watchdog = None

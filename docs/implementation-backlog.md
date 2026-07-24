@@ -270,7 +270,7 @@ in the approved order before applying temperature rate-of-change checks.
 Configured temperature bounds and the fixed 0–100 humidity range are inclusive;
 freshness excludes only ages strictly beyond the threshold and treats future
 source timestamps as age zero. Accepted baselines use the accepted source's
-`last_updated` time. Excessive temperature changes require a consistent second
+`last_reported` time. Excessive temperature changes require a consistent second
 reading at least 30 seconds later; returning to the baseline range recovers
 immediately and changing the candidate restarts confirmation. All Task 7 and
 Task 8 exclusions recover deterministically without replacing or leaking the
@@ -347,8 +347,9 @@ Observation-only: Yes.
 Status: Implemented. This task added a typed config-entry runtime configuration
 and event-driven `DataUpdateCoordinator` stored only in
 `ConfigEntry.runtime_data`. It builds deterministic source-to-zone and
-thermostat-to-zone indexes, registers one indexed subscription over the unique
-enabled-source/thermostat union, coalesces state bursts, refreshes changed
+thermostat-to-zone indexes, registers indexed state-change and state-report
+subscriptions over the unique enabled-source/thermostat union, coalesces report
+bursts, refreshes changed
 thermostat capability/public-state snapshots, and reevaluates only affected
 zones while preserving unaffected immutable snapshots. It invokes the existing
 Task 6-9 normalization, health, jump, MAD/contradiction, minimum-count, and
@@ -356,7 +357,8 @@ aggregation boundaries. Initial snapshots reconcile all configured inputs;
 one earliest-deadline watchdog reevaluates accepted sources after the strict
 freshness boundary; and unload/reload cancels all owned subscriptions and
 timers without retaining baselines or pending candidates. Disabled observation
-and the narrow Task 4 empty skeleton create no subscriptions or timers. It
+the narrow Task 4 empty skeleton, and awaiting-first-zone parents create no
+subscriptions or timers. It
 added no entity platforms, devices, Store persistence, diagnostics, Repairs,
 history/events, services, command decisions, command sinks, or physical
 control. Live observation remains internal until Task 11.

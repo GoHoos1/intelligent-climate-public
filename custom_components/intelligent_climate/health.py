@@ -48,7 +48,7 @@ def evaluate_temperature_health(
     if observation.quality is not SourceQuality.VALID:
         return SourceHealthEvaluation(observation, baseline, None)
 
-    value, source_last_updated = _valid_value_and_timestamp(observation)
+    value, source_last_reported = _valid_value_and_timestamp(observation)
     exclusion = _pre_jump_exclusion(
         observation,
         value=value,
@@ -60,11 +60,11 @@ def evaluate_temperature_health(
         return SourceHealthEvaluation(exclusion, baseline, None)
 
     if baseline is None:
-        return _accepted(observation, value, source_last_updated)
+        return _accepted(observation, value, source_last_reported)
 
     baseline_elapsed_seconds = max(
         0.0,
-        (source_last_updated - baseline.last_accepted_at).total_seconds(),
+        (source_last_reported - baseline.last_accepted_at).total_seconds(),
     )
     baseline_allowed_change = _allowed_change(
         jump_limit_c_per_5_minutes,
@@ -75,7 +75,7 @@ def evaluate_temperature_health(
         baseline.last_accepted_value,
         baseline_allowed_change,
     ):
-        return _accepted(observation, value, source_last_updated)
+        return _accepted(observation, value, source_last_reported)
 
     if pending_jump is None:
         return _jump_rejected(
@@ -84,13 +84,13 @@ def evaluate_temperature_health(
             PendingJumpCandidate(
                 source_id=observation.source_id,
                 candidate_value=value,
-                first_seen_at=source_last_updated,
+                first_seen_at=source_last_reported,
             ),
         )
 
     candidate_elapsed_seconds = max(
         0.0,
-        (source_last_updated - pending_jump.first_seen_at).total_seconds(),
+        (source_last_reported - pending_jump.first_seen_at).total_seconds(),
     )
     candidate_allowed_change = _allowed_change(
         jump_limit_c_per_5_minutes,
@@ -105,7 +105,7 @@ def evaluate_temperature_health(
         candidate_elapsed_seconds >= JUMP_CONFIRMATION_DELAY_SECONDS
         and within_candidate_range
     ):
-        return _accepted(observation, value, source_last_updated)
+        return _accepted(observation, value, source_last_reported)
     if within_candidate_range:
         return _jump_rejected(observation, baseline, pending_jump)
     return _jump_rejected(
@@ -114,7 +114,7 @@ def evaluate_temperature_health(
         PendingJumpCandidate(
             source_id=observation.source_id,
             candidate_value=value,
-            first_seen_at=source_last_updated,
+            first_seen_at=source_last_reported,
         ),
     )
 
@@ -135,7 +135,7 @@ def evaluate_humidity_health(
     if observation.quality is not SourceQuality.VALID:
         return SourceHealthEvaluation(observation, baseline, None)
 
-    value, source_last_updated = _valid_value_and_timestamp(observation)
+    value, source_last_reported = _valid_value_and_timestamp(observation)
     exclusion = _pre_jump_exclusion(
         observation,
         value=value,
@@ -145,7 +145,7 @@ def evaluate_humidity_health(
     )
     if exclusion is not None:
         return SourceHealthEvaluation(exclusion, baseline, None)
-    return _accepted(observation, value, source_last_updated)
+    return _accepted(observation, value, source_last_reported)
 
 
 def _validate_common_inputs(
@@ -156,10 +156,10 @@ def _validate_common_inputs(
     stale_after_seconds: int,
 ) -> None:
     _require_aware(observation.observed_at, "observation.observed_at")
-    if observation.source_last_updated is not None:
+    if observation.source_last_reported is not None:
         _require_aware(
-            observation.source_last_updated,
-            "observation.source_last_updated",
+            observation.source_last_reported,
+            "observation.source_last_reported",
         )
     if stale_after_seconds < 0:
         raise ValueError("stale_after_seconds must be nonnegative")
@@ -206,10 +206,10 @@ def _valid_value_and_timestamp(
         raise ValueError("VALID observation must have a normalized value")
     if not math.isfinite(value):
         raise ValueError("VALID observation normalized value must be finite")
-    source_last_updated = observation.source_last_updated
-    if source_last_updated is None:
-        raise ValueError("VALID observation must have source_last_updated")
-    return value, source_last_updated
+    source_last_reported = observation.source_last_reported
+    if source_last_reported is None:
+        raise ValueError("VALID observation must have source_last_reported")
+    return value, source_last_reported
 
 
 def _pre_jump_exclusion(
@@ -225,11 +225,11 @@ def _pre_jump_exclusion(
     if observation.restored:
         return _excluded(observation, SourceQuality.RESTORED_NOT_CONFIRMED)
 
-    source_last_updated = observation.source_last_updated
-    assert source_last_updated is not None
+    source_last_reported = observation.source_last_reported
+    assert source_last_reported is not None
     age_seconds = max(
         0.0,
-        (observation.observed_at - source_last_updated).total_seconds(),
+        (observation.observed_at - source_last_reported).total_seconds(),
     )
     if age_seconds > stale_after_seconds:
         return _excluded(observation, SourceQuality.STALE)
@@ -257,13 +257,13 @@ def _within_allowed_change(
 def _accepted(
     observation: SourceObservation[float],
     value: float,
-    source_last_updated: datetime,
+    source_last_reported: datetime,
 ) -> SourceHealthEvaluation:
     return SourceHealthEvaluation(
         observation=observation,
         next_baseline=SourceBaseline(
             last_accepted_value=value,
-            last_accepted_at=source_last_updated,
+            last_accepted_at=source_last_reported,
         ),
         pending_jump=None,
     )

@@ -224,10 +224,10 @@ def _validate_source_policy(source: _Source) -> None:
 
 def _validate_observation(observation: SourceObservation[float]) -> None:
     _require_aware(observation.observed_at, "observation.observed_at")
-    if observation.source_last_updated is not None:
+    if observation.source_last_reported is not None:
         _require_aware(
-            observation.source_last_updated,
-            "observation.source_last_updated",
+            observation.source_last_reported,
+            "observation.source_last_reported",
         )
     if not isinstance(observation.quality, SourceQuality):
         raise ValueError("observation quality must be a SourceQuality")
@@ -236,8 +236,8 @@ def _validate_observation(observation: SourceObservation[float]) -> None:
         _normalized_value(observation)
         if observation.exclusion_reason is not None:
             raise ValueError("VALID observation cannot have an exclusion reason")
-        if observation.source_last_updated is None:
-            raise ValueError("VALID observation must have source_last_updated")
+        if observation.source_last_reported is None:
+            raise ValueError("VALID observation must have source_last_reported")
         return
 
     if observation.normalized_value is not None:

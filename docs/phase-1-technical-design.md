@@ -499,7 +499,7 @@ SourceObservation[T]
   raw_value: object
   normalized_value: T | None
   observed_at: datetime
-  source_last_updated: datetime | None
+  source_last_reported: datetime | None
   quality: SourceQuality
   exclusion_reason: ExclusionReason | None
   restored: bool
@@ -520,6 +520,12 @@ SourceQuality
 ```
 
 The full set of included and excluded sources, with reasons, is retained in the coordinator snapshot and exposed through diagnostics. It is not copied into high-frequency entity attributes.
+
+Source age is calculated from Home Assistant's `State.last_reported`, not
+`State.last_updated`. State-change and state-report events both trigger the
+same coalesced affected-zone evaluation, so an unchanged but recently reported
+reading remains fresh while a genuinely unreported source can still become
+stale.
 
 ### 7.5 Zone observation
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from .const import PLATFORMS, SUBENTRY_TYPE_ZONE
@@ -10,6 +11,7 @@ from .models import (
     EntryRuntimeConfiguration,
     EquipmentRelationship,
     ObservationSourceId,
+    RuntimeConfigurationState,
     SchemaValidationError,
     ThermostatRole,
     ZoneConfig,
@@ -21,6 +23,8 @@ from .type_aliases import IntelligentClimateConfigEntry
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _is_empty_zone_skeleton(zone: ZoneConfig) -> bool:
@@ -104,12 +108,7 @@ def _decode_runtime_configuration(
             equipment_group=equipment_group,
             zones=tuple(zones),
             options=options,
-            transitional_empty_skeleton=True,
-        )
-    if not zones:
-        raise SchemaValidationError(
-            "zones",
-            "partially bound configuration is not supported",
+            state=RuntimeConfigurationState.TRANSITIONAL_EMPTY_SKELETON,
         )
 
     if (
@@ -128,6 +127,14 @@ def _decode_runtime_configuration(
         thermostat_entity_id,
         exclude_entry_id=entry.entry_id,
     )
+    if not zones:
+        return EntryRuntimeConfiguration(
+            equipment_group=equipment_group,
+            zones=(),
+            options=options,
+            state=RuntimeConfigurationState.AWAITING_FIRST_ZONE,
+        )
+
     for zone in zones:
         if zone.thermostat_entity_ids != (thermostat_entity_id,):
             raise SchemaValidationError(
@@ -153,7 +160,7 @@ def _decode_runtime_configuration(
         equipment_group=equipment_group,
         zones=tuple(zones),
         options=options,
-        transitional_empty_skeleton=False,
+        state=RuntimeConfigurationState.CONFIGURED,
     )
 
 
@@ -168,6 +175,9 @@ async def async_setup_entry(
 
     try:
         configuration = _decode_runtime_configuration(hass, entry)
+    except SchemaValidationError as err:
+        _LOGGER.error("Invalid persisted Intelligent Climate schema: %s", err)
+        raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except (KeyError, ValueError) as err:
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
 

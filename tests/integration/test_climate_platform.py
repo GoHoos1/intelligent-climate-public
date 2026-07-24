@@ -376,6 +376,25 @@ async def test_empty_skeleton_creates_no_zone_entity_and_disabled_keeps_one(
     assert await hass.config_entries.async_unload(disabled_entry.entry_id)
 
 
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_awaiting_first_zone_creates_only_equipment_group_device(
+    hass: HomeAssistant,
+) -> None:
+    """Platform setup stays successful without orphan zone registry entries."""
+    _set_states(hass)
+    entry = await _setup_entry(
+        hass,
+        _entry(zones=[], entry_id="awaiting-first-zone"),
+        finish_reconciliation=False,
+    )
+
+    assert er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id) == []
+    group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
+    assert group_device is not None
+    assert group_device.config_entries_subentries[entry.entry_id] == {None}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize(
     ("fahrenheit", "source_value", "target", "expected"),
     [

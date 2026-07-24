@@ -54,7 +54,7 @@ def observe_temperature_source(
     )
     if isinstance(prepared, SourceObservation):
         return prepared
-    raw_value, source_last_updated, restored = prepared
+    raw_value, source_last_reported, restored = prepared
     assert state is not None
 
     parsed = _parse_numeric(raw_value)
@@ -63,7 +63,7 @@ def observe_temperature_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             parsed,
             restored,
         )
@@ -79,7 +79,7 @@ def observe_temperature_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             SourceQuality.UNIT_UNSUPPORTED,
             restored,
         )
@@ -95,7 +95,7 @@ def observe_temperature_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             SourceQuality.UNIT_UNSUPPORTED,
             restored,
         )
@@ -106,7 +106,7 @@ def observe_temperature_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             SourceQuality.NON_FINITE,
             restored,
         )
@@ -115,7 +115,7 @@ def observe_temperature_source(
         raw_value,
         normalized,
         observed_at,
-        source_last_updated,
+        source_last_reported,
         restored,
     )
 
@@ -141,7 +141,7 @@ def observe_humidity_source(
     )
     if isinstance(prepared, SourceObservation):
         return prepared
-    raw_value, source_last_updated, restored = prepared
+    raw_value, source_last_reported, restored = prepared
     assert state is not None
 
     parsed = _parse_numeric(raw_value)
@@ -150,7 +150,7 @@ def observe_humidity_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             parsed,
             restored,
         )
@@ -165,7 +165,7 @@ def observe_humidity_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             SourceQuality.UNIT_UNSUPPORTED,
             restored,
         )
@@ -176,7 +176,7 @@ def observe_humidity_source(
             source.source_id,
             raw_value,
             observed_at,
-            source_last_updated,
+            source_last_reported,
             SourceQuality.NON_FINITE,
             restored,
         )
@@ -185,7 +185,7 @@ def observe_humidity_source(
         raw_value,
         normalized,
         observed_at,
-        source_last_updated,
+        source_last_reported,
         restored,
     )
 
@@ -218,7 +218,7 @@ def _prepare_source(
             source_id,
             STATE_UNAVAILABLE,
             observed_at,
-            state.last_updated,
+            state.last_reported,
             SourceQuality.UNAVAILABLE,
             restored,
         )
@@ -227,7 +227,7 @@ def _prepare_source(
             source_id,
             STATE_UNKNOWN,
             observed_at,
-            state.last_updated,
+            state.last_reported,
             SourceQuality.UNKNOWN,
             restored,
         )
@@ -240,11 +240,11 @@ def _prepare_source(
             source_id,
             None,
             observed_at,
-            state.last_updated,
+            state.last_reported,
             SourceQuality.UNKNOWN,
             restored,
         )
-    return raw_value, state.last_updated, restored
+    return raw_value, state.last_reported, restored
 
 
 def _parse_numeric(value: object) -> float | SourceQuality:
@@ -281,7 +281,7 @@ def _valid(
     raw_value: object,
     normalized_value: float,
     observed_at: datetime,
-    source_last_updated: datetime,
+    source_last_reported: datetime,
     restored: bool,
 ) -> SourceObservation[float]:
     return SourceObservation(
@@ -289,7 +289,7 @@ def _valid(
         raw_value=raw_value,
         normalized_value=normalized_value,
         observed_at=observed_at,
-        source_last_updated=source_last_updated,
+        source_last_reported=source_last_reported,
         quality=SourceQuality.VALID,
         exclusion_reason=None,
         restored=restored,
@@ -300,7 +300,7 @@ def _excluded(
     source_id: ObservationSourceId,
     raw_value: object,
     observed_at: datetime,
-    source_last_updated: datetime | None,
+    source_last_reported: datetime | None,
     quality: SourceQuality,
     restored: bool,
 ) -> SourceObservation[float]:
@@ -311,7 +311,7 @@ def _excluded(
         raw_value=raw_value,
         normalized_value=None,
         observed_at=observed_at,
-        source_last_updated=source_last_updated,
+        source_last_reported=source_last_reported,
         quality=quality,
         exclusion_reason=ExclusionReason(quality.value),
         restored=restored,

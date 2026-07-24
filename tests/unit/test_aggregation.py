@@ -89,7 +89,7 @@ def _observation(
         raw_value=value if raw_value is None else raw_value,
         normalized_value=value if quality is SourceQuality.VALID else None,
         observed_at=OBSERVED_AT,
-        source_last_updated=OBSERVED_AT,
+        source_last_reported=OBSERVED_AT,
         quality=quality,
         exclusion_reason=(
             None if quality is SourceQuality.VALID else ExclusionReason(quality.value)
@@ -286,8 +286,8 @@ def test_source_observation_matching_errors(
             "cannot have an exclusion",
         ),
         (
-            replace(_observation(0, 20.0), source_last_updated=None),
-            "source_last_updated",
+            replace(_observation(0, 20.0), source_last_reported=None),
+            "source_last_reported",
         ),
         (
             replace(
@@ -317,7 +317,7 @@ def test_naive_observation_timestamps_are_rejected() -> None:
     naive = datetime(2026, 7, 23, 15, 59)
     for observation in (
         replace(_observation(0, 20.0), observed_at=naive),
-        replace(_observation(0, 20.0), source_last_updated=naive),
+        replace(_observation(0, 20.0), source_last_reported=naive),
     ):
         with pytest.raises(ValueError, match="timezone-aware"):
             _temperature((_temperature_source(0),), (observation,))
@@ -461,7 +461,7 @@ def test_two_sources_just_above_threshold_are_both_contradictory() -> None:
         assert transformed is not original
         assert transformed.raw_value == original.raw_value
         assert transformed.observed_at is original.observed_at
-        assert transformed.source_last_updated is original.source_last_updated
+        assert transformed.source_last_reported is original.source_last_reported
         assert transformed.restored is original.restored
         assert transformed.normalized_value is None
         assert transformed.exclusion_reason is ExclusionReason.CONTRADICTORY
