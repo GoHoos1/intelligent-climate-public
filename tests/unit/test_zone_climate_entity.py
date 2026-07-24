@@ -44,6 +44,7 @@ from custom_components.intelligent_climate.models import (
     NormalizedClimateState,
     ObservableBoolean,
     ObservationSourceId,
+    RuntimeConfigurationState,
     SourceAggregationResult,
     TemperatureSource,
     ThermostatBinding,
@@ -188,7 +189,7 @@ def _make_entity(
         group,
         (zone,),
         replace(DEFAULT_OPTIONS, observation_enabled=observation_enabled),
-        False,
+        RuntimeConfigurationState.CONFIGURED,
     )
     mock_entry = MockConfigEntry(
         domain=DOMAIN,

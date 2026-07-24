@@ -46,7 +46,7 @@ def test_manifest_matches_foundation_scope() -> None:
     assert isinstance(manifest, dict)
     assert manifest["domain"] == DOMAIN
     assert manifest["name"] == "Intelligent Climate"
-    assert manifest["version"] == "0.0.0"
+    assert manifest["version"] == "0.0.1"
     assert manifest["codeowners"] == ["@GoHoos1"]
     assert manifest["config_flow"] is True
     assert manifest["dependencies"] == []

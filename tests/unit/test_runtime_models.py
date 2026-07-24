@@ -21,6 +21,7 @@ from custom_components.intelligent_climate.models import (
     EquipmentType,
     NormalizedClimateState,
     ObservableBoolean,
+    RuntimeConfigurationState,
     SourceAggregationResult,
     ThermostatBinding,
     ThermostatRole,
@@ -84,7 +85,12 @@ def test_runtime_configuration_and_snapshot_models_are_frozen_and_slotted() -> N
         thermostats=(ThermostatBinding("climate.main", ThermostatRole.PRIMARY),),
         shared_policy=None,
     )
-    runtime = EntryRuntimeConfiguration(group, (), DEFAULT_OPTIONS, False)
+    runtime = EntryRuntimeConfiguration(
+        group,
+        (),
+        DEFAULT_OPTIONS,
+        RuntimeConfigurationState.CONFIGURED,
+    )
 
     assert "__dict__" not in runtime.__slots__
     with pytest.raises(FrozenInstanceError):

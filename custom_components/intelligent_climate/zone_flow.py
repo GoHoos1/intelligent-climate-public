@@ -7,6 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import (
     EntityFilterSelectorConfig,
     EntitySelector,
@@ -182,6 +183,20 @@ def _set_parent_error(errors: dict[str, str], err: Exception) -> None:
         errors["base"] = EntityValidationCode.INVALID_PARENT_THERMOSTAT.value
 
 
+async def _async_reload_after_zone_commit(
+    hass: HomeAssistant,
+    entry: config_entries.ConfigEntry,
+    zone_id: str,
+) -> None:
+    """Reload only after the flow manager has committed the new subentry."""
+    if not any(
+        subentry.subentry_type == SUBENTRY_TYPE_ZONE and subentry.unique_id == zone_id
+        for subentry in entry.subentries.values()
+    ):
+        return
+    hass.config_entries.async_schedule_reload(entry.entry_id)
+
+
 class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
     """Add and reconfigure fully bound observation-only zones."""
 
@@ -240,11 +255,22 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                 except SchemaValidationError:
                     errors["base"] = "invalid_zone_data"
                 else:
-                    return self.async_create_entry(
+                    result = self.async_create_entry(
                         title=name,
                         data=data,
                         unique_id=str(zone.zone_id),
                     )
+                    entry.async_create_task(
+                        self.hass,
+                        _async_reload_after_zone_commit(
+                            self.hass,
+                            entry,
+                            str(zone.zone_id),
+                        ),
+                        name="reload after zone creation",
+                        eager_start=False,
+                    )
+                    return result
 
         return self.async_show_form(
             step_id="user",

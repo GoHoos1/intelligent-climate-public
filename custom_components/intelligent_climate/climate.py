@@ -24,7 +24,7 @@ from homeassistant.helpers.temperature import display_temp
 from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
 from .entity import IntelligentClimateZoneEntity
-from .models import NormalizedClimateState, ZoneConfig
+from .models import NormalizedClimateState, RuntimeConfigurationState, ZoneConfig
 from .type_aliases import IntelligentClimateConfigEntry
 
 _TARGET_AGREEMENT_C = 0.1
@@ -43,9 +43,9 @@ async def async_setup_entry(
     subentries = _zone_subentries_by_id(entry)
     matched_subentries: list[tuple[ZoneConfig, ConfigSubentry]] = []
     configured_zones = (
-        ()
-        if coordinator.configuration.transitional_empty_skeleton
-        else coordinator.configuration.zones
+        coordinator.configuration.zones
+        if coordinator.configuration.state is RuntimeConfigurationState.CONFIGURED
+        else ()
     )
     for zone in configured_zones:
         matches = subentries.get(str(zone.zone_id), ())

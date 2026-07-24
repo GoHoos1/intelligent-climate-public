@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
@@ -47,6 +48,7 @@ from custom_components.intelligent_climate.models import (
     ExclusionReason,
     HumiditySource,
     ObservationSourceId,
+    RuntimeConfigurationState,
     SourceQuality,
     TemperatureSource,
     ThermostatBinding,
@@ -147,7 +149,11 @@ def _configuration(
             source_stale_after_seconds=10,
             startup_reconciliation_seconds=60,
         ),
-        transitional_empty_skeleton=empty,
+        state=(
+            RuntimeConfigurationState.TRANSITIONAL_EMPTY_SKELETON
+            if empty
+            else RuntimeConfigurationState.CONFIGURED
+        ),
     )
 
 
@@ -240,7 +246,8 @@ async def test_initial_refresh_builds_ordered_capabilities_zones_and_indexes(
     )
     assert coordinator.source_dependency_index[SHARED_SENSOR] == ZONE_IDS[:2]
     assert coordinator.thermostat_dependency_index[THERMOSTAT] == ZONE_IDS[:2]
-    assert coordinator._cancel_subscription is not None
+    assert coordinator._cancel_state_change_subscription is not None
+    assert coordinator._cancel_state_report_subscription is not None
     assert coordinator._cancel_reconciliation is not None
     assert coordinator._cancel_watchdog is not None
     await coordinator.async_shutdown()
@@ -250,22 +257,30 @@ async def test_subscription_uses_one_unique_union_and_unrelated_changes_do_nothi
     hass: HomeAssistant,
 ) -> None:
     _set_states(hass)
-    with patch(
-        "custom_components.intelligent_climate.coordinator."
-        "async_track_state_change_event",
-        wraps=__import__(
-            "homeassistant.helpers.event",
-            fromlist=["async_track_state_change_event"],
-        ).async_track_state_change_event,
-    ) as track:
+    event_helpers = __import__("homeassistant.helpers.event", fromlist=["unused"])
+    with (
+        patch(
+            "custom_components.intelligent_climate.coordinator."
+            "async_track_state_change_event",
+            wraps=event_helpers.async_track_state_change_event,
+        ) as track_changes,
+        patch(
+            "custom_components.intelligent_climate.coordinator."
+            "async_track_state_report_event",
+            wraps=event_helpers.async_track_state_report_event,
+        ) as track_reports,
+    ):
         coordinator = await _start(hass, _configuration(zone_count=3))
 
-    assert track.call_count == 1
-    assert tuple(track.call_args.args[1]) == (
+    assert track_changes.call_count == 1
+    assert track_reports.call_count == 1
+    expected_entities = (
         SHARED_SENSOR,
         OTHER_SENSOR,
         THERMOSTAT,
     )
+    assert tuple(track_changes.call_args.args[1]) == expected_entities
+    assert tuple(track_reports.call_args.args[1]) == expected_entities
     revision = coordinator.data.revision
     hass.states.async_set("sensor.unrelated", "99")
     await hass.async_block_till_done()
@@ -387,6 +402,107 @@ async def test_thermostat_change_refreshes_capability_and_source_dependencies_on
     assert (
         coordinator.data.thermostats[0].capability_discovery is not original_discovery
     )
+    await coordinator.async_shutdown()
+
+
+async def test_sensor_uses_recent_report_when_last_update_is_hours_old(
+    hass: HomeAssistant,
+) -> None:
+    """An unchanged but recently reported sensor remains fresh."""
+    old = NOW - timedelta(hours=4)
+    _set_states(hass, timestamp=old)
+    _set_states(hass, timestamp=NOW)
+    state = hass.states.get(SHARED_SENSOR)
+    assert state is not None
+    assert state.last_updated == old
+    assert state.last_reported == NOW
+
+    coordinator = await _start(hass, _configuration(zone_count=1))
+
+    observation = coordinator.data.zones[0].temperature_observations[0]
+    assert observation.source_last_reported == NOW
+    assert observation.quality is SourceQuality.VALID
+    assert coordinator.data.zones[0].effective_temperature_c == 20
+    assert coordinator._stale_deadline(observation) == (
+        NOW + timedelta(seconds=10, microseconds=1)
+    )
+    await coordinator.async_shutdown()
+
+
+async def test_climate_source_uses_recent_report_when_last_update_is_hours_old(
+    hass: HomeAssistant,
+) -> None:
+    """A climate current-temperature report uses its report timestamp."""
+    configuration = _configuration(zone_count=1)
+    zone = configuration.zones[0]
+    configuration = replace(
+        configuration,
+        zones=(
+            replace(
+                zone,
+                temperature_sources=(
+                    replace(
+                        zone.temperature_sources[0],
+                        entity_id=THERMOSTAT,
+                        attribute=ATTR_CURRENT_TEMPERATURE,
+                    ),
+                ),
+            ),
+        ),
+    )
+    old = NOW - timedelta(hours=4)
+    _set_states(hass, timestamp=old)
+    _set_states(hass, timestamp=NOW)
+    state = hass.states.get(THERMOSTAT)
+    assert state is not None
+    assert state.last_updated == old
+    assert state.last_reported == NOW
+
+    coordinator = await _start(hass, configuration)
+
+    observation = coordinator.data.zones[0].temperature_observations[0]
+    assert observation.source_last_reported == NOW
+    assert observation.quality is SourceQuality.VALID
+    await coordinator.async_shutdown()
+
+
+async def test_same_value_report_recovers_stale_source_without_state_change(
+    hass: HomeAssistant,
+) -> None:
+    """The state-report listener refreshes freshness through the debounce path."""
+    stale_at = NOW - timedelta(seconds=11)
+    _set_states(hass, timestamp=stale_at)
+    coordinator = await _start(hass, _configuration(zone_count=1))
+    assert coordinator.data.zones[0].temperature_observations[0].quality is (
+        SourceQuality.STALE
+    )
+    generation = coordinator._debounce_generation
+
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "20",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+            ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+        },
+        timestamp=NOW.timestamp(),
+    )
+    await hass.async_block_till_done()
+
+    current = hass.states.get(SHARED_SENSOR)
+    assert current is not None
+    assert current.last_updated == stale_at
+    assert current.last_reported == NOW
+    assert coordinator._debounce_generation == generation + 1
+    assert coordinator._pending_zone_ids == {ZONE_IDS[0]}
+    await coordinator._async_debounce_elapsed(
+        NOW,
+        generation=coordinator._debounce_generation,
+    )
+    recovered = coordinator.data.zones[0].temperature_observations[0]
+    assert recovered.quality is SourceQuality.VALID
+    assert recovered.source_last_reported == NOW
+    assert coordinator.data.zones[0].effective_temperature_c == 20
     await coordinator.async_shutdown()
 
 
@@ -545,7 +661,8 @@ async def test_disabled_and_empty_runtime_register_no_callbacks(
     assert coordinator.data.control_state is (
         ControlState.DISABLED if disabled else ControlState.OBSERVING
     )
-    assert coordinator._cancel_subscription is None
+    assert coordinator._cancel_state_change_subscription is None
+    assert coordinator._cancel_state_report_subscription is None
     assert coordinator._cancel_reconciliation is None
     assert coordinator._cancel_watchdog is None
     if disabled:
@@ -617,6 +734,9 @@ async def test_shutdown_is_idempotent_and_late_callbacks_cannot_publish(
 
     await coordinator.async_shutdown()
     await coordinator.async_shutdown()
+    _set_states(hass, shared_value=21, timestamp=NOW + timedelta(seconds=1))
+    _set_states(hass, shared_value=21, timestamp=NOW + timedelta(seconds=2))
+    await hass.async_block_till_done()
     await coordinator._async_debounce_elapsed(
         NOW,
         generation=debounce_generation,
@@ -632,7 +752,8 @@ async def test_shutdown_is_idempotent_and_late_callbacks_cannot_publish(
 
     assert coordinator.data.revision == 1
     assert listener.call_count == 0
-    assert coordinator._cancel_subscription is None
+    assert coordinator._cancel_state_change_subscription is None
+    assert coordinator._cancel_state_report_subscription is None
     assert coordinator._cancel_debounce is None
     assert coordinator._cancel_reconciliation is None
     assert coordinator._cancel_watchdog is None
@@ -672,6 +793,51 @@ async def test_humidity_pipeline_uses_calibration_and_optional_aggregation(
     assert zone_snapshot.humidity_aggregation is not None
     assert zone_snapshot.humidity_aggregation.status is AggregationStatus.HEALTHY
     assert coordinator.source_dependency_index[HUMIDITY_SENSOR] == (ZONE_IDS[0],)
+    await coordinator.async_shutdown()
+
+
+async def test_humidity_freshness_uses_last_reported(
+    hass: HomeAssistant,
+) -> None:
+    configuration = _configuration(zone_count=1)
+    zone = configuration.zones[0]
+    humidity_source = HumiditySource(
+        source_id=SOURCE_IDS[1],
+        entity_id=HUMIDITY_SENSOR,
+        attribute=None,
+        offset_pct=0,
+        weight=1,
+        priority=0,
+        enabled=True,
+    )
+    configuration = replace(
+        configuration,
+        zones=(replace(zone, humidity_sources=(humidity_source,)),),
+    )
+    _set_states(hass)
+    old = NOW - timedelta(hours=4)
+    attributes = {ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE}
+    hass.states.async_set(
+        HUMIDITY_SENSOR,
+        "45",
+        attributes,
+        timestamp=old.timestamp(),
+    )
+    hass.states.async_set(
+        HUMIDITY_SENSOR,
+        "45",
+        attributes,
+        timestamp=NOW.timestamp(),
+    )
+
+    coordinator = await _start(hass, configuration)
+
+    observation = coordinator.data.zones[0].humidity_observations[0]
+    current = hass.states.get(HUMIDITY_SENSOR)
+    assert current is not None
+    assert current.last_updated == old
+    assert observation.source_last_reported == NOW
+    assert observation.quality is SourceQuality.VALID
     await coordinator.async_shutdown()
 
 
@@ -822,7 +988,12 @@ async def test_fahrenheit_sensor_is_normalized_with_calibration(
 
 async def test_implausible_temperature_is_excluded_before_aggregation(
     hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
+    caplog.set_level(
+        logging.DEBUG,
+        logger="custom_components.intelligent_climate.coordinator",
+    )
     _set_states(hass, shared_value=100)
     coordinator = await _start(hass, _configuration(zone_count=1))
 
@@ -830,6 +1001,20 @@ async def test_implausible_temperature_is_excluded_before_aggregation(
     assert observation.quality is SourceQuality.IMPLAUSIBLE
     assert observation.exclusion_reason is ExclusionReason.IMPLAUSIBLE
     assert coordinator.data.zones[0].effective_temperature_c is None
+    message = next(
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith("Configured source excluded:")
+    )
+    assert f"config_entry_id={coordinator.entry.entry_id}" in message
+    assert f"zone_id={ZONE_IDS[0]}" in message
+    assert f"source_id={SOURCE_IDS[0]}" in message
+    assert f"source_entity_id={SHARED_SENSOR}" in message
+    assert "source_quality=implausible" in message
+    assert "exclusion_reason=implausible" in message
+    assert f"source_last_reported={NOW.isoformat(' ')}" in message
+    assert f"observation_time={NOW.isoformat(' ')}" in message
+    assert "attributes" not in message
     await coordinator.async_shutdown()
 
 

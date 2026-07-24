@@ -28,6 +28,14 @@ class ObservableBoolean(StrEnum):
     NOT_OBSERVABLE = "not_observable"
 
 
+class RuntimeConfigurationState(StrEnum):
+    """Lifecycle state of one decoded config-entry hierarchy."""
+
+    CONFIGURED = "configured"
+    AWAITING_FIRST_ZONE = "awaiting_first_zone"
+    TRANSITIONAL_EMPTY_SKELETON = "transitional_empty_skeleton"
+
+
 @dataclass(frozen=True, slots=True)
 class EntryRuntimeConfiguration:
     """One fully decoded config-entry hierarchy used by runtime code."""
@@ -35,7 +43,17 @@ class EntryRuntimeConfiguration:
     equipment_group: EquipmentGroupConfig
     zones: tuple[ZoneConfig, ...]
     options: IntegrationOptions
-    transitional_empty_skeleton: bool
+    state: RuntimeConfigurationState
+
+    @property
+    def awaiting_first_zone(self) -> bool:
+        """Return whether the valid parent is waiting for its required first zone."""
+        return self.state is RuntimeConfigurationState.AWAITING_FIRST_ZONE
+
+    @property
+    def transitional_empty_skeleton(self) -> bool:
+        """Return whether this is the narrow Task 4 compatibility document."""
+        return self.state is RuntimeConfigurationState.TRANSITIONAL_EMPTY_SKELETON
 
 
 @dataclass(frozen=True, slots=True)

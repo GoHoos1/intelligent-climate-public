@@ -35,6 +35,7 @@ from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MINOR_VERSION,
     EquipmentType,
     ObservationSourceId,
+    RuntimeConfigurationState,
     SchemaValidationError,
     TemperatureSource,
     decode_zone_config,
@@ -366,6 +367,104 @@ async def test_add_maps_sources_with_exact_defaults(
     assert source.priority == 0
     assert source.enabled is True
     assert source.source_id.value.version == 4
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_first_zone_commit_schedules_one_reload_that_observes_zone(
+    hass: HomeAssistant,
+) -> None:
+    """The real flow manager commits the first subentry before reload begins."""
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    assert (
+        entry.runtime_data.configuration.state
+        is RuntimeConfigurationState.AWAITING_FIRST_ZONE
+    )
+
+    with patch.object(
+        hass.config_entries,
+        "async_schedule_reload",
+        wraps=hass.config_entries.async_schedule_reload,
+    ) as reload:
+        result = await _submit_add(hass, entry)
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    reload.assert_called_once_with(entry.entry_id)
+    assert entry.state is config_entries.ConfigEntryState.LOADED
+    assert len(entry.runtime_data.configuration.zones) == 1
+    assert len(entry.subentries) == 1
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_later_zone_commit_schedules_exactly_one_reload(
+    hass: HomeAssistant,
+) -> None:
+    """Every additional committed zone refreshes the owning runtime once."""
+    _set_temperature_sensor(hass)
+    _set_temperature_sensor(hass, "sensor.living_room_temperature")
+    entry = _make_parent(hass, subentries=[_subentry_data()])
+    assert await hass.config_entries.async_setup(entry.entry_id)
+
+    with patch.object(
+        hass.config_entries,
+        "async_schedule_reload",
+        wraps=hass.config_entries.async_schedule_reload,
+    ) as reload:
+        result = await _submit_add(
+            hass,
+            entry,
+            name="Living Room",
+            sources=["sensor.living_room_temperature"],
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    reload.assert_called_once_with(entry.entry_id)
+    assert len(entry.subentries) == 2
+    assert len(entry.runtime_data.configuration.zones) == 2
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_invalid_and_canceled_zone_flows_schedule_no_reload(
+    hass: HomeAssistant,
+) -> None:
+    """Forms and cancellation never trigger a parent reload."""
+    entry = _make_parent(hass)
+    with patch.object(hass.config_entries, "async_schedule_reload") as reload:
+        invalid = await _submit_add(hass, entry)
+        initial = await _start_add(hass, entry)
+        hass.config_entries.subentries.async_abort(initial["flow_id"])
+        await hass.async_block_till_done()
+
+    assert invalid["type"] is FlowResultType.FORM
+    reload.assert_not_called()
+    assert entry.subentries == {}
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_subentry_commit_schedules_no_reload(
+    hass: HomeAssistant,
+) -> None:
+    """A framework commit failure cannot race a reload of absent data."""
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass)
+
+    with (
+        patch.object(
+            hass.config_entries,
+            "async_add_subentry",
+            side_effect=RuntimeError("commit failed"),
+        ),
+        patch.object(hass.config_entries, "async_schedule_reload") as reload,
+        pytest.raises(RuntimeError, match="commit failed"),
+    ):
+        await _submit_add(hass, entry)
+    await hass.async_block_till_done()
+
+    reload.assert_not_called()
+    assert entry.subentries == {}
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

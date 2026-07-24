@@ -47,20 +47,23 @@ The underlying Task 10 entry-scoped, event-driven observation coordinator
 remains stored as typed `ConfigEntry.runtime_data`. Setup decodes the parent,
 zones, and options once into an immutable runtime configuration, builds
 deterministic source-to-zone and thermostat-to-zone indexes, and subscribes
-once to the unique union of enabled sources and configured thermostats.
-Relevant state bursts are coalesced, only affected zones are reevaluated, and
-unchanged zone snapshot objects and timestamps are retained.
+to both state-change and state-report events for the unique union of enabled
+sources and configured thermostats. Relevant report bursts are coalesced, only
+affected zones are reevaluated, and unchanged zone snapshot objects and
+timestamps are retained.
 
 The coordinator invokes the existing Task 6-9 boundaries for public thermostat
 capability/state snapshots, source normalization, health evaluation, outlier
 rejection, and aggregation. It publishes frozen entry and zone snapshots with
 strict revision semantics, performs startup reconciliation without accepting
 restored values, and uses one earliest-deadline watchdog so a source becomes
-stale even without another state change. Disabled observation and the narrow
-empty Task 4 skeleton install no subscriptions or timers. Unload and reload
-cancel subscriptions, debounce callbacks, reconciliation, and freshness
-deadlines without carrying baselines or pending jump candidates into the new
-runtime.
+stale even without another report. Disabled observation, the narrow empty Task
+4 skeleton, and a valid parent awaiting its required first zone install no
+subscriptions or timers. The awaiting-first-zone snapshot is empty,
+non-reconciling, and `initializing`; platform setup creates no zone entity or
+orphan entity-registry record. Unload and reload cancel both subscriptions,
+debounce callbacks, reconciliation, and freshness deadlines without carrying
+baselines or pending jump candidates into the new runtime.
 
 Task 11 creates no sensor, binary-sensor, switch, event, equipment-group status,
 or placeholder entities. There is still no Store load or write, persistence,
@@ -109,12 +112,13 @@ Celsius range and humidity outside the fixed inclusive 0–100 percentage-point
 range are rejected as implausible. Restored values remain excluded until a
 non-restored live observation arrives. Source freshness uses the difference
 between the injected observation time and Home Assistant's actual
-`State.last_updated` time; a value becomes stale only when its age is strictly
-greater than the configured threshold, and future source timestamps are
-treated as age zero.
+`State.last_reported` time. An unchanged reading remains valid when its
+integration has reported it recently, while a genuinely unreported source
+becomes stale only when its age is strictly greater than the configured
+threshold. Future source timestamps are treated as age zero.
 
 Accepted values establish or update an immutable source baseline using the
-source update timestamp. Temperature changes are limited by the configured
+source report timestamp. Temperature changes are limited by the configured
 Celsius-per-five-minutes rate. A reading beyond that range is held in immutable
 pending-candidate state and can establish a new range only when a second
 consistent reading arrives at least 30 seconds later. Returning to the accepted
@@ -175,7 +179,11 @@ Zone reconfiguration preserves the stable source UUID and all calibration,
 weight, priority, and enabled metadata for every retained `(entity_id,
 attribute)` binding. Pre-Task-5 parents and zones that are completely empty
 binding skeletons remain loadable, but partially bound legacy documents fail
-closed. Because this task adds no parent reconfigure flow, a pre-alpha skeleton
+closed. A structurally valid parent with its one validated primary thermostat
+and no zones is an explicit awaiting-first-zone state. Completing any zone add,
+including the mandatory first zone, automatically schedules exactly one parent
+reload after Home Assistant commits the new subentry, so no manual reload is
+needed. Because this task adds no parent reconfigure flow, a pre-alpha skeleton
 parent must be removed and recreated to complete Task 5 selection.
 
 It does not subscribe to, aggregate, or expose source values. It also does not

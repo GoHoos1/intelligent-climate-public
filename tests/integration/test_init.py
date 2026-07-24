@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from copy import deepcopy
 from unittest.mock import AsyncMock, patch
 
@@ -21,7 +22,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.intelligent_climate import async_setup_entry, async_unload_entry
+from custom_components.intelligent_climate import (
+    _decode_runtime_configuration,
+    async_setup_entry,
+    async_unload_entry,
+)
 from custom_components.intelligent_climate.const import (
     DOMAIN,
     PLATFORMS,
@@ -33,6 +38,8 @@ from custom_components.intelligent_climate.coordinator import (
 from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
+    ControlState,
+    RuntimeConfigurationState,
 )
 
 GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
@@ -156,6 +163,76 @@ async def test_valid_selected_parent_and_zone_graph(hass: HomeAssistant) -> None
     assert DOMAIN not in hass.data
     assert await async_unload_entry(hass, entry)
     assert DOMAIN not in hass.data
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_valid_parent_without_zone_awaits_first_zone(
+    hass: HomeAssistant,
+) -> None:
+    """A committed parent is a valid inert lifecycle state until its zone exists."""
+    _set_valid_states(hass)
+    entry = _entry()
+
+    configuration = _decode_runtime_configuration(hass, entry)
+
+    assert configuration.state is RuntimeConfigurationState.AWAITING_FIRST_ZONE
+    assert configuration.awaiting_first_zone is True
+    assert configuration.transitional_empty_skeleton is False
+    assert configuration.zones == ()
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    coordinator = entry.runtime_data
+    assert coordinator.data.control_state is ControlState.INITIALIZING
+    assert coordinator.data.reconciling is False
+    assert coordinator.data.zones == ()
+    assert coordinator._cancel_state_change_subscription is None
+    assert coordinator._cancel_state_report_subscription is None
+    assert coordinator._cancel_reconciliation is None
+    assert coordinator._cancel_watchdog is None
+    assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {
+            "equipment_group": {
+                **_parent_data()["equipment_group"],  # type: ignore[dict-item]
+                "relationship": "independent",
+            }
+        },
+        {
+            "equipment_group": {
+                **_parent_data()["equipment_group"],  # type: ignore[dict-item]
+                "thermostats": [
+                    {"entity_id": THERMOSTAT, "role": "secondary"},
+                ],
+            }
+        },
+        {
+            "equipment_group": {
+                **_parent_data()["equipment_group"],  # type: ignore[dict-item]
+                "shared_policy": {
+                    "stage_entity_ids": [],
+                    "fan_entity_ids": [],
+                },
+            }
+        },
+    ],
+)
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_malformed_parent_without_zones_fails_closed(
+    hass: HomeAssistant,
+    data: dict[str, object],
+) -> None:
+    _set_valid_states(hass)
+    await _assert_invalid(hass, _entry(data=data))
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -312,13 +389,25 @@ async def test_partially_bound_legacy_documents_fail_closed(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_malformed_data_leaves_no_runtime_residue(hass: HomeAssistant) -> None:
+async def test_malformed_data_leaves_no_runtime_residue(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(
+        logging.DEBUG,
+        logger="custom_components.intelligent_climate",
+    )
     _set_valid_states(hass)
     malformed = deepcopy(_parent_data())
     malformed["equipment_group"]["future_field"] = True  # type: ignore[index]
 
     await _assert_invalid(hass, _entry(data=malformed, zone_data=_zone_data()))
     assert DOMAIN not in hass.data
+    assert any(
+        "Invalid persisted Intelligent Climate schema:" in record.getMessage()
+        and "future_field" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -502,7 +591,8 @@ async def test_platform_forward_failure_shuts_down_new_coordinator_and_chains(
     assert not hasattr(entry, "runtime_data")
     assert coordinator is not None
     assert coordinator._shutdown is True
-    assert coordinator._cancel_subscription is None
+    assert coordinator._cancel_state_change_subscription is None
+    assert coordinator._cancel_state_report_subscription is None
     assert coordinator._cancel_debounce is None
     assert coordinator._cancel_reconciliation is None
     assert coordinator._cancel_watchdog is None

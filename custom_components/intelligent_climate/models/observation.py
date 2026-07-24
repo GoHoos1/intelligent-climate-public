@@ -50,7 +50,7 @@ class SourceObservation[T]:
     raw_value: object
     normalized_value: T | None
     observed_at: datetime
-    source_last_updated: datetime | None
+    source_last_reported: datetime | None
     quality: SourceQuality
     exclusion_reason: ExclusionReason | None
     restored: bool

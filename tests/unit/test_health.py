@@ -44,7 +44,7 @@ def _observation(
     *,
     raw_value: object = "20.0",
     observed_at: datetime = NOW,
-    source_last_updated: datetime | None = NOW,
+    source_last_reported: datetime | None = NOW,
     quality: SourceQuality = SourceQuality.VALID,
     restored: bool = False,
     source_id: ObservationSourceId = SOURCE_ID,
@@ -55,7 +55,7 @@ def _observation(
         raw_value=raw_value,
         normalized_value=value,
         observed_at=observed_at,
-        source_last_updated=source_last_updated,
+        source_last_reported=source_last_reported,
         quality=quality,
         exclusion_reason=reason,
         restored=restored,
@@ -91,7 +91,7 @@ def _assert_excluded(
     assert output.source_id is original.source_id
     assert output.raw_value is original.raw_value
     assert output.observed_at is original.observed_at
-    assert output.source_last_updated is original.source_last_updated
+    assert output.source_last_reported is original.source_last_reported
     assert output.restored is original.restored
     assert output.normalized_value is None
     assert output.quality is quality
@@ -146,8 +146,8 @@ def test_health_module_contains_no_clock_read() -> None:
     [
         ("observation.observed_at", _observation(observed_at=NOW.replace(tzinfo=None))),
         (
-            "observation.source_last_updated",
-            _observation(source_last_updated=NOW.replace(tzinfo=None)),
+            "observation.source_last_reported",
+            _observation(source_last_reported=NOW.replace(tzinfo=None)),
         ),
     ],
 )
@@ -164,7 +164,7 @@ def test_naive_observation_timestamps_are_rejected(
     ("observation", "message"),
     [
         (_observation(None), "normalized value"),
-        (_observation(source_last_updated=None), "source_last_updated"),
+        (_observation(source_last_reported=None), "source_last_reported"),
         (_observation(nan), "must be finite"),
         (_observation(inf), "must be finite"),
     ],
@@ -302,7 +302,7 @@ def test_task_7_exclusions_pass_through_and_clear_pending(
     observation = _observation(
         None,
         raw_value=quality.value,
-        source_last_updated=None,
+        source_last_reported=None,
         quality=quality,
         restored=True,
     )
@@ -321,7 +321,7 @@ def test_task_7_humidity_exclusion_passes_through_and_preserves_baseline() -> No
     """Test humidity also preserves an existing Task 7 exclusion exactly."""
     observation = _observation(
         None,
-        source_last_updated=None,
+        source_last_reported=None,
         quality=SourceQuality.UNAVAILABLE,
     )
 
@@ -420,7 +420,7 @@ def test_humidity_has_no_rate_limit_and_first_value_establishes_baseline() -> No
         stale_after_seconds=300,
     )
     jumped = evaluate_humidity_health(
-        _observation(99.0, source_last_updated=NOW + timedelta(seconds=1)),
+        _observation(99.0, source_last_reported=NOW + timedelta(seconds=1)),
         stale_after_seconds=300,
         baseline=first.next_baseline,
     )
@@ -468,17 +468,17 @@ def test_freshness_boundary_and_future_timestamp(
     expected: SourceQuality,
 ) -> None:
     """Test only age strictly beyond the threshold is stale."""
-    source_last_updated = NOW - age
+    source_last_reported = NOW - age
     observation = _observation(
         20.0,
-        source_last_updated=source_last_updated,
+        source_last_reported=source_last_reported,
     )
 
     result = _temperature(observation, baseline=None)
 
     assert result.observation.quality is expected
     if expected is SourceQuality.VALID:
-        assert result.next_baseline == SourceBaseline(20.0, source_last_updated)
+        assert result.next_baseline == SourceBaseline(20.0, source_last_reported)
     else:
         _assert_excluded(result, SourceQuality.STALE, observation)
         assert result.next_baseline is None
@@ -489,7 +489,7 @@ def test_stale_value_clears_pending_preserves_baseline_and_recovers() -> None:
     observation = _observation(
         28.0,
         raw_value="stale 28",
-        source_last_updated=NOW - timedelta(seconds=301),
+        source_last_reported=NOW - timedelta(seconds=301),
     )
     pending = PendingJumpCandidate(SOURCE_ID, 28.0, NOW - timedelta(minutes=2))
 
@@ -506,7 +506,7 @@ def test_stale_value_clears_pending_preserves_baseline_and_recovers() -> None:
 def test_first_healthy_temperature_establishes_source_timestamp_baseline() -> None:
     """Test first acceptance uses source update time, not evaluation time."""
     updated = NOW - timedelta(seconds=5)
-    observation = _observation(21.25, source_last_updated=updated)
+    observation = _observation(21.25, source_last_reported=updated)
 
     result = _temperature(observation, baseline=None)
 
@@ -587,7 +587,7 @@ def test_inconsistent_candidate_restarts_confirmation_period() -> None:
         _observation(
             32.05,
             observed_at=NOW + timedelta(seconds=29),
-            source_last_updated=NOW + timedelta(seconds=29),
+            source_last_reported=NOW + timedelta(seconds=29),
         ),
         pending_jump=changed.pending_jump,
     )
@@ -595,7 +595,7 @@ def test_inconsistent_candidate_restarts_confirmation_period() -> None:
         _observation(
             32.1,
             observed_at=NOW + timedelta(seconds=30),
-            source_last_updated=NOW + timedelta(seconds=30),
+            source_last_reported=NOW + timedelta(seconds=30),
         ),
         pending_jump=changed.pending_jump,
     )
@@ -659,7 +659,7 @@ def test_timezone_offsets_compare_by_instant_for_baseline_and_candidate() -> Non
     )
     observation = _observation(
         27.2,
-        source_last_updated=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
+        source_last_reported=datetime(2026, 7, 23, 12, 0, tzinfo=UTC),
     )
 
     result = _temperature(
@@ -684,7 +684,7 @@ def test_task_7_invalid_to_live_valid_recovery(
         _observation(
             None,
             quality=initial_quality,
-            source_last_updated=None,
+            source_last_reported=None,
         ),
     )
     recovered = _temperature(_observation(20.5), baseline=invalid.next_baseline)
@@ -702,7 +702,7 @@ def test_task_8_only_produces_approved_health_qualities() -> None:
         _temperature(
             _observation(
                 20.0,
-                source_last_updated=NOW - timedelta(seconds=301),
+                source_last_reported=NOW - timedelta(seconds=301),
             ),
             baseline=None,
         ),

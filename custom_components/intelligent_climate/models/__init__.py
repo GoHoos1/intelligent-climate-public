@@ -19,6 +19,7 @@ from .runtime import (
     EntryRuntimeConfiguration,
     NormalizedClimateState,
     ObservableBoolean,
+    RuntimeConfigurationState,
     ThermostatRuntimeSnapshot,
     ZoneObservation,
 )
@@ -92,6 +93,7 @@ __all__ = [
     "ObservationSourceId",
     "OperatingMode",
     "PendingJumpCandidate",
+    "RuntimeConfigurationState",
     "RuntimeStoreDocument",
     "RuntimeZoneState",
     "SchemaMigrationError",

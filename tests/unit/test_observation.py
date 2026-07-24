@@ -43,7 +43,8 @@ SOURCE_ID = ObservationSourceId.parse("f15f73b1-ea59-4b28-819f-7b99acf065bf")
 ENTITY_ID = "sensor.room_temperature"
 CLIMATE_ID = "climate.room"
 OBSERVED_AT = datetime(2026, 7, 22, 15, 0, tzinfo=UTC)
-LAST_UPDATED = datetime(2026, 7, 22, 14, 59, 30, tzinfo=UTC)
+LAST_UPDATED = datetime(2026, 7, 22, 10, 0, tzinfo=UTC)
+LAST_REPORTED = datetime(2026, 7, 22, 14, 59, 30, tzinfo=UTC)
 
 
 def _temperature_source(
@@ -92,7 +93,7 @@ def _state(
         str(value),
         attributes,
         last_changed=LAST_UPDATED,
-        last_reported=LAST_UPDATED,
+        last_reported=LAST_REPORTED,
         last_updated=LAST_UPDATED,
     )
 
@@ -137,7 +138,7 @@ def test_observation_identity_metadata_and_raw_value_are_retained() -> None:
     assert observation.raw_value == " 21.25 "
     assert observation.normalized_value == 21.25
     assert observation.observed_at is OBSERVED_AT
-    assert observation.source_last_updated is LAST_UPDATED
+    assert observation.source_last_reported is LAST_REPORTED
     assert observation.quality is SourceQuality.VALID
     assert observation.exclusion_reason is None
 
@@ -151,7 +152,7 @@ def test_missing_state_has_no_source_timestamp() -> None:
     )
 
     assert observation.raw_value is None
-    assert observation.source_last_updated is None
+    assert observation.source_last_reported is None
     assert observation.quality is SourceQuality.UNAVAILABLE
     assert observation.exclusion_reason is ExclusionReason.UNAVAILABLE
     assert observation.restored is False
@@ -265,7 +266,7 @@ def test_sentinel_states_ignore_stale_configured_attributes(
 
     assert observation.raw_value == state_value
     assert observation.normalized_value is None
-    assert observation.source_last_updated is LAST_UPDATED
+    assert observation.source_last_reported is LAST_REPORTED
     assert observation.quality is expected_quality
     assert observation.exclusion_reason is expected_reason
 
