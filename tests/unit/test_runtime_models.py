@@ -24,7 +24,10 @@ from custom_components.intelligent_climate.models import (
     RuntimeConfigurationState,
     SourceAggregationResult,
     ThermostatBinding,
+    ThermostatCapabilityDiscovery,
+    ThermostatCapabilityDiscoveryStatus,
     ThermostatRole,
+    ThermostatRuntimeSnapshot,
     ZoneId,
     ZoneObservation,
 )
@@ -213,4 +216,40 @@ def test_runtime_models_reject_mismatched_or_naive_timestamps() -> None:
             (),
             (),
             NOW,
+        )
+
+
+def test_thermostat_snapshot_rejects_mismatched_entity_reference() -> None:
+    """Wrapper and normalized state cannot silently describe different entities."""
+    discovery = ThermostatCapabilityDiscovery(
+        ThermostatCapabilityDiscoveryStatus.UNAVAILABLE,
+        None,
+    )
+
+    with pytest.raises(ValueError, match="entity IDs must match"):
+        ThermostatRuntimeSnapshot(
+            "climate.first",
+            _climate("climate.second"),
+            discovery,
+        )
+
+
+def test_zone_rejects_mismatched_humidity_aggregation_timestamp() -> None:
+    """Optional humidity must share the zone calculation instant."""
+    humidity = replace(
+        _aggregation(47.0),
+        calculated_at=datetime(2026, 7, 23, 12, 1, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValueError, match="humidity aggregation timestamp"):
+        ZoneObservation(
+            zone_id=ZONE_ID,
+            temperature_observations=(),
+            humidity_observations=(),
+            temperature_aggregation=_aggregation(),
+            humidity_aggregation=humidity,
+            thermostat_states=(),
+            sensor_data_degraded=False,
+            thermostat_data_degraded=False,
+            calculated_at=NOW,
         )

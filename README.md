@@ -1,287 +1,357 @@
 # Intelligent Climate
 
-Intelligent Climate is a local-first climate-management integration for Home
-Assistant.
+Intelligent Climate is a local-first Home Assistant integration that combines
+trusted temperature sources into a read-only climate view for each configured
+zone. It helps you understand current conditions and source health while you
+continue to control heating and cooling through the original thermostat.
 
-## Status
+> [!IMPORTANT]
+> **Intelligent Climate is observation-only in Phase 1.** It does not change a
+> thermostat, fan, switch, humidifier, dehumidifier, ventilation system, water
+> heater, or other physical equipment. The integration makes no
+> climate-related service call. Continue using your original thermostat entity
+> for every control action.
 
-Pre-alpha. The project currently contains the repository foundation, strict
-typed schema models for future configuration and runtime Store documents, and
-a Home Assistant UI flow for creating one equipment group with exactly one
-existing `climate` thermostat, followed by native zone config-subentry add and
-reconfigure flows. Zones use immutable UUIDv4 identifiers that remain stable
-across display-name changes and reloads.
+## Current release and maturity
 
-Task 11 adds exactly one visible read-only Home Assistant `climate` entity for
-each configured zone. Each entity has the stable unique ID `<zone_id>:zone`,
-belongs to its exact zone config subentry, and is attached to a virtual zone
-device beneath the integration-owned equipment-group device. Zone and
-equipment-group names may change without changing their stable registry
-identifiers. The integration does not claim physical thermostat devices or
-create devices for source sensors.
+The current release is **0.0.3**. Intelligent Climate is pre-alpha software
+intended for careful evaluation on a current Home Assistant installation. Its
+observation pipeline, read-only zone climate entities, startup recovery, and
+redacted diagnostics are implemented and tested. Later phases remain under
+active design and development.
 
-The zone climate surface presents the coordinator's effective temperature and
-optional effective humidity. It reports HVAC mode and action only when the
-currently available bound thermostats agree. A single target or target range is
-shown only when every bound thermostat is available, uses the same target
-representation, and agrees within an inclusive 0.1°C span. Home Assistant
-converts the integration's Celsius temperature values into the installation's
-configured display unit.
+## Recent changes
 
-Availability is strict: the coordinator must be healthy, the current snapshot
-must contain the zone, reconciliation must be complete, observation must be
-enabled, an effective temperature must exist, and at least one bound thermostat
-must be available. A degraded aggregation remains available when it still
-provides a valid effective temperature. Previously valid values are never
-reused when the current snapshot has no effective temperature.
+- **0.0.3**
+  - Added redacted downloadable diagnostics.
+  - Reorganized the README for integration users and converted the release
+    history into a versioned changelog.
+- **0.0.2**
+  - Valid persisted entities no longer fail only because their integrations
+    load later during Home Assistant startup.
+  - Zones recover automatically through state events when those entities
+    appear.
+- **0.0.1**
+  - Corrected the first-zone setup race.
+  - Changed source freshness from `last_updated` to `last_reported`, so an
+    unchanged value remains fresh when its integration has reported it
+    recently.
 
-The entity always advertises `ClimateEntityFeature(0)`. Its HVAC-mode list
-contains only the current unambiguous observed mode, or is empty when ambiguous.
-Observed targets use bounded standard state attributes without enabling
-writable target features. Every supported asynchronous climate setter
-immediately raises a translated observation-only `ServiceValidationError`;
-there is no executor fallback, service call, command sink, or physical-control
-path.
+[View the full changelog](CHANGELOG.md)
 
-The underlying Task 10 entry-scoped, event-driven observation coordinator
-remains stored as typed `ConfigEntry.runtime_data`. Setup decodes the parent,
-zones, and options once into an immutable runtime configuration, builds
-deterministic source-to-zone and thermostat-to-zone indexes, and subscribes
-to both state-change and state-report events for the unique union of enabled
-sources and configured thermostats. Relevant report bursts are coalesced, only
-affected zones are reevaluated, and unchanged zone snapshot objects and
-timestamps are retained.
+## What Intelligent Climate does today
 
-The coordinator invokes the existing Task 6-9 boundaries for public thermostat
-capability/state snapshots, source normalization, health evaluation, outlier
-rejection, and aggregation. It publishes frozen entry and zone snapshots with
-strict revision semantics, performs startup reconciliation without accepting
-restored values, and uses one earliest-deadline watchdog so a source becomes
-stale even without another report. Disabled observation, the narrow empty Task
-4 skeleton, and a valid parent awaiting its required first zone install no
-subscriptions or timers. The awaiting-first-zone snapshot is empty,
-non-reconciling, and `initializing`; platform setup creates no zone entity or
-orphan entity-registry record. Unload and reload cancel both subscriptions,
-debounce callbacks, reconciliation, and freshness deadlines without carrying
-baselines or pending jump candidates into the new runtime.
+Intelligent Climate currently provides:
 
-Version 0.0.2 separates interactive entity validation from persisted startup
-validation. New thermostat and zone-source selections still require current
-Home Assistant states, correct domains, and a temperature device class for
-sensor sources. During entry setup, persisted entity references are validated
-structurally instead: they must have valid entity IDs, supported domain and
-attribute bindings, stable source identities, correct parent/zone
-relationships, and exclusive thermostat ownership, but their integrations do
-not need to have loaded yet.
+- UI-based setup for an HVAC equipment group with one existing Home Assistant
+  `climate` thermostat.
+- Native zone add and reconfigure flows.
+- One read-only virtual `climate` entity for every configured zone.
+- Zone temperature calculated from one or more configured temperature sensors
+  or a thermostat's public `current_temperature` attribute.
+- Optional humidity aggregation when humidity sources are configured.
+- Observed HVAC mode, action, and target information when the bound thermostat
+  data is available and unambiguous.
+- Event-driven recovery when a configured thermostat or source loads after the
+  Intelligent Climate entry.
+- Source freshness, plausibility, restored-state, jump, contradiction, and
+  outlier checks.
+- Privacy-preserving downloadable diagnostics for configuration and current
+  runtime health.
 
-A zone may therefore start unavailable while a configured thermostat or
-temperature source is absent, unavailable, unknown, disabled, restoring, or
-still loading. The coordinator subscribes to the persisted entity IDs without
-polling; state-change and state-report events automatically reevaluate the
-affected zone when those entities appear. The read-only zone climate entity
-then recovers without an options edit, config-entry reload, or another Home
-Assistant restart. This startup-ordering behavior remains strictly
-observation-only and never calls a Home Assistant service to control equipment.
+The original thermostat remains independently available and is the only
+supported way to change HVAC settings.
 
-Task 11 creates no sensor, binary-sensor, switch, event, equipment-group status,
-or placeholder entities. There is still no Store load or write, persistence,
-diagnostics, Repairs, activity history/event publication, integration service
-registration, command decision, command invocation, or physical control.
+## What it deliberately does not do
 
-This is the first Task 11 build suitable for an initial real Home Assistant
-installation to verify live zone discovery and calculated temperature,
-humidity, mode, action, and target observations while continuing to use the
-original thermostat for all control.
+Phase 1 does not provide:
 
-Task 9 adds pure effective-temperature and effective-humidity calculation over
-the immutable observations produced by Tasks 7 and 8. Enabled sources are
-matched exactly by stable source ID, earlier exclusions pass through unchanged,
-and disabled sources are absent from source accounting. Results report every
-valid, contributing, fallback, and excluded source in deterministic configured
-order with healthy, degraded, or unavailable status.
+- Thermostat, fan, switch, humidity, ventilation, or other equipment control.
+- Schedules, manual overrides, occupancy control, or window suspension.
+- Predictive control, adaptive start or stop, thermal models, or simulation.
+- Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
+- Sensor, binary-sensor, switch, event, diagnostics-device, or frontend
+  entities beyond the read-only zone climate entity.
+- Runtime Store persistence, Repairs issues, or activity history yet.
 
-Temperature uses one deterministic MAD pass when three or more otherwise-valid
-sources exist. A source is excluded only when its absolute deviation is
-strictly greater than `max(outlier_floor_c, 3 × 1.4826 × MAD)`; zero MAD uses
-the configured floor and an exact threshold value remains valid. Two
-otherwise-valid temperatures are contradictory only when their spread is
-strictly greater than twice the floor. Both remain contradictory, but a
-degraded one-source fallback may use the unique smallest positive priority when
-the minimum count permits one source. Priority zero means unconfigured, and a
-tied best positive priority is ambiguous.
+Unavailable or questionable observations are excluded instead of being
+replaced with invented values. Intelligent Climate never substitutes a stale
+persisted temperature into the public zone entity.
 
-Minimum-valid counts are enforced after source health and temperature
-filtering. Mean, mathematical median, normalized weighted average, and explicit
-priority strategies are supported. Successful temperatures are rounded with
-Python's `round(value, 1)` only after calculation; source values and spread are
-not rounded. Humidity supports the same strategies and minimum counts without
-inventing a Celsius-based MAD or contradiction threshold, and is not rounded by
-Task 9.
+## Installation with HACS
 
-Task 9 remains a pure, caller-invoked calculation boundary. It adds no live
-state lookup, runtime subscriptions, coordinator, snapshots, Store access,
-persistence, options flow, entities, diagnostics, Repairs, service calls,
-command decisions, or physical control. Automatic runtime invocation and the
-complete zone observation belong to Task 10.
+Intelligent Climate is structured as a HACS custom integration.
 
-Task 8 adds pure source-health evaluation over Task 7 observations and
-caller-supplied timestamps. Temperatures outside the configured inclusive
-Celsius range and humidity outside the fixed inclusive 0–100 percentage-point
-range are rejected as implausible. Restored values remain excluded until a
-non-restored live observation arrives. Source freshness uses the difference
-between the injected observation time and Home Assistant's actual
-`State.last_reported` time. An unchanged reading remains valid when its
-integration has reported it recently, while a genuinely unreported source
-becomes stale only when its age is strictly greater than the configured
-threshold. Future source timestamps are treated as age zero.
+1. Open HACS in Home Assistant and select **Integrations**.
+2. Open the HACS menu and choose **Custom repositories**.
+3. Paste
+   `https://github.com/GoHoos1/intelligent-climate-public`
+   and select **Integration** as the category.
+4. Find **Intelligent Climate** in HACS and download it.
+5. Restart Home Assistant.
+6. Go to **Settings > Devices & services > Add integration**, search for
+   **Intelligent Climate**, and begin setup.
 
-Accepted values establish or update an immutable source baseline using the
-source report timestamp. Temperature changes are limited by the configured
-Celsius-per-five-minutes rate. A reading beyond that range is held in immutable
-pending-candidate state and can establish a new range only when a second
-consistent reading arrives at least 30 seconds later. Returning to the accepted
-baseline range recovers immediately, while a different suspicious range
-restarts confirmation. Rejected observations never expose a previous baseline
-as their current value.
+Use the public repository URL above when adding the HACS custom repository.
 
-Task 8 does not run automatically and adds no subscriptions, timers, Store
-access, or persistence. Cross-source outlier rejection, contradiction handling,
-minimum-valid-source checks, and aggregation remain Task 9 work. Coordinator
-and runtime invocation remain Task 10 work. No entities, diagnostics, Repairs,
-service calls, command decisions, or physical control are included.
+## Initial setup
 
-Task 7 provides the preceding pure per-source observation boundary over
-supplied public Home Assistant `State` objects. It preserves raw values and
-stable source IDs in immutable typed records, parses finite numeric values,
-converts supported temperature units to Celsius, treats humidity as percentage
-points, and applies per-source calibration only after unit normalization.
-Missing, unknown, unavailable, nonnumeric, nonfinite, and unsupported-unit
-values are excluded with stable quality and reason codes rather than replaced
-with zero.
+The setup flow asks for:
 
-State-based sensors use the public `unit_of_measurement` attached to their
-published state. Climate `current_temperature` values are already serialized
-into Home Assistant's configured temperature unit, but climate states do not
-generically publish that unit as `unit_of_measurement`. The pure Task 7 boundary
-therefore requires a future caller to supply the configured climate temperature
-unit explicitly. Missing, malformed, or unsupported climate unit context fails
-closed as `unit_unsupported`. The restored-state marker is recorded without
-rejection in Task 7 and enforced by the separate Task 8 health boundary.
+1. An equipment-group display name and descriptive equipment type.
+2. One existing thermostat entity from the `climate` domain.
+3. A first-zone display name.
+4. One or more existing temperature sources.
 
-Task 6 adds pure, read-only thermostat capability discovery from public Home
-Assistant `State` attributes. It normalizes supported HVAC modes and
-`ClimateEntityFeature` masks into an immutable typed model, reports discovery
-as complete, partial, or unavailable, and retains target-temperature and target
-range flags independently when both are advertised. That conflicting dual
-target advertisement is retained without choosing one semantic and is reported
-as partial. Missing, malformed, future-unknown, or feature/list-inconsistent
-public capability data also produces a partial result; missing, unknown, or
-unavailable state produces an unavailable result without fabricated
-capabilities.
+A temperature source can be:
 
-Stage and auxiliary-heat observability remain false because Home Assistant
-2026.7.3 exposes no generic public climate attribute for either condition.
-Vendor-specific fields, equipment type, current HVAC mode, and HVAC action do
-not change that result. Capability discovery is not yet wired to setup,
-subscriptions, automatic refresh, a coordinator, or runtime storage.
+- A temperature `sensor` entity, using its state and published unit.
+- A `climate` entity, using its public `current_temperature` attribute.
 
-Task 5 adds backend-authoritative entity selection and validation. Each new zone
-automatically uses its parent's one thermostat and requires one or more existing
-temperature sources. Supported sources are `climate` entities bound to
-`current_temperature` and `sensor` entities with the public temperature device
-class. An `unknown` or `unavailable` state still proves that a configured entity
-exists; runtime availability and capability evaluation are intentionally
-deferred.
+The selected thermostat and sources must exist during interactive setup.
+Unknown or unavailable entities can still be selected when Home Assistant has
+already created their state. Intelligent Climate then evaluates their actual
+health at runtime.
 
-Zone reconfiguration preserves the stable source UUID and all calibration,
-weight, priority, and enabled metadata for every retained `(entity_id,
-attribute)` binding. Pre-Task-5 parents and zones that are completely empty
-binding skeletons remain loadable, but partially bound legacy documents fail
-closed. A structurally valid parent with its one validated primary thermostat
-and no zones is an explicit awaiting-first-zone state. Completing any zone add,
-including the mandatory first zone, automatically schedules exactly one parent
-reload after Home Assistant commits the new subentry, so no manual reload is
-needed. Because this task adds no parent reconfigure flow, a pre-alpha skeleton
-parent must be removed and recreated to complete Task 5 selection.
+After setup, use the original thermostat entity whenever you want to change the
+mode, target, preset, fan setting, or any other physical behavior.
 
-It does not subscribe to, aggregate, or expose source values. It also does not
-provide registry rename handling or mutation, device or entity creation, a
-coordinator, Store persistence, options or parent reconfiguration, diagnostics,
-scheduling, modeling, simulation, service calls, or physical control.
+## Adding and reconfiguring zones
 
-It must not be used to control production HVAC equipment. The current code is
-strictly observation-only and contains no Home Assistant service-call path for
-changing climate-related equipment.
+Open the Intelligent Climate entry under **Settings > Devices & services**.
+Use the entry's zone/subentry controls to add another zone. Use a zone's
+reconfigure action to change its name or temperature sources.
+
+Zone and source identities are generated once and remain stable when display
+names change. Retained source bindings preserve their calibration, weight,
+priority, enabled state, and source identity.
+
+The current relationship model assigns the equipment group's one thermostat to
+each configured zone. Removing and recreating the parent entry is still
+required for parent-level equipment or thermostat changes that are not exposed
+by the current reconfigure surface.
+
+## Understanding the read-only zone climate entity
+
+Every configured zone receives one virtual `climate` entity. It can show:
+
+- The effective current temperature.
+- Effective humidity when humidity sources are configured.
+- The thermostat's observed HVAC mode and action.
+- An observed target or target range when the bound thermostat data agrees.
+
+The entity advertises no writable features. Attempts to use a climate setter
+are rejected with an observation-only error and produce no service call.
+
+A zone may temporarily be unavailable while its thermostat or sources are
+missing, unavailable, unknown, restoring, stale, or still loading. It recovers
+automatically after valid source reports arrive; no options edit, integration
+reload, or Home Assistant restart should be necessary.
+
+## Source health and availability
+
+Intelligent Climate evaluates every enabled source before aggregation.
+Depending on the current observation, a source can be excluded as:
+
+- Missing or unavailable.
+- Unknown.
+- Nonnumeric or nonfinite.
+- Using an unsupported temperature unit.
+- Outside the configured plausible range.
+- Stale.
+- Restored but not yet confirmed by a live report.
+- A large unconfirmed jump.
+- A cross-source outlier.
+- Contradictory with another source.
+
+Freshness uses Home Assistant's `State.last_reported` timestamp. An unchanged
+value therefore remains fresh when its integration has recently reported it.
+A genuinely unreported value becomes stale after the configured threshold.
+
+With three or more valid temperatures, one deterministic median-deviation pass
+can exclude outliers. Two strongly disagreeing sources are marked
+contradictory; a configured priority source can provide a degraded fallback
+only when the minimum-source policy permits it. Mean, median, weighted average,
+and priority aggregation are supported.
+
+## Downloading diagnostics
+
+To download diagnostics:
+
+1. Go to **Settings > Devices & services**.
+2. Open the Intelligent Climate integration entry.
+3. Open the entry menu and choose **Download diagnostics**.
+
+Diagnostics schema version 1 includes:
+
+- Integration and config-entry schema versions.
+- Configuration lifecycle state.
+- Equipment-group and zone structure.
+- Safe observation options.
+- Thermostat availability, capability status, and approved observed values.
+- Zone aggregation status and effective values.
+- Configured-order source rows, quality counts, exclusion-reason counts, and
+  safe report timestamps.
+
+Every download uses a new random secret salt. Entity references and
+user-assigned names become report-scoped HMAC-SHA256 pseudonyms. The salt,
+config-entry ID, unique ID, raw entity IDs, raw names, state objects, arbitrary
+attributes, device/area/context/user/account identifiers, credentials,
+coordinates, URLs, and filesystem paths are not included.
+
+Diagnostics are designed to reduce accidental disclosure, not to make a report
+safe for every possible public context. **Review the downloaded file before
+posting it publicly.**
+
+## Troubleshooting
+
+### The integration will not finish setup
+
+Confirm that the persisted configuration is structurally valid and that the
+selected thermostat belongs to only one Intelligent Climate entry. New
+interactive selections must exist and use the supported domain or temperature
+device class.
+
+### The zone entity is unavailable after a restart
+
+The thermostat or a source integration may still be loading. Intelligent
+Climate subscribes to the configured entity IDs even when their states do not
+exist yet. The zone should recover through the normal state event when those
+entities appear.
+
+### A source is stale even though its value did not change
+
+Some integrations report unchanged readings less often than others. Check the
+source's reporting behavior and increase the configured freshness threshold if
+its normal report interval is longer. Recent unchanged reports are recognized
+through `last_reported`.
+
+### A source is excluded as jumping, contradictory, or an outlier
+
+Check the physical sensor, unit, calibration, and update timing. A suspicious
+jump needs a later consistent reading before it is accepted. Contradictory or
+outlying values are not silently substituted.
+
+### The thermostat can be changed but the zone entity cannot
+
+That is expected. The zone entity is intentionally read-only. Use the original
+thermostat entity for control.
+
+When reporting a problem, include the integration version, a reviewed
+diagnostic download, the expected behavior, and the relevant Home Assistant
+logs without credentials.
+
+## Privacy and local-first behavior
+
+Observation and aggregation run locally inside Home Assistant. The integration
+performs no network access for diagnostics and adds no cloud account. It reads
+only the configured Home Assistant states needed for observation.
+
+Normal diagnostic generation performs no polling, filesystem I/O, service
+call, timer creation, subscription, reload, or runtime mutation. Raw Home
+Assistant state objects and complete attribute mappings are never serialized.
+
+## Current roadmap and Phase 1 status
+
+Phase 1 is being delivered in small observation-only slices. Tasks 1 through 12
+are implemented: repository and schema foundations, UI configuration, zone
+identity, entity validation, capability discovery, source normalization and
+health, aggregation, the event-driven coordinator, read-only zone climate
+entities, and redacted diagnostics.
+
+Remaining Phase 1 work includes Repairs integration, bounded activity history,
+lifecycle/migration hardening, and final acceptance testing. Tasks 13 through
+16 are not implemented. Scheduled control begins no earlier than Phase 2, and
+predictive control remains a later phase.
+
+See the [implementation backlog](docs/implementation-backlog.md) for the
+approved sequence and explicit exclusions.
 
 ## Documentation
 
-- Product specification: `docs/product-specification.md`
-- Phase 1 technical design: `docs/phase-1-technical-design.md`
-- Development guide: `docs/development.md`
-- Phase 1 non-goals: `docs/non-goals-phase-1.md`
-- Implementation backlog: `docs/implementation-backlog.md`
-- Licensing options: `docs/licensing-options.md`
-- ADRs: `docs/adr/`
+- [Product specification](docs/product-specification.md)
+- [Phase 1 technical design](docs/phase-1-technical-design.md)
+- [Implementation backlog](docs/implementation-backlog.md)
+- [Phase 1 non-goals](docs/non-goals-phase-1.md)
+- [Development guide](docs/development.md)
+- [Architecture decisions](docs/adr/)
+- [Full changelog](CHANGELOG.md)
+- [Public source repository](https://github.com/GoHoos1/intelligent-climate-public)
+- [Public issue tracker](https://github.com/GoHoos1/intelligent-climate-public/issues)
+
+## Technical architecture
+
+### Configuration and identity
+
+One Home Assistant config entry represents one HVAC equipment group. Zones are
+native config subentries. Equipment groups, zones, and sources use generated
+UUIDs for stable integration identity; names and entity IDs remain
+configuration references.
+
+Persisted JSON is decoded through strict typed boundaries. Unknown fields,
+invalid identifiers, duplicate sources, partial legacy graphs, and ambiguous
+ownership fail closed. Config-entry major/minor versions remain `1.0` in
+release 0.0.3; diagnostics do not change the persisted configuration schema and
+require no migration.
+
+### Lifecycle and observation
+
+The entry stores one typed, event-driven coordinator in
+`ConfigEntry.runtime_data`. It builds deterministic source-to-zone and
+thermostat-to-zone indexes and listens for state-change and state-report events
+over the configured observation set. Short bursts are coalesced, and only
+affected zones are reevaluated.
+
+Startup enters reconciliation, evaluates the current public states, and rejects
+restored values until a live report arrives. One earliest-deadline watchdog
+handles freshness without polling. Unload and reload cancel subscriptions,
+debounce callbacks, reconciliation, and freshness deadlines.
+
+### Aggregation behavior
+
+Source extraction, health evaluation, capability discovery, aggregation, and
+climate presentation are separate typed boundaries. Temperature values are
+normalized to Celsius, calibrated, evaluated for health, filtered once for
+outliers or contradiction, aggregated, and rounded to one decimal only after
+calculation. Home Assistant converts the result to the installation's display
+unit.
+
+### Safety boundary
+
+The integration package contains no active physical command adapter and no
+direct `hass.services.async_call` path. The virtual climate entity advertises
+`ClimateEntityFeature(0)`, and every supported setter raises a translated
+validation error. Diagnostics are a read-only projection of already decoded
+configuration and the current immutable coordinator snapshot.
+
+## Development and validation
+
+Use Python 3.14.2 or newer in a virtual environment, WSL2, or a dev container.
+Do not install project dependencies into a global or per-user Python
+environment.
+
+```powershell
+python -m pytest --cov=custom_components.intelligent_climate --cov-report=term-missing
+python -m pytest tests/unit/test_no_physical_control_paths.py -q
+python -m ruff check .
+python -m ruff format --check .
+python -m mypy custom_components/intelligent_climate tests
+git diff --check
+```
+
+GitHub Actions run Quality and Hassfest automatically. HACS validation remains
+manual-only through `workflow_dispatch`. See the
+[development guide](docs/development.md) for environment details.
 
 ## License
 
-This public source snapshot is licensed under the
+This public source distribution is licensed under the
 [PolyForm Strict License 1.0.0](LICENSE).
 
 The license permits qualifying noncommercial use but does not grant permission
 to distribute copies, modify the software, or create derivative works.
 Intelligent Climate is source-available software; it is not released under an
-open-source license.
+open-source license. See [NOTICE](NOTICE) for the accompanying attribution and
+distribution notice.
 
 Copyright © 2026 Michael Wells.
-## Development
-
-Development is performed incrementally using the authoritative project
-documents and automated testing.
-
-The repository foundation provides:
-
-- Home Assistant custom-integration package skeleton for the
-  `intelligent_climate` domain.
-- Minimal config-entry setup and unload lifecycle functions.
-- Minimal typed identifiers, operating-mode terminology, and strict schema
-  boundary helpers.
-- A UI config flow that records an equipment-group name and equipment type,
-  validates one exclusively owned climate thermostat, generates a stable UUID,
-  then chains to a native first-zone subentry flow.
-- Native zone add and reconfigure flows with temperature-source selectors,
-  normalized display names, per-parent duplicate-name checks, stable zone and
-  retained-source UUIDv4 identities, and fail-closed setup validation.
-- Pure public-state thermostat capability discovery with immutable complete,
-  partial, and unavailable results and no vendor-specific stage or auxiliary
-  inference.
-- Pure source observation and normalization with immutable raw/normalized
-  records, Celsius and humidity percentage-point normalization, calibration,
-  and explicit invalid-value reason codes.
-- Pure source freshness and health evaluation with plausible ranges,
-  restored-value exclusion, strict freshness boundaries, immutable accepted
-  baselines, temperature jump candidates, and 30-second confirmation.
-- Pure immutable temperature and humidity aggregation with deterministic source
-  accounting, temperature MAD rejection, two-source contradiction handling,
-  minimum-valid counts, and mean, median, weighted, and explicit-priority
-  strategies.
-- Typed config-entry runtime data with indexed live state subscriptions,
-  affected-zone coalescing, immutable entry/zone/thermostat snapshots, startup
-  reconciliation, freshness deadlines, and complete unload/reload cleanup.
-- One coordinator-backed, nonpolling read-only climate entity per configured
-  zone, with stable zone-based unique IDs, exact config-subentry ownership,
-  integration-owned equipment/zone devices, strict availability, unit-aware
-  temperature and target presentation, consensus mode/action/target
-  observations, zero writable features, and translated setter rejection.
-- An observation-only command boundary that suppresses future command intents.
-- Tests that fail if integration Python code introduces a
-  `hass.services.async_call` path.
-
-Run local checks with:
-
-```powershell
-python -m pytest --cov=custom_components.intelligent_climate --cov-report=term-missing
-python -m ruff check .
-python -m ruff format --check .
-python -m mypy custom_components/intelligent_climate tests
-```

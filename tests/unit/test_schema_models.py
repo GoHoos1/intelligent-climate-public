@@ -419,6 +419,18 @@ def test_duplicate_humidity_source_entity_attribute_in_one_zone_is_rejected() ->
         decode_zone_config(document)
 
 
+def test_cross_type_duplicate_entity_attribute_is_rejected() -> None:
+    """Temperature and humidity collections cannot repeat one exact binding."""
+    document = zone_document()
+    document["humidity_sources"][0]["attribute"] = "current_temperature"
+
+    with pytest.raises(
+        SchemaValidationError,
+        match="temperature_sources: must not repeat",
+    ):
+        decode_zone_config(document)
+
+
 def test_source_entity_attribute_reuse_across_zones_is_allowed() -> None:
     """Test shared entities can be reused across zones with stable source IDs."""
     second_zone = zone_document()
@@ -775,6 +787,16 @@ def test_config_future_minor_version_is_rejected() -> None:
         )
 
 
+def test_options_future_minor_version_is_rejected() -> None:
+    """Options use the same fail-closed config-entry minor-version boundary."""
+    with pytest.raises(SchemaMigrationError, match="future config-entry minor version"):
+        migrate_options_document(
+            options_document(),
+            version=1,
+            minor_version=1,
+        )
+
+
 def test_config_old_version_without_migration_path_is_rejected() -> None:
     """Test undocumented historical config versions fail explicitly."""
     with pytest.raises(SchemaMigrationError, match="no migration path"):
@@ -1023,6 +1045,51 @@ def test_options_reject_invalid_bounds() -> None:
         decode_options(document)
 
 
+@pytest.mark.parametrize(
+    ("document_factory", "mutator", "decoder", "expected"),
+    [
+        (
+            equipment_group_document,
+            lambda document: document["equipment_group"].update(
+                {"equipment_group_id": 42}
+            ),
+            decode_equipment_group_document,
+            "equipment_group.equipment_group_id: must be a string",
+        ),
+        (
+            equipment_group_document,
+            lambda document: document["equipment_group"].update({"name": 42}),
+            decode_equipment_group_document,
+            "equipment_group.name: must be a string",
+        ),
+        (
+            equipment_group_document,
+            lambda document: document["equipment_group"].update({"equipment_type": 42}),
+            decode_equipment_group_document,
+            "equipment_group.equipment_type: must be a string",
+        ),
+        (
+            zone_document,
+            lambda document: document.update({"zone_id": 42}),
+            decode_zone_config,
+            "zone_id: must be a string",
+        ),
+    ],
+)
+def test_schema_identifier_name_and_enum_boundaries_reject_nonstrings(
+    document_factory: Any,
+    mutator: Any,
+    decoder: Any,
+    expected: str,
+) -> None:
+    """Strict scalar boundaries fail before values can enter typed models."""
+    document = document_factory()
+    mutator(document)
+
+    with pytest.raises(SchemaValidationError, match=expected):
+        decoder(document)
+
+
 def test_runtime_store_round_trips_deterministically() -> None:
     """Test runtime Store decode/encode is deterministic and JSON-compatible."""
     document = decode_runtime_store_document(runtime_store_document())
@@ -1084,6 +1151,25 @@ def test_runtime_store_decisions_are_decoded_immutably() -> None:
     ]
     with pytest.raises(TypeError):
         decoded.decisions[0]["decision_id"] = "changed"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (inf, "must be finite"),
+        (object(), "must be a JSON-compatible value"),
+    ],
+)
+def test_runtime_store_rejects_unsafe_nested_decision_values(
+    value: object,
+    expected: str,
+) -> None:
+    """Generic future decision objects still enforce the JSON safety boundary."""
+    document = runtime_store_document()
+    document["decisions"] = [{"detail": value}]
+
+    with pytest.raises(SchemaValidationError, match=expected):
+        decode_runtime_store_document(document)
 
 
 def test_runtime_store_rejects_invalid_humidity_percentage() -> None:

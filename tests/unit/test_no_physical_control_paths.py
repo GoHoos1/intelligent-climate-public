@@ -192,7 +192,6 @@ def test_task_6_has_no_setup_wiring_or_new_entity_platform_module() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
     }
@@ -243,7 +242,6 @@ def test_task_7_has_no_setup_wiring_or_out_of_scope_modules() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
     }
@@ -299,7 +297,6 @@ def test_task_8_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
     }
@@ -357,7 +354,6 @@ def test_task_9_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
     }
@@ -427,7 +423,6 @@ def test_task_10_invokes_existing_pipeline_and_no_later_modules_exist() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
         "history.py",
@@ -557,18 +552,18 @@ def test_task_11_entity_properties_do_not_read_home_assistant_states() -> None:
 
 
 def test_task_11_adds_no_other_entity_or_support_modules() -> None:
-    """Test no placeholder platform or deferred support surface was introduced."""
+    """Test Task 12 is the only approved post-Task-11 support surface."""
     excluded_modules = {
         "sensor.py",
         "binary_sensor.py",
         "switch.py",
         "event.py",
-        "diagnostics.py",
         "repairs.py",
         "storage.py",
         "history.py",
     }
 
+    assert (INTEGRATION_DIR / "diagnostics.py").is_file()
     assert excluded_modules.isdisjoint(
         path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
     )

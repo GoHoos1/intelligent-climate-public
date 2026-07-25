@@ -965,17 +965,79 @@ No raw entity state object or sensitive diagnostic field is placed on the event 
 
 ### 15.4 Diagnostics redaction
 
-Diagnostics include integration/config versions, group relationship, hashed entity references, capability booleans, source-quality summaries, current state-machine states, recent redacted activity, Store health, and Repairs issue codes.
+Task 12 implements config-entry diagnostics only through
+`async_get_config_entry_diagnostics`. Device-specific diagnostics remain
+unimplemented. The returned integration payload has
+`diagnostics_schema_version: 1` and three stable top-level sections:
 
-Diagnostics redact:
+- `integration`: domain, integration version, and config-entry major/minor
+  versions.
+- `configuration`: bounded decode status, decoded runtime-configuration state,
+  pseudonymized entry/group/zone names, equipment metadata, generated group and
+  zone UUIDs, pseudonymized thermostat/source/auxiliary entity references,
+  source binding/calibration/weight/priority/enabled metadata, and the
+  observation options currently consumed by the coordinator.
+- `runtime`: runtime availability, snapshot revision/control state/
+  reconciliation/timestamp, thermostat availability and approved capability/
+  observed-state fields, and per-zone effective values plus deterministic
+  configured-order source summaries.
 
-- Config-entry ID and unique ID.
-- Entity IDs and user-assigned names, replaced with stable per-report hashes.
-- Device IDs, area IDs, context/user IDs, and external account IDs.
-- Physical location, coordinates, URLs, tokens, and weather-provider attributes.
-- Raw source attributes not on an allowlist.
+Per-zone temperature and optional humidity summaries contain configured,
+enabled, valid, contributing, and excluded counts; counts for every
+`SourceQuality` and `ExclusionReason`; aggregation status/reason codes; and
+bounded per-source rows. Source rows contain generated source UUID,
+pseudonymized entity reference, binding kind, enabled/contributing/fallback
+state, quality/reason, safe timestamps, and restored state. Raw source values
+are not diagnostic fields.
 
-Temperatures, humidity, capability flags, timestamps, reason codes, and integration-generated UUIDs may remain because they are necessary for troubleshooting and do not identify a physical account by themselves.
+The implementation builds this report from decoded immutable configuration
+models and the current immutable coordinator snapshot. It never recursively
+copies `ConfigEntry.data`, `ConfigEntry.options`, config-subentry data, Home
+Assistant `State` objects, complete attribute mappings, or provider-specific
+objects. Home Assistant's `async_redact_data` helper is applied only as defense
+in depth after the explicit allowlist projection is complete.
+
+Every diagnostic call creates a new 32-byte standard-library random salt. A
+small report-scoped pseudonymizer uses HMAC-SHA256 over
+`reference_type + NUL + raw_value`, caches results for consistent references
+within that report, and emits a bounded 12-hex-character value such as
+`entity_ab12cd34ef56` or `name_9812abcdef01`. The secret salt is never returned.
+The same typed reference is consistent within one report, while independent
+reports ordinarily cannot be correlated. Python `hash()` is not a serialization
+or privacy boundary.
+
+The config-entry ID and unique ID are omitted entirely. Device/entity registry
+IDs, area IDs, context/user/account identifiers, credentials, authorization
+data, locations, coordinates, addresses, URLs, webhook IDs, private keys,
+environment values, paths, tracebacks, arbitrary attributes, and raw state
+representations are neither allowlisted nor copied. Temperatures, humidity,
+standardized HVAC modes/actions, capability flags, timestamps, reason codes,
+and integration-generated equipment-group, zone, and source UUIDs may remain
+because they are needed for troubleshooting.
+
+Loaded entries use their already decoded typed runtime configuration and
+current snapshot without mutation. Valid unloaded entries are decoded through
+the normal strict persisted-configuration boundary and return
+`runtime.available: false`. Awaiting-first-zone and transitional empty-skeleton
+entries therefore remain diagnosable. Invalid persisted configuration returns a
+bounded `schema_validation`, `entity_validation`, or
+`invalid_configuration` category without the exception string, submitted
+values, or traceback. Disabled observation returns its real disabled snapshot
+without inventing source quality.
+
+Diagnostics perform no network or filesystem I/O, polling, service call, task,
+timer, subscription, reload, config mutation, snapshot change, baseline change,
+pending-jump change, or coordinator revision change. Tests serialize the final
+payload and recursively scan mapping keys and values against realistic
+sensitive fixtures. They also verify report-local consistency, cross-report
+variation, pseudonym format, generated UUID retention, deterministic source
+ordering, quality/reason counts, failed/unloaded/transitional behavior, and
+coordinator object/revision identity.
+
+Recent redacted activity, Store health, and Repairs issue codes remain part of
+the broader Phase 1 design but are deliberately absent from diagnostics until
+Tasks 13-15 implement those underlying features. Task 12 does not fabricate
+healthy, empty, or successful placeholders for them.
 
 ## 16. Testing plan
 

@@ -6,7 +6,7 @@ import json
 import tomllib
 from pathlib import Path
 
-from custom_components.intelligent_climate.const import DOMAIN
+from custom_components.intelligent_climate.const import DOMAIN, INTEGRATION_VERSION
 
 ROOT = Path(__file__).parents[2]
 CUSTOM_COMPONENTS_DIR = ROOT / "custom_components"
@@ -47,7 +47,7 @@ def test_manifest_matches_foundation_scope() -> None:
     assert isinstance(manifest, dict)
     assert manifest["domain"] == DOMAIN
     assert manifest["name"] == "Intelligent Climate"
-    assert manifest["version"] == "0.0.2"
+    assert manifest["version"] == INTEGRATION_VERSION
     assert manifest["codeowners"] == ["@GoHoos1"]
     assert manifest["config_flow"] is True
     assert manifest["dependencies"] == []
@@ -64,13 +64,13 @@ def test_manifest_matches_foundation_scope() -> None:
     assert manifest["requirements"] == []
 
 
-def test_manifest_and_package_versions_match_hotfix_release() -> None:
-    """Test both release metadata files identify version 0.0.2."""
+def test_manifest_and_package_versions_match_diagnostics_release() -> None:
+    """Test both release metadata files identify version 0.0.3."""
     manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
     package = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert manifest["version"] == "0.0.2"
-    assert package["project"]["version"] == "0.0.2"
+    assert manifest["version"] == INTEGRATION_VERSION == "0.0.3"
+    assert package["project"]["version"] == INTEGRATION_VERSION
 
 
 def test_manifest_contains_hacs_required_fields() -> None:

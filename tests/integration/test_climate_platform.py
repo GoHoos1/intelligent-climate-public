@@ -295,7 +295,7 @@ async def _flush_entity_debounce(
     await hass.async_block_till_done()
     async_fire_time_changed(
         hass,
-        entry.runtime_data.data.calculated_at + timedelta(seconds=1),
+        utcnow() + timedelta(seconds=1),
     )
     await hass.async_block_till_done()
 
@@ -310,9 +310,10 @@ async def _setup_entry(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     if finish_reconciliation and entry.runtime_data.data.reconciling:
+        # The helper compares this timestamp with wall-clock time at invocation.
         async_fire_time_changed(
             hass,
-            entry.runtime_data.data.calculated_at + timedelta(seconds=61),
+            utcnow() + timedelta(seconds=61),
         )
         await hass.async_block_till_done()
     return cast(ConfigEntry, entry)
