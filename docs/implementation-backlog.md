@@ -421,6 +421,31 @@ Safety impact: Enables troubleshooting without leaking sensitive data.
 
 Observation-only: Yes.
 
+Status: Implemented. This task added Home Assistant config-entry diagnostics
+schema version 1 with a strict typed allowlist projection over decoded
+configuration and the current immutable coordinator snapshot. Reports include
+integration/config-entry versions, bounded decode and runtime-configuration
+state, equipment/zone/source structure, safe observation options, thermostat
+availability and approved capability/observed-state fields, effective zone
+values, aggregation state/reasons, and configured-order source-quality and
+exclusion-reason summaries. Valid unloaded, awaiting-first-zone, transitional
+empty-skeleton, disabled-observation, and failed-decode entries return bounded
+safe reports without requiring runtime data or exposing malformed input.
+
+Every report receives a new secret 32-byte random salt. Entity references and
+user-assigned entry/group/zone names use cached report-scoped HMAC-SHA256
+pseudonyms that are consistent only within that report; the salt is never
+returned. Config-entry IDs/unique IDs, raw entity IDs/names, registry and
+context/user/account identifiers, credentials, locations, coordinates,
+addresses, URLs, private keys, paths, raw states/values, and arbitrary
+attributes are omitted by construction. Home Assistant redaction is applied
+only after the explicit allowlist as defense in depth.
+
+The task added no Store load/write, Repairs issue, activity history/event,
+entity or platform, polling, service, command, schedule, prediction, timer,
+subscription, runtime mutation, or physical control. Device-specific
+diagnostics remain absent. Tasks 13 through 16 remain unimplemented.
+
 ## 13. Repairs Integration
 
 Purpose: Report actionable configuration and runtime problems.

@@ -35,6 +35,7 @@ from custom_components.intelligent_climate.models import (
     TemperatureSource,
 )
 from custom_components.intelligent_climate.observation import (
+    _excluded,
     observe_humidity_source,
     observe_temperature_source,
 )
@@ -117,6 +118,64 @@ def _assert_invariant(observation: SourceObservation[float]) -> None:
         assert observation.normalized_value is None
         assert observation.exclusion_reason is not None
         assert observation.exclusion_reason.value == observation.quality.value
+
+
+def test_missing_humidity_source_is_unavailable() -> None:
+    """The humidity path returns its early missing-state observation."""
+    observation = observe_humidity_source(
+        _humidity_source(),
+        None,
+        observed_at=OBSERVED_AT,
+    )
+
+    assert observation.quality is SourceQuality.UNAVAILABLE
+    assert observation.exclusion_reason is ExclusionReason.UNAVAILABLE
+
+
+def test_nonnumeric_humidity_is_excluded() -> None:
+    """The humidity path propagates bounded numeric-parse quality."""
+    observation = observe_humidity_source(
+        _humidity_source(),
+        _state(
+            "sensor.room_humidity",
+            "not-numeric",
+            {ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE},
+        ),
+        observed_at=OBSERVED_AT,
+    )
+
+    assert observation.quality is SourceQuality.NON_NUMERIC
+    assert observation.exclusion_reason is ExclusionReason.NON_NUMERIC
+
+
+def test_humidity_calibration_overflow_is_nonfinite() -> None:
+    """Finite input plus finite calibration must still produce a finite result."""
+    maximum = float.fromhex("0x1.fffffffffffffp+1023")
+    observation = observe_humidity_source(
+        _humidity_source(offset_pct=maximum),
+        _state(
+            "sensor.room_humidity",
+            maximum,
+            {ATTR_UNIT_OF_MEASUREMENT: PERCENTAGE},
+        ),
+        observed_at=OBSERVED_AT,
+    )
+
+    assert observation.quality is SourceQuality.NON_FINITE
+    assert observation.exclusion_reason is ExclusionReason.NON_FINITE
+
+
+def test_excluded_helper_rejects_valid_quality() -> None:
+    """The private exclusion constructor cannot create an invalid valid record."""
+    with pytest.raises(ValueError, match="must be nonvalid"):
+        _excluded(
+            SOURCE_ID,
+            "private",
+            OBSERVED_AT,
+            LAST_REPORTED,
+            SourceQuality.VALID,
+            False,
+        )
 
 
 def test_observation_identity_metadata_and_raw_value_are_retained() -> None:
