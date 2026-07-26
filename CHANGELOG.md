@@ -7,7 +7,7 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
-## 0.0.3 - 2026-07-24
+## 0.0.3 - 2026-07-25
 
 ### Added
 
