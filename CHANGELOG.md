@@ -7,6 +7,41 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.4 - 2026-07-27
+
+### Added
+
+- Added entry-scoped Home Assistant Repairs issues for `missing_entity`,
+  `incompatible_entity`, `migration_failed`, `store_write_failed`, and
+  `command_boundary_violation`.
+- Added deterministic `entry_<12 lowercase hex>_<issue_code>` issue IDs,
+  translated actionable issue text, current-error severity, documented
+  persistence, and deterministic creation and clearing behavior.
+- Added a typed Store-write failure hook that reports the issue after three
+  consecutive failures and clears it after a successful/reset notification.
+  Runtime Store loading and writing remain unimplemented.
+- Added sorted active issue codes to the bounded diagnostics runtime projection
+  without changing diagnostics schema version 1.
+
+### Changed
+
+- Corrected the diagnostics privacy documentation to distinguish the
+  Intelligent Climate-owned data section from Home Assistant's outer diagnostic
+  envelope and filename.
+- Documented that report-scoped entity/name pseudonyms change between downloads
+  while integration-generated equipment-group, zone, and source UUIDs remain
+  stable and can correlate reports from the same configuration.
+- Bumped integration and package versions from 0.0.3 to 0.0.4 without changing
+  config-entry, zone, Store-model, or diagnostics schema versions.
+
+### Security
+
+- Unexpected nonempty command intents remain suppressed without a Home
+  Assistant service call or physical command and now create a payload-free
+  persistent Repairs issue.
+- Repairs adds no automatic repair flow, configuration mutation, Store
+  filesystem behavior, or writable/physical HVAC behavior.
+
 ## 0.0.3 - 2026-07-25
 
 ### Added
@@ -46,7 +81,9 @@ No unreleased changes.
   attributes are never copied into diagnostics.
 - Added report-scoped HMAC-SHA256 pseudonyms for every entity reference and
   user-assigned name. Every report receives a fresh random secret salt that is
-  never returned, preventing ordinary cross-report correlation.
+  never returned, preventing ordinary cross-report correlation of those
+  references. Integration-generated equipment-group, zone, and source UUIDs
+  remain stable and may correlate reports from the same configuration.
 - Added recursive forbidden-value tests covering entry/entity/name/device/area/
   context/user/account identifiers, credentials, URLs, coordinates, addresses,
   private keys, environment/path-like data, and arbitrary provider attributes.

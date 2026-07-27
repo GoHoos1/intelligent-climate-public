@@ -444,7 +444,8 @@ only after the explicit allowlist as defense in depth.
 The task added no Store load/write, Repairs issue, activity history/event,
 entity or platform, polling, service, command, schedule, prediction, timer,
 subscription, runtime mutation, or physical control. Device-specific
-diagnostics remain absent. Tasks 13 through 16 remain unimplemented.
+diagnostics remain absent. Tasks 14 through 16 remain unimplemented after the
+separate Task 13 Repairs slice.
 
 ## 13. Repairs Integration
 
@@ -465,6 +466,52 @@ Required tests: Issue lifecycle for each supported problem and translation keys.
 Safety impact: Makes unsafe or broken observation states visible.
 
 Observation-only: Yes.
+
+Status: Implemented. This task added a typed entry-scoped Repairs manager using
+Home Assistant 2026.7's supported issue-registry callbacks. Issue IDs use
+`entry_<12 lowercase SHA-256-derived hex>_<issue_code>` and never contain raw
+entry IDs, entity IDs, names, group/zone UUIDs, or Python `hash()` output. Every
+issue uses current-error severity and `is_fixable=False`.
+
+Supported lifecycle:
+
+- `missing_entity` is nonpersistent and aggregated once per entry. It is
+  evaluated only after startup reconciliation completes, covers a missing
+  configured thermostat or enabled temperature/humidity source State, ignores
+  existing unknown/unavailable States, and clears when no evaluated reference
+  is missing. Disabled observation deliberately does not evaluate sources.
+- `incompatible_entity` is nonpersistent and aggregated once per entry. It is
+  created only for a definitive existing binding conflict, such as an
+  available sensor with the wrong device class, not for missing optional
+  climate attributes or ordinary source-quality states. It clears when all
+  evaluated bindings are compatible.
+- `migration_failed` is persistent. Known config/schema migration and
+  fail-closed persisted-validation boundaries create it before setup aborts
+  using a bounded failure category, and a later successfully validated setup
+  clears it.
+- `store_write_failed` is persistent. Task 13 provides a typed hook that
+  creates it at three or more consecutive failures and clears it on a
+  successful/reset notification. No runtime Store load, write, retry, timer,
+  task, or filesystem behavior was added; wiring remains deferred to the
+  approved Store/lifecycle task.
+- `command_boundary_violation` is persistent. A nonempty intent reaching the
+  observe-only sink remains suppressed, logs only a stable reason, creates a
+  payload-free issue, and makes no service call or physical command. A later
+  clean setup clears a stale event issue before observation and another
+  violation recreates it.
+
+Coordinator synchronization reuses reconciliation, targeted state events, and
+the existing watchdog evaluation; it adds no subscription, polling loop, or
+recurring callback. Unload cleans coordinator callbacks but does not delete a
+still-valid persistent event issue. Diagnostics schema version 1 now permits a
+backward-compatible `runtime.repairs.active_issue_codes` list containing only
+sorted stable codes. English issue titles/descriptions are supplied through the
+established custom-integration `translations/en.json` `issues` section.
+
+Task 13 added no automatic RepairsFlow, fix flow, configuration mutation,
+physical command adapter, service call, writable entity, Store persistence,
+activity history, or new entity platform. Tasks 14 through 16 remain
+unimplemented.
 
 ## 14. Bounded Event and Activity History
 

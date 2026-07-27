@@ -967,8 +967,11 @@ No raw entity state object or sensitive diagnostic field is placed on the event 
 
 Task 12 implements config-entry diagnostics only through
 `async_get_config_entry_diagnostics`. Device-specific diagnostics remain
-unimplemented. The returned integration payload has
-`diagnostics_schema_version: 1` and three stable top-level sections:
+unimplemented. Home Assistant places the returned integration-owned payload
+under the downloaded report's `data` section. That payload has
+`diagnostics_schema_version: 1` and three stable top-level sections. Schema
+version 1 permits backward-compatible additive fields; Task 13 does not change
+or remove an existing field:
 
 - `integration`: domain, integration version, and config-entry major/minor
   versions.
@@ -980,7 +983,9 @@ unimplemented. The returned integration payload has
 - `runtime`: runtime availability, snapshot revision/control state/
   reconciliation/timestamp, thermostat availability and approved capability/
   observed-state fields, and per-zone effective values plus deterministic
-  configured-order source summaries.
+  configured-order source summaries. Task 13 adds
+  `repairs.active_issue_codes`, containing only sorted stable issue-code
+  strings.
 
 Per-zone temperature and optional humidity summaries contain configured,
 enabled, valid, contributing, and excluded counts; counts for every
@@ -1002,18 +1007,31 @@ small report-scoped pseudonymizer uses HMAC-SHA256 over
 `reference_type + NUL + raw_value`, caches results for consistent references
 within that report, and emits a bounded 12-hex-character value such as
 `entity_ab12cd34ef56` or `name_9812abcdef01`. The secret salt is never returned.
-The same typed reference is consistent within one report, while independent
-reports ordinarily cannot be correlated. Python `hash()` is not a serialization
-or privacy boundary.
+The same typed reference is consistent within one report, while entity/name
+pseudonyms ordinarily change between reports. Python `hash()` is not a
+serialization or privacy boundary.
 
-The config-entry ID and unique ID are omitted entirely. Device/entity registry
-IDs, area IDs, context/user/account identifiers, credentials, authorization
-data, locations, coordinates, addresses, URLs, webhook IDs, private keys,
-environment values, paths, tracebacks, arbitrary attributes, and raw state
-representations are neither allowlisted nor copied. Temperatures, humidity,
-standardized HVAC modes/actions, capability flags, timestamps, reason codes,
-and integration-generated equipment-group, zone, and source UUIDs may remain
-because they are needed for troubleshooting.
+The Intelligent Climate data section omits the raw config-entry ID and unique
+ID, raw entity IDs, raw user-assigned names, Home Assistant `State` objects and
+arbitrary attributes, credentials, coordinates, URLs, and filesystem paths.
+Device/entity registry IDs, area IDs, context/user/account identifiers,
+authorization data, locations, addresses, webhook IDs, private keys,
+environment values, and tracebacks are likewise neither allowlisted nor
+copied. Temperatures, humidity, standardized HVAC modes/actions, capability
+flags, timestamps, reason codes, and integration-generated equipment-group,
+zone, and source UUIDs may remain because they are needed for troubleshooting.
+Those generated UUIDs are stable configuration identities and can correlate
+multiple reports from the same configuration even though report-scoped entity
+and name pseudonyms change.
+
+Home Assistant owns the outer diagnostic envelope and downloaded filename.
+Intelligent Climate cannot redact or control those wrapper fields. Depending
+on the Home Assistant release, the envelope or filename may include the raw
+config-entry ID, Home Assistant version, platform/system information, time
+zone, installed custom-integration names and versions, integration
+documentation URLs, and other general Home Assistant diagnostic metadata.
+Users must review the filename and entire downloaded document, including the
+outer envelope, before sharing it publicly.
 
 Loaded entries use their already decoded typed runtime configuration and
 current snapshot without mutation. Valid unloaded entries are decoded through
@@ -1034,10 +1052,75 @@ variation, pseudonym format, generated UUID retention, deterministic source
 ordering, quality/reason counts, failed/unloaded/transitional behavior, and
 coordinator object/revision identity.
 
-Recent redacted activity, Store health, and Repairs issue codes remain part of
-the broader Phase 1 design but are deliberately absent from diagnostics until
-Tasks 13-15 implement those underlying features. Task 12 does not fabricate
-healthy, empty, or successful placeholders for them.
+Task 13 reads active Repairs codes from the issue registry without creating,
+deleting, or mutating an issue and includes them even when runtime data is
+absent or configuration decoding fails. Issue IDs, raw config-entry IDs,
+entity IDs, names, translation placeholders, issue data, and issue-registry
+objects are never diagnostic fields. Recent redacted activity and Store health
+remain absent until their approved tasks implement those underlying features.
+
+### 15.5 Repairs integration
+
+Task 13 centralizes all issue-registry access in `repairs.py`. `IssueCode` is a
+stable typed vocabulary with `missing_entity`, `incompatible_entity`,
+`migration_failed`, `store_write_failed`, and
+`command_boundary_violation`. One entry-scoped manager owns creation,
+deletion, entity-condition synchronization, the future Store notification
+hook, and the immutable sorted active-code view.
+
+Issue IDs use:
+
+```text
+entry_<first 12 lowercase hex characters of
+SHA-256("intelligent_climate" + NUL + raw entry ID)>_<issue_code>
+```
+
+The raw config-entry ID, unique ID, title, group/zone name, entity ID, and
+generated group/zone UUID are absent from the issue ID. Python `hash()` is not
+used. Creation of an unchanged existing issue is a no-op, and deleting an
+absent issue is harmless.
+
+Every Task 13 issue uses `IssueSeverity.ERROR` because each condition represents
+a current observation, persistence, migration, or safety failure.
+
+| Issue code | `is_fixable` | `is_persistent` | Rationale |
+|---|---:|---:|---|
+| `missing_entity` | False | False | Fully rechecked after startup reconciliation and on existing coordinator evaluations. |
+| `incompatible_entity` | False | False | Fully rechecked from current existing source bindings. |
+| `migration_failed` | False | True | Must remain visible when migration/validation prevents runtime establishment. |
+| `store_write_failed` | False | True | Event notification may otherwise disappear across restart before a successful write. |
+| `command_boundary_violation` | False | True | Safety event remains visible until a later clean setup. |
+
+| Issue code | Creation | Clearing |
+|---|---|---|
+| `missing_entity` | After reconciliation/guard completion, at least one configured thermostat or enabled temperature/humidity source has no Home Assistant State. One issue aggregates the entry. Existing unknown/unavailable States are not missing. Disabled observation does not evaluate sources. | The same evaluation finds no missing required reference. |
+| `incompatible_entity` | After reconciliation, an existing nontransient source has a definitive domain/binding/device-class conflict. Missing optional climate attributes, unknown/unavailable, stale, restored, implausible, jump-rejected, outlier, and contradictory observations are not incompatibilities. | Every evaluated existing binding is compatible after state or configuration correction. |
+| `migration_failed` | A known config/schema migration or fail-closed persisted/runtime validation boundary fails before setup can complete. Only a bounded failure category is stored; no exception text or malformed document is copied. | A later setup successfully validates the persisted hierarchy. Invalid configuration never loads merely to clear the issue. |
+| `store_write_failed` | A future Store owner reports three or more consecutive write failures through the typed hook. One or two failures do not create it; later failures are idempotent. | The future Store owner reports a successful/reset count of zero. |
+| `command_boundary_violation` | Any nonempty intent reaches `ObserveOnlyCommandSink`. The intent remains suppressed, the result remains `suppressed_observe_only`, only a stable reason is logged, and no payload is placed in the issue. | A later clean integration setup deletes the stale event issue before observation. Another violation recreates it immediately. |
+
+Missing/incompatible synchronization runs only after the existing startup guard
+has completed and then reuses the coordinator's existing targeted state/report
+events and watchdog evaluations. It creates no polling, subscription,
+independent timer, recurring callback, executor work, filesystem I/O, or
+network I/O. The manager compares the current registry entry and updates only
+after a material condition/data change. Multiple config entries remain
+independent through their hashed entry scopes. Unload cancels coordinator
+callbacks but does not delete a still-valid persistent migration, Store, or
+command event merely to clean the registry.
+
+The Store hook is boundary-only in Task 13. Runtime Store loading, writing,
+retry/backoff, debounce, persistence tasks, and synthetic failures remain
+absent until the approved Store/lifecycle task. All English issue titles and
+actionable descriptions live under the established `issues` section in
+`translations/en.json`. No `RepairsFlow`, fix flow, automatic repair action, or
+configuration mutation exists.
+
+When a command-boundary violation occurs, the persistent issue tells the user
+that Intelligent Climate blocked the unexpected control attempt, no physical
+equipment was commanded, the integration should be disabled, and the defect
+should be reported. The sink invokes no physical adapter or Home Assistant
+service and preserves the original thermostat for independent control.
 
 ## 16. Testing plan
 

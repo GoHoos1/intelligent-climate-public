@@ -31,6 +31,7 @@ from .aggregation import (
 from .capability import discover_thermostat_capabilities
 from .climate_state import normalize_climate_state
 from .const import DOMAIN, STATE_CHANGE_DEBOUNCE_SECONDS
+from .control import ObserveOnlyCommandSink
 from .health import evaluate_humidity_health, evaluate_temperature_health
 from .models import (
     AggregationReason,
@@ -52,6 +53,7 @@ from .models import (
     ZoneObservation,
 )
 from .observation import observe_humidity_source, observe_temperature_source
+from .repairs import RepairsManager
 from .type_aliases import IntelligentClimateConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,6 +72,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         configuration: EntryRuntimeConfiguration,
         *,
         now_fn: NowFunction = utcnow,
+        issue_manager: RepairsManager | None = None,
     ) -> None:
         """Initialize deterministic indexes and private orchestration state."""
         super().__init__(
@@ -82,6 +85,8 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self.entry = entry
         self.configuration = configuration
         self._now_fn = now_fn
+        self.issue_manager = issue_manager or RepairsManager(hass, entry.entry_id)
+        self.command_sink = ObserveOnlyCommandSink(self.issue_manager)
 
         self._zones_by_id = {zone.zone_id: zone for zone in configuration.zones}
         self._source_to_zones: dict[str, tuple[ZoneId, ...]]
@@ -567,6 +572,8 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=calculated_at,
         )
         self.async_set_updated_data(snapshot)
+        if not self._reconciling:
+            self.issue_manager.async_sync_entity_conditions(self.configuration)
         self._schedule_watchdog(calculated_at)
 
     def _new_snapshot(
@@ -639,6 +646,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=fire_time,
         )
         self.async_set_updated_data(snapshot)
+        self.issue_manager.async_sync_entity_conditions(self.configuration)
         self._schedule_watchdog(fire_time)
 
     def _schedule_watchdog(self, reference_time: datetime) -> None:

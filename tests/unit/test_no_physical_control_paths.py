@@ -192,7 +192,6 @@ def test_task_6_has_no_setup_wiring_or_new_entity_platform_module() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "repairs.py",
         "storage.py",
     }
 
@@ -242,7 +241,6 @@ def test_task_7_has_no_setup_wiring_or_out_of_scope_modules() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "repairs.py",
         "storage.py",
     }
 
@@ -297,7 +295,6 @@ def test_task_8_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "repairs.py",
         "storage.py",
     }
 
@@ -354,7 +351,6 @@ def test_task_9_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "repairs.py",
         "storage.py",
     }
 
@@ -376,8 +372,6 @@ def test_task_10_coordinator_has_only_approved_observation_surfaces() -> None:
     prohibited = {
         "hass.services",
         "ObservationIntent",
-        "CommandSink",
-        "ObserveOnlyCommandSink",
         "SERVICE_SET_",
         "async_register",
         "async_forward_entry_setups",
@@ -391,7 +385,6 @@ def test_task_10_coordinator_has_only_approved_observation_surfaces() -> None:
         "device_registry",
         "issue_registry",
         "diagnostics",
-        "repairs",
         "datetime.now",
         "datetime.utcnow",
         "time.time",
@@ -423,7 +416,6 @@ def test_task_10_invokes_existing_pipeline_and_no_later_modules_exist() -> None:
         "sensor.py",
         "binary_sensor.py",
         "event.py",
-        "repairs.py",
         "storage.py",
         "history.py",
     }
@@ -463,7 +455,6 @@ def test_task_11_entity_surface_has_no_out_of_scope_runtime_paths() -> None:
         "Store(",
         "async_save",
         "diagnostics",
-        "repairs",
         "history",
         "async_fire",
         "datetime.now",
@@ -558,12 +549,42 @@ def test_task_11_adds_no_other_entity_or_support_modules() -> None:
         "binary_sensor.py",
         "switch.py",
         "event.py",
-        "repairs.py",
         "storage.py",
         "history.py",
     }
 
     assert (INTEGRATION_DIR / "diagnostics.py").is_file()
+    assert (INTEGRATION_DIR / "repairs.py").is_file()
     assert excluded_modules.isdisjoint(
         path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
     )
+
+
+def test_task_13_repairs_adds_no_control_store_polling_or_repair_flow() -> None:
+    """Repairs remains a synchronous reporting boundary with no active repair."""
+    repairs = (INTEGRATION_DIR / "repairs.py").read_text()
+    command_sink = (INTEGRATION_DIR / "control" / "command_sink.py").read_text()
+    integration_sources = "\n".join(
+        path.read_text() for path in INTEGRATION_DIR.rglob("*.py")
+    )
+    prohibited = {
+        "hass.services",
+        "services.async_call",
+        "Store(",
+        "async_save",
+        "async_load",
+        "async_add_executor_job",
+        "async_track_time_interval",
+        "async_track_time_change",
+        "asyncio.sleep",
+        "time.sleep",
+        "RepairsFlow",
+        "async_create_fix_flow",
+    }
+
+    assert all(term not in repairs for term in prohibited)
+    assert "async_report_command_boundary_violation" in command_sink
+    assert "async_create_issue(" in repairs
+    assert "async_delete_issue(" in repairs
+    assert "is_fixable=policy.is_fixable" in repairs
+    assert "services.async_call" not in integration_sources

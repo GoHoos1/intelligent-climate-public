@@ -31,6 +31,7 @@ from .models import (
     ZoneConfig,
     ZoneObservation,
 )
+from .repairs import active_issue_codes
 from .type_aliases import IntelligentClimateConfigEntry
 from .validation import EntityValidationError
 
@@ -126,6 +127,11 @@ async def async_get_config_entry_diagnostics(
     pseudonyms = _ReportPseudonymizer()
     runtime = _runtime(entry)
     configuration, decode_error = _configuration(hass, entry, runtime)
+    repairs = {
+        "active_issue_codes": [
+            code.value for code in active_issue_codes(hass, entry.entry_id)
+        ]
+    }
 
     report: DiagnosticDict = {
         "diagnostics_schema_version": DIAGNOSTICS_SCHEMA_VERSION,
@@ -141,7 +147,7 @@ async def async_get_config_entry_diagnostics(
             decode_error,
             pseudonyms,
         ),
-        "runtime": _runtime_projection(runtime, pseudonyms),
+        "runtime": _runtime_projection(runtime, pseudonyms, repairs),
     }
     return async_redact_data(report, _DEFENSIVE_REDACTION_KEYS)
 
@@ -304,14 +310,16 @@ def _options_projection(options: IntegrationOptions) -> DiagnosticDict:
 def _runtime_projection(
     runtime: IntelligentClimateCoordinator | None,
     pseudonyms: _ReportPseudonymizer,
+    repairs: DiagnosticDict,
 ) -> DiagnosticDict:
     if runtime is None or not isinstance(runtime.data, EntryObservationSnapshot):
-        return {"available": False}
+        return {"available": False, "repairs": repairs}
 
     snapshot = runtime.data
     zones_by_id = {zone.zone_id: zone for zone in runtime.configuration.zones}
     return {
         "available": True,
+        "repairs": repairs,
         "revision": snapshot.revision,
         "control_state": snapshot.control_state.value,
         "reconciling": snapshot.reconciling,

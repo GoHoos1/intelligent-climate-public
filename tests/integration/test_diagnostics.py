@@ -33,6 +33,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import Context, HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -50,6 +51,12 @@ from custom_components.intelligent_climate.models import (
     DEFAULT_OPTIONS,
     RuntimeConfigurationState,
     encode_options,
+)
+from custom_components.intelligent_climate.repairs import (
+    IssueCode,
+    MigrationFailureCategory,
+    RepairsManager,
+    issue_id,
 )
 from custom_components.intelligent_climate.type_aliases import (
     IntelligentClimateConfigEntry,
@@ -444,7 +451,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert report["diagnostics_schema_version"] == 1
     assert report["integration"] == {
         "domain": DOMAIN,
-        "version": "0.0.3",
+        "version": "0.0.4",
         "config_entry_version": 1,
         "config_entry_minor_version": 0,
     }
@@ -501,6 +508,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
 
     runtime = report["runtime"]
     assert runtime["available"] is True
+    assert runtime["repairs"] == {"active_issue_codes": []}
     assert runtime["revision"] == snapshot.revision
     assert runtime["control_state"] == "observing"
     assert runtime["reconciling"] is False
@@ -637,7 +645,10 @@ async def test_unloaded_lifecycle_configurations_are_safely_decoded(
 
     assert report["configuration"]["decode_status"]["status"] == "decoded"
     assert report["configuration"]["runtime_configuration_state"] == expected_state
-    assert report["runtime"] == {"available": False}
+    assert report["runtime"] == {
+        "available": False,
+        "repairs": {"active_issue_codes": []},
+    }
     for forbidden in SENSITIVE_VALUES:
         assert forbidden not in _serialized(report)
 
@@ -686,7 +697,10 @@ async def test_invalid_persisted_configuration_returns_bounded_decode_status(
     assert report["configuration"]["equipment_group"] is None
     assert report["configuration"]["zones"] == []
     assert report["configuration"]["options"] is None
-    assert report["runtime"] == {"available": False}
+    assert report["runtime"] == {
+        "available": False,
+        "repairs": {"active_issue_codes": []},
+    }
     serialized = _serialized(report)
     assert "traceback" not in serialized.casefold()
     assert "private-password" not in serialized
@@ -889,3 +903,56 @@ async def test_jump_rejection_is_reported_after_live_source_change(
         == 1
     )
     assert entry.runtime_data._pending_temperature_jumps
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_repairs_projection_is_sorted_private_read_only_and_json_safe(
+    hass: HomeAssistant,
+) -> None:
+    """Diagnostics expose only active codes and never mutate the issue registry."""
+    _set_valid_states(hass)
+    entry = await _setup(hass, _entry())
+    manager = entry.runtime_data.issue_manager
+    manager.async_report_migration_failure(MigrationFailureCategory.SCHEMA_VALIDATION)
+    manager.async_report_command_boundary_violation()
+    registry = ir.async_get(hass)
+    before = dict(registry.issues)
+
+    report = await _report(hass, entry)
+
+    assert report["diagnostics_schema_version"] == 1
+    assert report["runtime"]["repairs"] == {
+        "active_issue_codes": [
+            "command_boundary_violation",
+            "migration_failed",
+        ]
+    }
+    assert registry.issues == before
+    serialized = _serialized(report)
+    assert ENTRY_ID not in serialized
+    assert issue_id(ENTRY_ID, IssueCode.MIGRATION_FAILED) not in serialized
+    assert issue_id(ENTRY_ID, IssueCode.COMMAND_BOUNDARY_VIOLATION) not in serialized
+    assert "unexpected_control_intent" not in serialized
+    json.loads(serialized)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_repairs_projection_survives_absent_runtime_and_failed_decode(
+    hass: HomeAssistant,
+) -> None:
+    """Issue-code diagnostics do not require runtime data or valid configuration."""
+    entry = _entry(data={"malformed_private_document": "never-copy"})
+    manager = RepairsManager(hass, ENTRY_ID)
+    manager.async_report_migration_failure(MigrationFailureCategory.SCHEMA_VALIDATION)
+
+    report = await _report(hass, entry)
+
+    assert report["configuration"]["decode_status"] == {
+        "status": "failed",
+        "error_category": "schema_validation",
+    }
+    assert report["runtime"] == {
+        "available": False,
+        "repairs": {"active_issue_codes": ["migration_failed"]},
+    }
+    assert "never-copy" not in _serialized(report)

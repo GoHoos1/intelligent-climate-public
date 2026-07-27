@@ -14,14 +14,20 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.3**. Intelligent Climate is pre-alpha software
+The current release is **0.0.4**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
-redacted diagnostics are implemented and tested. Later phases remain under
-active design and development.
+redacted integration diagnostics and Repairs notifications are implemented and
+tested. Later phases remain under active design and development.
 
 ## Recent changes
 
+- **0.0.4**
+  - Added deterministic, translated Repairs notifications for actionable
+    entity, migration, Store-write, and command-boundary failures.
+  - Added bounded active Repairs codes to diagnostics and corrected the
+    documentation to distinguish integration data from Home Assistant's outer
+    diagnostic envelope.
 - **0.0.3**
   - Added redacted downloadable diagnostics.
   - Reorganized the README for integration users and converted the release
@@ -58,6 +64,8 @@ Intelligent Climate currently provides:
   outlier checks.
 - Privacy-preserving downloadable diagnostics for configuration and current
   runtime health.
+- Home Assistant Repairs notifications for actionable observation and safety
+  failures.
 
 The original thermostat remains independently available and is the only
 supported way to change HVAC settings.
@@ -72,7 +80,8 @@ Phase 1 does not provide:
 - Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
 - Sensor, binary-sensor, switch, event, diagnostics-device, or frontend
   entities beyond the read-only zone climate entity.
-- Runtime Store persistence, Repairs issues, or activity history yet.
+- Runtime Store persistence or activity history yet.
+- Automatic repair actions or a configuration-changing Repairs flow.
 
 Unavailable or questionable observations are excluded instead of being
 replaced with invented values. Intelligent Climate never substitutes a stale
@@ -182,7 +191,8 @@ To download diagnostics:
 2. Open the Intelligent Climate integration entry.
 3. Open the entry menu and choose **Download diagnostics**.
 
-Diagnostics schema version 1 includes:
+The Intelligent Climate-owned `data` section uses diagnostics schema version 1
+and includes:
 
 - Integration and config-entry schema versions.
 - Configuration lifecycle state.
@@ -192,16 +202,61 @@ Diagnostics schema version 1 includes:
 - Zone aggregation status and effective values.
 - Configured-order source rows, quality counts, exclusion-reason counts, and
   safe report timestamps.
+- A sorted list of active Intelligent Climate Repairs issue codes.
 
-Every download uses a new random secret salt. Entity references and
-user-assigned names become report-scoped HMAC-SHA256 pseudonyms. The salt,
-config-entry ID, unique ID, raw entity IDs, raw names, state objects, arbitrary
-attributes, device/area/context/user/account identifiers, credentials,
-coordinates, URLs, and filesystem paths are not included.
+Schema version 1 permits backward-compatible additive fields such as the
+Repairs summary. Every download uses a new random secret salt. Entity
+references and user-assigned names in the Intelligent Climate data section
+become report-scoped HMAC-SHA256 pseudonyms, so those pseudonyms change between
+downloads. The integration-owned data section omits the raw config-entry ID and
+unique ID, raw entity IDs, raw user-assigned names, Home Assistant `State`
+objects and arbitrary attributes, credentials, coordinates, URLs, and
+filesystem paths.
 
-Diagnostics are designed to reduce accidental disclosure, not to make a report
-safe for every possible public context. **Review the downloaded file before
-posting it publicly.**
+Integration-generated equipment-group, zone, and source UUIDs remain stable.
+They can therefore correlate multiple reports produced from the same
+configuration even though entity and name pseudonyms change.
+
+Home Assistant adds an outer diagnostic envelope that Intelligent Climate does
+not own and cannot redact. Depending on the Home Assistant release, that
+wrapper and the downloaded filename may include:
+
+- The raw config-entry ID, including in the diagnostic filename.
+- Home Assistant version and platform/system information.
+- Time zone.
+- Installed custom-integration names and versions.
+- Integration documentation URLs.
+- Other general diagnostic metadata controlled by Home Assistant.
+
+Diagnostics reduce accidental disclosure; they do not make the complete
+download safe for every public context. **Review the filename and the entire
+downloaded file, including Home Assistant's outer envelope, before posting it
+publicly.**
+
+## Repairs notifications
+
+Actionable Intelligent Climate failures appear under **Settings > System >
+Repairs** in Home Assistant. Task 13 reports these entry-scoped conditions:
+
+- A configured thermostat or enabled source is missing after startup
+  reconciliation.
+- An existing source is definitively incompatible with its configured binding.
+- Persisted configuration cannot be migrated or validated safely.
+- A future Store implementation reports at least three consecutive write
+  failures.
+- The observation-only command boundary blocks an unexpected physical-command
+  intent.
+
+Missing and incompatible entity issues clear after the configured references
+recover. Migration issues clear after a later clean setup, Store issues clear
+after a successful future Store notification, and command-boundary issues
+clear during a later clean setup. The command boundary suppresses the intent
+and does not command equipment.
+
+Task 13 provides notifications only. It adds no automatic Repairs flow and
+never changes configuration. Runtime Store persistence remains unimplemented;
+the Store-write issue is a typed hook for the approved future Store/lifecycle
+task. Continue using the original thermostat for all physical HVAC control.
 
 ## Troubleshooting
 
@@ -253,14 +308,14 @@ Assistant state objects and complete attribute mappings are never serialized.
 
 ## Current roadmap and Phase 1 status
 
-Phase 1 is being delivered in small observation-only slices. Tasks 1 through 12
+Phase 1 is being delivered in small observation-only slices. Tasks 1 through 13
 are implemented: repository and schema foundations, UI configuration, zone
 identity, entity validation, capability discovery, source normalization and
 health, aggregation, the event-driven coordinator, read-only zone climate
-entities, and redacted diagnostics.
+entities, redacted diagnostics, and Repairs notifications.
 
-Remaining Phase 1 work includes Repairs integration, bounded activity history,
-lifecycle/migration hardening, and final acceptance testing. Tasks 13 through
+Remaining Phase 1 work includes bounded activity history,
+lifecycle/migration hardening, and final acceptance testing. Tasks 14 through
 16 are not implemented. Scheduled control begins no earlier than Phase 2, and
 predictive control remains a later phase.
 
@@ -291,8 +346,8 @@ configuration references.
 Persisted JSON is decoded through strict typed boundaries. Unknown fields,
 invalid identifiers, duplicate sources, partial legacy graphs, and ambiguous
 ownership fail closed. Config-entry major/minor versions remain `1.0` in
-release 0.0.3; diagnostics do not change the persisted configuration schema and
-require no migration.
+release 0.0.4; diagnostics and Repairs do not change the persisted
+configuration schema and require no migration.
 
 ### Lifecycle and observation
 
@@ -322,7 +377,8 @@ The integration package contains no active physical command adapter and no
 direct `hass.services.async_call` path. The virtual climate entity advertises
 `ClimateEntityFeature(0)`, and every supported setter raises a translated
 validation error. Diagnostics are a read-only projection of already decoded
-configuration and the current immutable coordinator snapshot.
+configuration, the current immutable coordinator snapshot, and bounded active
+Repairs codes.
 
 ## Development and validation
 

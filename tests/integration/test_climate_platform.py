@@ -291,11 +291,12 @@ async def _flush_entity_debounce(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> None:
-    """Deliver real state events and advance the coordinator debounce."""
+    """Deliver real state events and deterministically execute their debounce."""
     await hass.async_block_till_done()
-    async_fire_time_changed(
-        hass,
-        utcnow() + timedelta(seconds=1),
+    coordinator = entry.runtime_data
+    await coordinator._async_debounce_elapsed(
+        coordinator.data.calculated_at + timedelta(seconds=1),
+        generation=coordinator._debounce_generation,
     )
     await hass.async_block_till_done()
 
@@ -310,10 +311,10 @@ async def _setup_entry(
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     if finish_reconciliation and entry.runtime_data.data.reconciling:
-        # The helper compares this timestamp with wall-clock time at invocation.
-        async_fire_time_changed(
-            hass,
-            utcnow() + timedelta(seconds=61),
+        coordinator = entry.runtime_data
+        await coordinator._async_reconciliation_complete(
+            coordinator.data.calculated_at + timedelta(seconds=61),
+            generation=coordinator._reconciliation_generation,
         )
         await hass.async_block_till_done()
     return cast(ConfigEntry, entry)
@@ -432,7 +433,10 @@ async def test_missing_climate_temperature_source_auto_recovers(
     hass: HomeAssistant,
 ) -> None:
     _set_thermostat(hass)
-    source_entity_id = "climate.dining_room"
+    # Keep the late-loading physical source distinct from the virtual zone
+    # entity slug so the test exercises startup recovery rather than an
+    # impossible state-machine entity-ID collision.
+    source_entity_id = "climate.late_temperature_source"
     zone = _zone_data(0)
     zone["temperature_sources"] = [
         {

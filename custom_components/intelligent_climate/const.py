@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "intelligent_climate"
 NAME = "Intelligent Climate"
-INTEGRATION_VERSION = "0.0.3"
+INTEGRATION_VERSION = "0.0.4"
 
 PLATFORMS = (Platform.CLIMATE,)
 

@@ -12,6 +12,7 @@ from .models import (
     EquipmentRelationship,
     ObservationSourceId,
     RuntimeConfigurationState,
+    SchemaMigrationError,
     SchemaValidationError,
     ThermostatRole,
     ZoneConfig,
@@ -172,11 +173,16 @@ async def async_setup_entry(
     from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
     from .coordinator import IntelligentClimateCoordinator
+    from .repairs import MigrationFailureCategory, RepairsManager
     from .validation import EntityValidationError
 
+    issue_manager = RepairsManager(hass, entry.entry_id)
     try:
         configuration = _decode_runtime_configuration(hass, entry)
     except EntityValidationError as err:
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.ENTITY_VALIDATION
+        )
         _LOGGER.error(
             (
                 "Invalid persisted Intelligent Climate entity reference: "
@@ -187,7 +193,20 @@ async def async_setup_entry(
             err.code.value,
         )
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
+    except SchemaMigrationError as err:
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.SCHEMA_MIGRATION
+        )
+        _LOGGER.error(
+            "Unable to migrate persisted Intelligent Climate configuration: "
+            "config_entry_id=%s failure_category=schema_migration",
+            entry.entry_id,
+        )
+        raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except SchemaValidationError as err:
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.SCHEMA_VALIDATION
+        )
         _LOGGER.error(
             "Invalid persisted Intelligent Climate schema: config_entry_id=%s %s",
             entry.entry_id,
@@ -195,15 +214,27 @@ async def async_setup_entry(
         )
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except (KeyError, ValueError) as err:
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.SCHEMA_VALIDATION
+        )
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
 
+    issue_manager.async_prepare_clean_setup()
     coordinator: IntelligentClimateCoordinator | None = None
     try:
-        coordinator = IntelligentClimateCoordinator(hass, entry, configuration)
+        coordinator = IntelligentClimateCoordinator(
+            hass,
+            entry,
+            configuration,
+            issue_manager=issue_manager,
+        )
         await coordinator.async_start()
     except ConfigEntryNotReady as err:
         if coordinator is not None:
             await coordinator.async_shutdown()
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.RUNTIME_VALIDATION
+        )
         cause = err.__cause__ or err
         raise ConfigEntryError(
             "Invalid Intelligent Climate runtime configuration"
@@ -211,6 +242,9 @@ async def async_setup_entry(
     except (KeyError, ValueError) as err:
         if coordinator is not None:
             await coordinator.async_shutdown()
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.RUNTIME_VALIDATION
+        )
         raise ConfigEntryError(
             "Invalid Intelligent Climate runtime configuration"
         ) from err
