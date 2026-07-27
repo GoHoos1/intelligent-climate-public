@@ -25,6 +25,7 @@ def test_readme_recent_changes_is_near_top_and_links_full_changelog() -> None:
     recent_body = README[
         recent : _heading_position(README, "What Intelligent Climate does today")
     ]
+    assert "**0.0.4**" in recent_body
     assert "**0.0.3**" in recent_body
     assert "**0.0.2**" in recent_body
     assert "**0.0.1**" in recent_body
@@ -43,6 +44,7 @@ def test_readme_prioritizes_user_guidance_before_architecture() -> None:
         "Understanding the read-only zone climate entity",
         "Source health and availability",
         "Downloading diagnostics",
+        "Repairs notifications",
         "Troubleshooting",
         "Privacy and local-first behavior",
     )
@@ -71,6 +73,7 @@ def test_readme_has_complete_requested_section_order() -> None:
         "Understanding the read-only zone climate entity",
         "Source health and availability",
         "Downloading diagnostics",
+        "Repairs notifications",
         "Troubleshooting",
         "Privacy and local-first behavior",
         "Current roadmap and Phase 1 status",
@@ -87,6 +90,7 @@ def test_changelog_contains_versioned_release_sections() -> None:
 
     assert headings == [
         "Unreleased",
+        "0.0.4 - 2026-07-27",
         "0.0.3 - 2026-07-25",
         "0.0.2 - 2026-07-24",
         "0.0.1 - 2026-07-24",
@@ -95,3 +99,40 @@ def test_changelog_contains_versioned_release_sections() -> None:
     assert "public release tag exists" in CHANGELOG
     assert "Repairs" in CHANGELOG
     assert "physical" in CHANGELOG
+
+
+def test_readme_documents_diagnostics_privacy_scope_and_repairs() -> None:
+    """Users are warned about both wrapper metadata and stable UUID correlation."""
+    diagnostics = README[
+        _heading_position(README, "Downloading diagnostics") : _heading_position(
+            README, "Repairs notifications"
+        )
+    ]
+    repairs = README[
+        _heading_position(README, "Repairs notifications") : _heading_position(
+            README, "Troubleshooting"
+        )
+    ]
+    normalized_diagnostics = re.sub(r"\s+", " ", diagnostics)
+    normalized_repairs = re.sub(r"\s+", " ", repairs)
+    lower_diagnostics = normalized_diagnostics.casefold()
+
+    assert "Intelligent Climate-owned `data` section" in normalized_diagnostics
+    assert "outer diagnostic envelope" in lower_diagnostics
+    assert "raw config-entry id" in lower_diagnostics
+    assert "downloaded filename" in lower_diagnostics
+    assert "home assistant version and platform/system information" in (
+        lower_diagnostics
+    )
+    assert "time zone" in lower_diagnostics
+    assert "installed custom-integration names and versions" in lower_diagnostics
+    assert "integration documentation urls" in lower_diagnostics
+    assert "equipment-group, zone, and source UUIDs remain stable" in (
+        normalized_diagnostics
+    )
+    assert "correlate multiple reports" in lower_diagnostics
+    assert "filename and the entire" in lower_diagnostics
+    assert "cannot redact" in lower_diagnostics
+    assert "Settings > System > Repairs" in normalized_repairs
+    assert "no automatic Repairs flow" in normalized_repairs
+    assert "Store persistence remains unimplemented" in normalized_repairs

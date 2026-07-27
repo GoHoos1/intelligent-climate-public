@@ -5,6 +5,28 @@
       "message": "Intelligent Climate is observation-only and cannot change HVAC equipment."
     }
   },
+  "issues": {
+    "missing_entity": {
+      "title": "Intelligent Climate entity is missing",
+      "description": "One or more configured thermostats or enabled observation sources no longer exist in Home Assistant. Open the Intelligent Climate integration entry and reconfigure the affected zone to replace or remove the missing references. Continue using the original thermostat for physical HVAC control."
+    },
+    "incompatible_entity": {
+      "title": "Intelligent Climate entity is incompatible",
+      "description": "One or more existing observation sources no longer match their configured temperature or humidity binding. Inspect the Intelligent Climate entry and reconfigure the affected zone with a compatible source. Continue using the original thermostat for physical HVAC control."
+    },
+    "migration_failed": {
+      "title": "Intelligent Climate configuration could not be validated",
+      "description": "Intelligent Climate could not safely migrate or validate its persisted configuration, so observation did not start. Inspect the integration entry and logs, then correct or recreate the configuration before reloading. The original thermostat remains available for physical HVAC control."
+    },
+    "store_write_failed": {
+      "title": "Intelligent Climate runtime data could not be saved",
+      "description": "Intelligent Climate encountered at least three consecutive failures while saving nonauthoritative runtime data. Inspect Home Assistant storage health and logs. In-memory observation can continue, and the original thermostat remains available for physical HVAC control."
+    },
+    "command_boundary_violation": {
+      "title": "Intelligent Climate blocked an unexpected control attempt",
+      "description": "Intelligent Climate received an unexpected physical-command intent and suppressed it. No physical equipment was commanded. Disable the Intelligent Climate integration and report this defect before using it again; continue controlling equipment through the original thermostat."
+    }
+  },
   "config": {
     "step": {
       "user": {
