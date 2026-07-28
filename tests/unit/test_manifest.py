@@ -52,7 +52,9 @@ def test_manifest_matches_foundation_scope() -> None:
     assert manifest["codeowners"] == ["@GoHoos1"]
     assert manifest["config_flow"] is True
     assert manifest["dependencies"] == []
-    assert manifest["documentation"] == "https://github.com/GoHoos1/intelligent-climate-public"
+    assert manifest["documentation"] == (
+        "https://github.com/GoHoos1/intelligent-climate-public"
+    )
     assert manifest["integration_type"] == "hub"
     assert manifest["iot_class"] == "calculated"
     assert (
