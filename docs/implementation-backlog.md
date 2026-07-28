@@ -444,8 +444,8 @@ only after the explicit allowlist as defense in depth.
 The task added no Store load/write, Repairs issue, activity history/event,
 entity or platform, polling, service, command, schedule, prediction, timer,
 subscription, runtime mutation, or physical control. Device-specific
-diagnostics remain absent. Tasks 14 through 16 remain unimplemented after the
-separate Task 13 Repairs slice.
+diagnostics remained absent at Task 12 completion; the later Task 14 status
+below records the approved activity/Store implementation.
 
 ## 13. Repairs Integration
 
@@ -510,8 +510,8 @@ established custom-integration `translations/en.json` `issues` section.
 
 Task 13 added no automatic RepairsFlow, fix flow, configuration mutation,
 physical command adapter, service call, writable entity, Store persistence,
-activity history, or new entity platform. Tasks 14 through 16 remain
-unimplemented.
+activity history, or new entity platform at its completion. The later Task 14
+status below records the approved activity/Store implementation.
 
 ## 14. Bounded Event and Activity History
 
@@ -532,6 +532,28 @@ event payload redaction, unload save behavior.
 Safety impact: Improves explainability without control.
 
 Observation-only: Yes.
+
+Status: Implemented. This task added strict privacy-bounded activity records,
+an entry-scoped age/count-bounded history with a 500-record hard cap, semantic
+materiality over coordinator and non-coordinator transitions, one
+`intelligent_climate_activity` bus event per newly accepted record, one
+diagnostic equipment-group Activity Event, one diagnostic Activity Event and
+Latest Activity sensor per configured zone, and a backward-compatible
+diagnostics schema version 1 activity/Store-health projection.
+
+Runtime Store v1 now loads and writes the existing `decisions` field as strict
+activity records at `intelligent_climate.<entry_id>` using Home Assistant Store
+version 1 and atomic writes. Normal saves occur only after material activity
+with a 30-second debounce, five-minute maximum dirty interval, one writer, and
+bounded retry. Unload records activity and attempts a clean save for no more
+than five seconds. The Store saves current zone values and source baselines but
+Task 14 restores only bounded activity; persisted temperatures and baselines
+never enter live coordinator/entity state. `command_journal` remains empty.
+
+The task added no Store migration/quarantine/reconciliation hardening reserved
+for Task 15, no custom Logbook duplicate, no extra Phase 1 entity surface, no
+schedule, override, occupancy, window behavior, model, prediction, simulation,
+service call, physical adapter, writable capability, or physical control.
 
 ## 15. Config-Entry Migration, Reload, and Recovery Testing
 
