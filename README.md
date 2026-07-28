@@ -14,14 +14,21 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.4**. Intelligent Climate is pre-alpha software
+The current release is **0.0.5**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
-redacted integration diagnostics and Repairs notifications are implemented and
-tested. Later phases remain under active design and development.
+redacted integration diagnostics, Repairs notifications, and bounded activity
+history are implemented and tested. Later phases remain under active design and
+development.
 
 ## Recent changes
 
+- **0.0.5**
+  - Added bounded, privacy-safe activity history with atomic Store v1
+    persistence, Event entities, per-zone Latest Activity sensors, and one
+    documented Home Assistant event-bus payload.
+  - Added material-only source, thermostat, capability, Repairs, command
+    boundary, Store-health, and lifecycle activity without adding control.
 - **0.0.4**
   - Added deterministic, translated Repairs notifications for actionable
     entity, migration, Store-write, and command-boundary failures.
@@ -66,6 +73,12 @@ Intelligent Climate currently provides:
   runtime health.
 - Home Assistant Repairs notifications for actionable observation and safety
   failures.
+- A bounded material activity history, one diagnostic activity Event entity
+  for the equipment group and each zone, and one diagnostic Latest Activity
+  sensor per zone.
+- A privacy-bounded `intelligent_climate_activity` event for automations.
+- Debounced, atomic persistence of nonauthoritative activity history and current
+  restart baselines.
 
 The original thermostat remains independently available and is the only
 supported way to change HVAC settings.
@@ -78,9 +91,10 @@ Phase 1 does not provide:
 - Schedules, manual overrides, occupancy control, or window suspension.
 - Predictive control, adaptive start or stop, thermal models, or simulation.
 - Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
-- Sensor, binary-sensor, switch, event, diagnostics-device, or frontend
-  entities beyond the read-only zone climate entity.
-- Runtime Store persistence or activity history yet.
+- Sensor, binary-sensor, switch, diagnostics-device, or frontend entities
+  beyond the required per-zone Latest Activity diagnostic sensor.
+- Event entities beyond the required equipment-group and per-zone activity
+  surfaces.
 - Automatic repair actions or a configuration-changing Repairs flow.
 
 Unavailable or questionable observations are excluded instead of being
@@ -203,6 +217,8 @@ and includes:
 - Configured-order source rows, quality counts, exclusion-reason counts, and
   safe report timestamps.
 - A sorted list of active Intelligent Climate Repairs issue codes.
+- Bounded material activity history, configured history limits, and current
+  Store load/dirty/write-health status.
 
 Schema version 1 permits backward-compatible additive fields such as the
 Repairs summary. Every download uses a new random secret salt. Entity
@@ -253,10 +269,39 @@ after a successful future Store notification, and command-boundary issues
 clear during a later clean setup. The command boundary suppresses the intent
 and does not command equipment.
 
-Task 13 provides notifications only. It adds no automatic Repairs flow and
-never changes configuration. Runtime Store persistence remains unimplemented;
-the Store-write issue is a typed hook for the approved future Store/lifecycle
-task. Continue using the original thermostat for all physical HVAC control.
+There is no automatic Repairs flow, and Repairs never changes configuration.
+Task 14 wires the Store-write issue to the bounded runtime Store: the issue
+appears after three consecutive save failures and clears after a successful
+save. Continue using the original thermostat for all physical HVAC control.
+
+## Activity history and events
+
+Intelligent Climate records only material observation activity. It does not
+record every source report, watchdog evaluation, snapshot revision, or
+timestamp refresh. The bounded history covers lifecycle and runtime-state
+transitions, source exclusion/recovery, observed thermostat mode or target
+changes, material capability changes, Repairs transitions, rejected control
+attempts, and Store failure/recovery.
+
+Home Assistant exposes this activity through:
+
+- One diagnostic Activity Event entity on the equipment-group device.
+- One diagnostic Activity Event entity on each zone device.
+- One diagnostic Latest Activity sensor on each zone device.
+- The `intelligent_climate_activity` event for automations.
+- The normal Recorder/Logbook state history of the Event entities.
+
+The event-bus payload contains the config-entry ID, generated group and optional
+zone UUIDs, activity type, stable reason code, severity, timestamp, and concise
+explanation. It does not contain the internal detail projection, entity IDs,
+user-assigned names, source values, Home Assistant State objects, contexts,
+command payloads, exception text, URLs, or paths.
+
+Activity is retained oldest-to-newest for the configured age and count limits,
+with an absolute maximum of 500 records. Store writes are debounced for 30
+seconds and forced within five minutes while dirty. A clean unload attempts a
+final save for at most five seconds; persistence failure never changes or
+blocks physical equipment.
 
 ## Troubleshooting
 
@@ -292,6 +337,22 @@ outlying values are not silently substituted.
 That is expected. The zone entity is intentionally read-only. Use the original
 thermostat entity for control.
 
+### Activity is not added for every source report
+
+That is expected. Equivalent source reports, unchanged watchdog evaluations,
+timestamp-only capability rediscovery, and snapshot revision changes are not
+material activity. Check the Activity Event entity or Latest Activity sensor
+after a real source exclusion/recovery, thermostat mode/target change, or other
+documented transition.
+
+### A runtime-data save issue appears in Repairs
+
+Home Assistant could not persist the nonauthoritative activity history at least
+three consecutive times. In-memory observation can continue safely. Check
+storage availability and Home Assistant logs; a later successful save clears
+the issue automatically. Exception text and filesystem paths are not copied
+into activity, diagnostics, or the integration's Repairs data.
+
 When reporting a problem, include the integration version, a reviewed
 diagnostic download, the expected behavior, and the relevant Home Assistant
 logs without credentials.
@@ -306,18 +367,24 @@ Normal diagnostic generation performs no polling, filesystem I/O, service
 call, timer creation, subscription, reload, or runtime mutation. Raw Home
 Assistant state objects and complete attribute mappings are never serialized.
 
+Runtime Store data is local and nonauthoritative. Only bounded activity history
+is restored into Task 14 runtime surfaces. Persisted temperatures and source
+baselines are saved for future continuity work but are not hydrated into live
+coordinator state or public entities. A missing or invalid Store starts with
+empty history and live reconciliation.
+
 ## Current roadmap and Phase 1 status
 
-Phase 1 is being delivered in small observation-only slices. Tasks 1 through 13
+Phase 1 is being delivered in small observation-only slices. Tasks 1 through 14
 are implemented: repository and schema foundations, UI configuration, zone
 identity, entity validation, capability discovery, source normalization and
 health, aggregation, the event-driven coordinator, read-only zone climate
-entities, redacted diagnostics, and Repairs notifications.
+entities, redacted diagnostics, Repairs notifications, and bounded activity
+history/events with Store v1 persistence.
 
-Remaining Phase 1 work includes bounded activity history,
-lifecycle/migration hardening, and final acceptance testing. Tasks 14 through
-16 are not implemented. Scheduled control begins no earlier than Phase 2, and
-predictive control remains a later phase.
+Remaining Phase 1 work includes lifecycle/migration hardening and final
+acceptance testing. Tasks 15 and 16 are not implemented. Scheduled control
+begins no earlier than Phase 2, and predictive control remains a later phase.
 
 See the [implementation backlog](docs/implementation-backlog.md) for the
 approved sequence and explicit exclusions.
@@ -346,8 +413,10 @@ configuration references.
 Persisted JSON is decoded through strict typed boundaries. Unknown fields,
 invalid identifiers, duplicate sources, partial legacy graphs, and ambiguous
 ownership fail closed. Config-entry major/minor versions remain `1.0` in
-release 0.0.4; diagnostics and Repairs do not change the persisted
-configuration schema and require no migration.
+release 0.0.5; diagnostics, Repairs, and activity surfaces do not change the
+persisted configuration schema and require no config-entry migration. Runtime
+Store schema version 1 remains unchanged; its previously unused `decisions`
+array now contains strict activity records.
 
 ### Lifecycle and observation
 
@@ -361,6 +430,13 @@ Startup enters reconciliation, evaluates the current public states, and rejects
 restored values until a live report arrives. One earliest-deadline watchdog
 handles freshness without polling. Unload and reload cancel subscriptions,
 debounce callbacks, reconciliation, and freshness deadlines.
+
+Material activity flows through one bounded entry-scoped history. Each new
+record fires one `intelligent_climate_activity` bus event and updates only the
+matching Activity Event/Latest Activity surfaces. Runtime Store writes use Home
+Assistant Store version 1, key `intelligent_climate.<entry_id>`, atomic writes,
+a 30-second debounce, a five-minute maximum dirty interval, bounded retry, and
+a five-second unload limit.
 
 ### Aggregation behavior
 
@@ -378,7 +454,7 @@ direct `hass.services.async_call` path. The virtual climate entity advertises
 `ClimateEntityFeature(0)`, and every supported setter raises a translated
 validation error. Diagnostics are a read-only projection of already decoded
 configuration, the current immutable coordinator snapshot, and bounded active
-Repairs codes.
+Repairs codes, activity, and Store health.
 
 ## Development and validation
 
