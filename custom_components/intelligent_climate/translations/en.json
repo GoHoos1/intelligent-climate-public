@@ -27,6 +27,30 @@
       "description": "Intelligent Climate received an unexpected physical-command intent and suppressed it. No physical equipment was commanded. Disable the Intelligent Climate integration and report this defect before using it again; continue controlling equipment through the original thermostat."
     }
   },
+  "entity": {
+    "event": {
+      "activity": {
+        "name": "Activity",
+        "state": {
+          "lifecycle": "Lifecycle",
+          "runtime_state_changed": "Runtime state changed",
+          "source_quality_changed": "Source quality changed",
+          "thermostat_observation_changed": "Thermostat observation changed",
+          "thermostat_capabilities_changed": "Thermostat capabilities changed",
+          "repair_issue_created": "Repair issue created",
+          "repair_issue_resolved": "Repair issue resolved",
+          "unsupported_control_attempt": "Unsupported control attempt",
+          "store_write_failed": "Store write failed",
+          "store_write_recovered": "Store write recovered"
+        }
+      }
+    },
+    "sensor": {
+      "latest_activity": {
+        "name": "Latest activity"
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
