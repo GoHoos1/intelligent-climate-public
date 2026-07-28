@@ -6,9 +6,11 @@ from homeassistant.const import Platform
 
 DOMAIN = "intelligent_climate"
 NAME = "Intelligent Climate"
-INTEGRATION_VERSION = "0.0.4"
+INTEGRATION_VERSION = "0.0.5"
 
-PLATFORMS = (Platform.CLIMATE,)
+PLATFORMS = (Platform.CLIMATE, Platform.EVENT, Platform.SENSOR)
+
+EVENT_ACTIVITY = "intelligent_climate_activity"
 
 CONF_EQUIPMENT_GROUP_NAME = "equipment_group_name"
 CONF_EQUIPMENT_TYPE = "equipment_type"
