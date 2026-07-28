@@ -722,7 +722,7 @@ async def test_platform_forward_failure_shuts_down_new_coordinator_and_chains(
         ),
         pytest.raises(
             ConfigEntryError,
-            match="Unable to set up the Intelligent Climate climate platform",
+            match="Unable to set up the Intelligent Climate entity platforms",
         ) as raised,
     ):
         await async_setup_entry(hass, entry)
