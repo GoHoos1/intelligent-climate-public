@@ -105,18 +105,19 @@ def test_zone_flow_has_no_control_or_platform_forwarding_path() -> None:
     assert "Store(" not in source
 
 
-def test_integration_forwards_only_the_climate_platform() -> None:
-    """Test Task 11 forwards exactly the typed climate platform tuple."""
+def test_integration_forwards_only_task_14_platforms() -> None:
+    """Test setup forwards exactly climate, activity Event, and Latest Activity."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
     constants_source = (INTEGRATION_DIR / "const.py").read_text()
 
     assert setup_source.count("async_forward_entry_setups(entry, PLATFORMS)") == 1
     assert setup_source.count("async_unload_platforms(entry, PLATFORMS)") == 1
-    assert "PLATFORMS = (Platform.CLIMATE,)" in constants_source
-    assert not any(
-        f"Platform.{platform}" in constants_source
-        for platform in ("SENSOR", "BINARY_SENSOR", "SWITCH", "EVENT")
+    assert (
+        "PLATFORMS = (Platform.CLIMATE, Platform.EVENT, Platform.SENSOR)"
+        in constants_source
     )
+    assert "Platform.BINARY_SENSOR" not in constants_source
+    assert "Platform.SWITCH" not in constants_source
 
 
 def test_tasks_5_and_6_add_no_runtime_or_registry_mutation_paths() -> None:
@@ -188,12 +189,7 @@ def test_task_6_capability_discovery_is_a_pure_read_only_boundary() -> None:
 def test_task_6_has_no_setup_wiring_or_new_entity_platform_module() -> None:
     """Test capability discovery is not subscribed, stored, or platform-forwarded."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_platforms = {
-        "sensor.py",
-        "binary_sensor.py",
-        "event.py",
-        "storage.py",
-    }
+    prohibited_platforms = {"binary_sensor.py", "switch.py"}
 
     assert "discover_thermostat_capabilities" not in setup_source
     assert prohibited_platforms.isdisjoint(
@@ -237,12 +233,7 @@ def test_task_7_observation_is_a_pure_unwired_boundary() -> None:
 def test_task_7_has_no_setup_wiring_or_out_of_scope_modules() -> None:
     """Test observation is not imported or invoked by setup and adds no surfaces."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {
-        "sensor.py",
-        "binary_sensor.py",
-        "event.py",
-        "storage.py",
-    }
+    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "observe_temperature_source" not in setup_source
     assert "observe_humidity_source" not in setup_source
@@ -291,12 +282,7 @@ def test_task_8_health_is_a_pure_unwired_boundary() -> None:
 def test_task_8_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
     """Test Task 10 wiring and later entity/support surfaces remain absent."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {
-        "sensor.py",
-        "binary_sensor.py",
-        "event.py",
-        "storage.py",
-    }
+    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "evaluate_temperature_health" not in setup_source
     assert "evaluate_humidity_health" not in setup_source
@@ -347,12 +333,7 @@ def test_task_9_aggregation_is_a_pure_unwired_boundary() -> None:
 def test_task_9_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
     """Test Task 10 runtime wiring and later support surfaces remain absent."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {
-        "sensor.py",
-        "binary_sensor.py",
-        "event.py",
-        "storage.py",
-    }
+    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "aggregate_temperature_sources" not in setup_source
     assert "aggregate_humidity_sources" not in setup_source
@@ -399,8 +380,8 @@ def test_task_10_coordinator_has_only_approved_observation_surfaces() -> None:
     assert offenders == []
 
 
-def test_task_10_invokes_existing_pipeline_and_no_later_modules_exist() -> None:
-    """Test the coordinator composes Tasks 6-9 and adds no later surfaces."""
+def test_task_10_pipeline_remains_composed_after_task_14_wiring() -> None:
+    """Test Task 14 preserves the coordinator's complete observation pipeline."""
     source = (INTEGRATION_DIR / "coordinator.py").read_text()
     required_calls = {
         "discover_thermostat_capabilities(",
@@ -412,18 +393,7 @@ def test_task_10_invokes_existing_pipeline_and_no_later_modules_exist() -> None:
         "aggregate_temperature_sources(",
         "aggregate_humidity_sources(",
     }
-    excluded_modules = {
-        "sensor.py",
-        "binary_sensor.py",
-        "event.py",
-        "storage.py",
-        "history.py",
-    }
-
     assert all(call in source for call in required_calls)
-    assert excluded_modules.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
-    )
 
 
 def test_task_10_setup_uses_runtime_data_without_domain_hass_data() -> None:
@@ -439,8 +409,6 @@ def test_task_10_setup_uses_runtime_data_without_domain_hass_data() -> None:
 def test_task_11_entity_surface_has_no_out_of_scope_runtime_paths() -> None:
     """Test Task 11 adds only presentation, registry, and translated rejection."""
     task_11_paths = (
-        INTEGRATION_DIR / "__init__.py",
-        INTEGRATION_DIR / "const.py",
         INTEGRATION_DIR / "entity.py",
         INTEGRATION_DIR / "climate.py",
     )
@@ -455,7 +423,6 @@ def test_task_11_entity_surface_has_no_out_of_scope_runtime_paths() -> None:
         "Store(",
         "async_save",
         "diagnostics",
-        "history",
         "async_fire",
         "datetime.now",
         "datetime.utcnow",
@@ -515,17 +482,19 @@ def test_task_11_setters_only_raise_translated_validation_error() -> None:
         assert isinstance(executable[0], ast.Raise)
         raised = executable[0].exc
         assert isinstance(raised, ast.Call)
-        assert isinstance(raised.func, ast.Name)
-        assert raised.func.id == "ServiceValidationError"
-        keywords = {
-            keyword.arg: keyword.value
-            for keyword in raised.keywords
-            if keyword.arg is not None
-        }
-        assert isinstance(keywords["translation_domain"], ast.Name)
-        assert keywords["translation_domain"].id == "DOMAIN"
-        assert isinstance(keywords["translation_key"], ast.Constant)
-        assert keywords["translation_key"].value == "observation_only"
+        assert isinstance(raised.func, ast.Attribute)
+        assert raised.func.attr == "_unsupported_control_error"
+
+    helper = next(
+        node
+        for node in climate_class.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "_unsupported_control_error"
+    )
+    helper_source = ast.unparse(helper)
+    assert helper_source.count("async_record_unsupported_control_attempt") == 1
+    assert helper_source.count("ServiceValidationError") == 2
+    assert "translation_key='observation_only'" in helper_source
 
 
 def test_task_11_entity_properties_do_not_read_home_assistant_states() -> None:
@@ -542,19 +511,16 @@ def test_task_11_entity_properties_do_not_read_home_assistant_states() -> None:
     assert offenders == []
 
 
-def test_task_11_adds_no_other_entity_or_support_modules() -> None:
-    """Test Task 12 is the only approved post-Task-11 support surface."""
-    excluded_modules = {
-        "sensor.py",
-        "binary_sensor.py",
-        "switch.py",
-        "event.py",
-        "storage.py",
-        "history.py",
-    }
+def test_task_14_adds_only_approved_entity_and_support_modules() -> None:
+    """Test Task 14 adds Event, Latest Activity, history, and Store only."""
+    excluded_modules = {"binary_sensor.py", "switch.py"}
 
     assert (INTEGRATION_DIR / "diagnostics.py").is_file()
     assert (INTEGRATION_DIR / "repairs.py").is_file()
+    assert (INTEGRATION_DIR / "event.py").is_file()
+    assert (INTEGRATION_DIR / "sensor.py").is_file()
+    assert (INTEGRATION_DIR / "history.py").is_file()
+    assert (INTEGRATION_DIR / "storage.py").is_file()
     assert excluded_modules.isdisjoint(
         path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
     )
@@ -588,3 +554,41 @@ def test_task_13_repairs_adds_no_control_store_polling_or_repair_flow() -> None:
     assert "async_delete_issue(" in repairs
     assert "is_fixable=policy.is_fixable" in repairs
     assert "services.async_call" not in integration_sources
+
+
+def test_task_14_modules_have_no_physical_control_or_future_feature_path() -> None:
+    """Every Task 14 module remains observation-only and narrowly scoped."""
+    task_14_paths = (
+        INTEGRATION_DIR / "activity.py",
+        INTEGRATION_DIR / "history.py",
+        INTEGRATION_DIR / "storage.py",
+        INTEGRATION_DIR / "event.py",
+        INTEGRATION_DIR / "sensor.py",
+        INTEGRATION_DIR / "models" / "activity.py",
+    )
+    prohibited = {
+        "hass.services",
+        "services.async_call",
+        "SERVICE_SET_",
+        "ClimateEntity",
+        "FanEntity",
+        "SwitchEntity",
+        "HumidifierEntity",
+        "WaterHeaterEntity",
+        "weekly_schedule",
+        "occupancy",
+        "prediction",
+        "simulation",
+        "manual_override",
+        "command_payload",
+        "target_entity_id",
+        "async_add_executor_job",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_14_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+
+    assert offenders == []
