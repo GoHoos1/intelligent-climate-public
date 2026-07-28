@@ -97,7 +97,9 @@ def test_runtime_configuration_and_snapshot_models_are_frozen_and_slotted() -> N
 
     assert "__dict__" not in runtime.__slots__
     with pytest.raises(FrozenInstanceError):
-        runtime.transitional_empty_skeleton = True  # type: ignore[misc]
+        runtime.state = (  # type: ignore[misc]
+            RuntimeConfigurationState.TRANSITIONAL_EMPTY_SKELETON
+        )
 
 
 def test_zone_convenience_properties_derive_from_aggregations() -> None:

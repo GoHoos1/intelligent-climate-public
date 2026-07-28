@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING
 
 from .const import PLATFORMS, SUBENTRY_TYPE_ZONE
 from .models import (
+    CONFIG_ENTRY_MAJOR_VERSION,
+    CONFIG_ENTRY_MINOR_VERSION,
     DEFAULT_OPTIONS,
     EntryRuntimeConfiguration,
+    EquipmentGroupDocument,
     EquipmentRelationship,
     ObservationSourceId,
     RuntimeConfigurationState,
@@ -19,6 +22,8 @@ from .models import (
     decode_equipment_group_document,
     decode_options,
     decode_zone_config,
+    encode_equipment_group_document,
+    encode_options,
 )
 from .type_aliases import IntelligentClimateConfigEntry
 
@@ -165,6 +170,60 @@ def _decode_runtime_configuration(
     )
 
 
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: IntelligentClimateConfigEntry,
+) -> bool:
+    """Transactionally migrate one validated config-entry graph to 1.1."""
+    from .repairs import MigrationFailureCategory, RepairsManager
+    from .validation import EntityValidationError
+
+    issue_manager = RepairsManager(hass, entry.entry_id)
+    if (
+        entry.version != CONFIG_ENTRY_MAJOR_VERSION
+        or entry.minor_version > CONFIG_ENTRY_MINOR_VERSION
+    ):
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.SCHEMA_MIGRATION
+        )
+        return False
+    if entry.minor_version == CONFIG_ENTRY_MINOR_VERSION:
+        return True
+
+    try:
+        configuration = _decode_runtime_configuration(hass, entry)
+        data = encode_equipment_group_document(
+            EquipmentGroupDocument(configuration.equipment_group)
+        )
+        options = encode_options(configuration.options)
+    except EntityValidationError:
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.ENTITY_VALIDATION
+        )
+        return False
+    except (
+        KeyError,
+        SchemaMigrationError,
+        SchemaValidationError,
+        TypeError,
+        ValueError,
+    ):
+        issue_manager.async_report_migration_failure(
+            MigrationFailureCategory.SCHEMA_VALIDATION
+        )
+        return False
+
+    hass.config_entries.async_update_entry(
+        entry,
+        data=data,
+        options=options,
+        version=CONFIG_ENTRY_MAJOR_VERSION,
+        minor_version=CONFIG_ENTRY_MINOR_VERSION,
+    )
+    issue_manager.async_clear_migration_failure()
+    return True
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: IntelligentClimateConfigEntry,
@@ -176,7 +235,7 @@ async def async_setup_entry(
     from .coordinator import IntelligentClimateCoordinator
     from .history import ActivityHistory
     from .repairs import MigrationFailureCategory, RepairsManager
-    from .storage import RuntimeStore
+    from .storage import RuntimeStore, StoreLoadStatus
     from .validation import EntityValidationError
 
     issue_manager = RepairsManager(hass, entry.entry_id)
@@ -241,7 +300,11 @@ async def async_setup_entry(
         history=history,
     )
     issue_manager.set_activity_reporter(activity)
-    issue_manager.async_prepare_clean_setup()
+    issue_manager.async_prepare_clean_setup(
+        preserve_migration_failure=runtime_store.requires_repair
+    )
+    if (failure_category := runtime_store.migration_failure_category) is not None:
+        issue_manager.async_report_migration_failure(failure_category)
     coordinator: IntelligentClimateCoordinator | None = None
     try:
         coordinator = IntelligentClimateCoordinator(
@@ -252,8 +315,13 @@ async def async_setup_entry(
             history=history,
             activity=activity,
             runtime_store=runtime_store,
+            restored_source_baselines=runtime_store.restored_source_baselines,
         )
         runtime_store.attach_runtime(coordinator, activity)
+        if runtime_store.load_status is StoreLoadStatus.MIGRATED:
+            coordinator.async_record_store_migrated()
+        if runtime_store.previous_clean_shutdown is False:
+            coordinator.async_record_unclean_shutdown()
         await coordinator.async_start()
     except ConfigEntryNotReady as err:
         if coordinator is not None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from functools import partial
 
@@ -82,6 +82,8 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         history: ActivityHistory | None = None,
         activity: ActivityPublisher | None = None,
         runtime_store: RuntimeStore | None = None,
+        restored_source_baselines: Mapping[ObservationSourceId, SourceBaseline]
+        | None = None,
     ) -> None:
         """Initialize deterministic indexes and private orchestration state."""
         super().__init__(
@@ -120,7 +122,9 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             self._source_id_to_zones,
         ) = self._build_dependency_indexes()
 
-        self._source_baselines: dict[ObservationSourceId, SourceBaseline] = {}
+        self._source_baselines: dict[ObservationSourceId, SourceBaseline] = dict(
+            restored_source_baselines or {}
+        )
         self._pending_temperature_jumps: dict[
             ObservationSourceId, PendingJumpCandidate
         ] = {}
@@ -182,6 +186,27 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             reason_code=ActivityReason.SETUP_COMPLETED,
             severity=ActivitySeverity.INFO,
             explanation="Intelligent Climate observation setup completed.",
+        )
+
+    def async_record_store_migrated(self) -> None:
+        """Record one successful runtime Store envelope migration."""
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.STORE_MIGRATED,
+            severity=ActivitySeverity.INFO,
+            explanation="Runtime persistence migration completed.",
+        )
+
+    def async_record_unclean_shutdown(self) -> None:
+        """Record that live reconciliation follows an unclean prior shutdown."""
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.UNCLEAN_SHUTDOWN_DETECTED,
+            severity=ActivitySeverity.WARNING,
+            explanation=(
+                "An unclean previous shutdown was detected; "
+                "live reconciliation is required."
+            ),
         )
 
     def async_record_unload(self) -> None:

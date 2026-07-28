@@ -7,6 +7,45 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.6 - 2026-07-28
+
+### Added
+
+- Added transactional config-entry migration from version 1.0 to 1.1. The
+  complete parent/options/zone graph is validated before one parent update;
+  invalid graphs remain unchanged and create the existing migration Repair.
+- Added a canonical Home Assistant Store envelope migration from 1.1 to 1.2
+  while preserving Store major version 1, inner schema version 1, the
+  `decisions` field, and an always-empty `command_journal`.
+- Added bounded Store recovery states for missing, loaded, migrated,
+  quarantined, unsupported, and load-failed data, with redacted diagnostics and
+  lifecycle activity for migration and unclean prior shutdown.
+
+### Changed
+
+- Validated source baselines now seed restart comparison logic only. Persisted
+  zone temperatures remain nonauthoritative and are never published as live
+  climate state.
+- Semantically invalid Store data is retained in one entry-scoped quarantine
+  and replaced only by a later successful clean save. Future or unreadable
+  Store envelopes are preserved read-only instead of being downgraded.
+- Hardened setup, reconciliation, reload, failed platform unload, clean unload,
+  and restart cleanup without changing the Phase 1 entity inventory.
+- Bumped integration and package versions from 0.0.5 to 0.0.6 and config-entry
+  minor version from 1.0 to 1.1. Zone data version 1, Store major/inner schema
+  version 1, and diagnostics schema version 1 remain unchanged.
+
+### Security
+
+- Invalid, foreign-identity, or future-baseline Store data cannot seed runtime
+  comparison state. Quarantined payloads are never copied into diagnostics,
+  activity, Repairs, or public entities.
+- Missing, corrupt, future, or failed persistence never queues a command or
+  blocks safe live observation startup.
+- The integration remains strictly observation-only and adds no physical
+  service call, writable climate capability, schedule, prediction, simulation,
+  or command adapter.
+
 ## 0.0.5 - 2026-07-28
 
 ### Added

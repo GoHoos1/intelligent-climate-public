@@ -432,6 +432,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
         runtime_store.last_successful_save,
         runtime_store._save_handle,
         runtime_store.write_task,
+        runtime_store.load_status,
     )
     known_salt = b"known-report-salt-material-000001"
 
@@ -462,9 +463,9 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert report["diagnostics_schema_version"] == 1
     assert report["integration"] == {
         "domain": DOMAIN,
-        "version": "0.0.5",
+        "version": "0.0.6",
         "config_entry_version": 1,
-        "config_entry_minor_version": 0,
+        "config_entry_minor_version": 1,
     }
 
     configuration = report["configuration"]
@@ -523,7 +524,14 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert runtime["available"] is True
     assert runtime["repairs"] == {"active_issue_codes": []}
     assert runtime["store"] == {
+        "version": 1,
+        "minor_version": 2,
         "loaded": True,
+        "load_status": store_state[6].value,
+        "read_only": False,
+        "quarantine_present": False,
+        "previous_clean_shutdown": None,
+        "restored_source_baseline_count": 0,
         "dirty": True,
         "consecutive_write_failure_count": 0,
         "last_successful_save_timestamp": (
@@ -631,6 +639,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
         runtime_store.last_successful_save,
         runtime_store._save_handle,
         runtime_store.write_task,
+        runtime_store.load_status,
     )
     service_call.assert_not_awaited()
     reload.assert_not_called()

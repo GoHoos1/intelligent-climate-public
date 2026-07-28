@@ -14,7 +14,7 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.5**. Intelligent Climate is pre-alpha software
+The current release is **0.0.6**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
 redacted integration diagnostics, Repairs notifications, and bounded activity
@@ -23,6 +23,11 @@ development.
 
 ## Recent changes
 
+- **0.0.6**
+  - Added transactional config-entry 1.0-to-1.1 and Store-envelope 1.1-to-1.2
+    migration with fail-closed validation and bounded quarantine.
+  - Added comparison-only baseline restoration and restart/reload hardening;
+    persisted temperatures still never become live public state.
 - **0.0.5**
   - Added bounded, privacy-safe activity history with atomic Store v1
     persistence, Event entities, per-zone Latest Activity sensors, and one
@@ -257,15 +262,16 @@ Repairs** in Home Assistant. Task 13 reports these entry-scoped conditions:
 - A configured thermostat or enabled source is missing after startup
   reconciliation.
 - An existing source is definitively incompatible with its configured binding.
-- Persisted configuration cannot be migrated or validated safely.
-- A future Store implementation reports at least three consecutive write
-  failures.
+- Persisted configuration or runtime Store data cannot be migrated or
+  validated safely.
+- Runtime persistence reports at least three consecutive write failures.
 - The observation-only command boundary blocks an unexpected physical-command
   intent.
 
 Missing and incompatible entity issues clear after the configured references
-recover. Migration issues clear after a later clean setup, Store issues clear
-after a successful future Store notification, and command-boundary issues
+recover. Configuration migration issues clear after a later valid migration;
+Store validation/quarantine issues clear only after a clean replacement save.
+Store-write issues clear after a successful save, and command-boundary issues
 clear during a later clean setup. The command boundary suppresses the intent
 and does not command equipment.
 
@@ -353,6 +359,16 @@ storage availability and Home Assistant logs; a later successful save clears
 the issue automatically. Exception text and filesystem paths are not copied
 into activity, diagnostics, or the integration's Repairs data.
 
+### A migration or runtime-data validation issue appears
+
+Intelligent Climate rejected persisted configuration or Store data that could
+not be interpreted safely. Config-entry migration leaves the complete graph
+unchanged when validation fails. Semantically invalid Store data is retained
+in one bounded quarantine until a clean replacement save succeeds; unsupported
+future Store data is preserved read-only. Live observation starts from current
+Home Assistant states whenever that is safe, and no persisted temperature is
+substituted.
+
 When reporting a problem, include the integration version, a reviewed
 diagnostic download, the expected behavior, and the relevant Home Assistant
 logs without credentials.
@@ -367,24 +383,27 @@ Normal diagnostic generation performs no polling, filesystem I/O, service
 call, timer creation, subscription, reload, or runtime mutation. Raw Home
 Assistant state objects and complete attribute mappings are never serialized.
 
-Runtime Store data is local and nonauthoritative. Only bounded activity history
-is restored into Task 14 runtime surfaces. Persisted temperatures and source
-baselines are saved for future continuity work but are not hydrated into live
-coordinator state or public entities. A missing or invalid Store starts with
-empty history and live reconciliation.
+Runtime Store data is local and nonauthoritative. Bounded activity history is
+restored into its existing diagnostic surfaces. Strictly validated source
+baselines may seed source-quality comparison during live restart
+reconciliation, but they are not observations and never become public climate
+state. Persisted zone temperatures are never hydrated into the coordinator or
+public entities. A missing, quarantined, unsupported, or unreadable Store
+starts with live reconciliation and no restored public temperature.
 
 ## Current roadmap and Phase 1 status
 
-Phase 1 is being delivered in small observation-only slices. Tasks 1 through 14
+Phase 1 is being delivered in small observation-only slices. Tasks 1 through 15
 are implemented: repository and schema foundations, UI configuration, zone
 identity, entity validation, capability discovery, source normalization and
 health, aggregation, the event-driven coordinator, read-only zone climate
 entities, redacted diagnostics, Repairs notifications, and bounded activity
-history/events with Store v1 persistence.
+history/events with Store v1 persistence, migration, quarantine, and lifecycle
+recovery hardening.
 
-Remaining Phase 1 work includes lifecycle/migration hardening and final
-acceptance testing. Tasks 15 and 16 are not implemented. Scheduled control
-begins no earlier than Phase 2, and predictive control remains a later phase.
+Remaining Phase 1 work is final integration and acceptance testing in Task 16.
+Scheduled control begins no earlier than Phase 2, and predictive control
+remains a later phase.
 
 See the [implementation backlog](docs/implementation-backlog.md) for the
 approved sequence and explicit exclusions.
@@ -412,11 +431,12 @@ configuration references.
 
 Persisted JSON is decoded through strict typed boundaries. Unknown fields,
 invalid identifiers, duplicate sources, partial legacy graphs, and ambiguous
-ownership fail closed. Config-entry major/minor versions remain `1.0` in
-release 0.0.5; diagnostics, Repairs, and activity surfaces do not change the
-persisted configuration schema and require no config-entry migration. Runtime
-Store schema version 1 remains unchanged; its previously unused `decisions`
-array now contains strict activity records.
+ownership fail closed. Release 0.0.6 transactionally migrates config entries
+from `1.0` to `1.1` after validating the complete parent/options/zone graph.
+Runtime Store major version 1 and inner schema version 1 remain unchanged; the
+Home Assistant Store envelope migrates from minor 1 to minor 2. The existing
+`decisions` array contains strict activity records and `command_journal`
+remains empty.
 
 ### Lifecycle and observation
 
@@ -430,6 +450,11 @@ Startup enters reconciliation, evaluates the current public states, and rejects
 restored values until a live report arrives. One earliest-deadline watchdog
 handles freshness without polling. Unload and reload cancel subscriptions,
 debounce callbacks, reconciliation, and freshness deadlines.
+
+Strictly validated Store baselines are comparison-only inputs during this live
+reconciliation. Saved zone observations are never loaded into the coordinator
+or virtual climate entities. Invalid Store data is quarantined; future or
+unreadable envelopes remain preserved read-only.
 
 Material activity flows through one bounded entry-scoped history. Each new
 record fires one `intelligent_climate_activity` bus event and updates only the
