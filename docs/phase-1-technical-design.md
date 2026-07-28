@@ -839,7 +839,7 @@ Predictive, model, schedule, manual-override, window-suspension, fan-control, au
 
 ### 12.4 Corrupt or missing Store
 
-Because runtime Store data is nonauthoritative, a missing file starts with an empty runtime. Invalid JSON, unsupported future schema, or semantic corruption is quarantined logically, logged, and reported through Repairs. The coordinator starts in Reconciliation and rebuilds live state. It never restores a temperature directly to a Home Assistant entity before confirming live inputs.
+Because runtime Store data is nonauthoritative, a missing file starts with an empty runtime. Task 14 also fails an invalid, unsupported, or unreadable Store safely to empty nonauthoritative activity history and starts live Reconciliation. It never restores a temperature or baseline directly to coordinator/public entity state. Comprehensive Store migration, corruption quarantine, restored-baseline reconciliation, and restart hardening remain Task 15 scope.
 
 ## 13. Control state machine
 
@@ -970,8 +970,8 @@ Task 12 implements config-entry diagnostics only through
 unimplemented. Home Assistant places the returned integration-owned payload
 under the downloaded report's `data` section. That payload has
 `diagnostics_schema_version: 1` and three stable top-level sections. Schema
-version 1 permits backward-compatible additive fields; Task 13 does not change
-or remove an existing field:
+version 1 permits backward-compatible additive fields; Tasks 13 and 14 do not
+change or remove an existing field:
 
 - `integration`: domain, integration version, and config-entry major/minor
   versions.
@@ -982,10 +982,12 @@ or remove an existing field:
   observation options currently consumed by the coordinator.
 - `runtime`: runtime availability, snapshot revision/control state/
   reconciliation/timestamp, thermostat availability and approved capability/
-  observed-state fields, and per-zone effective values plus deterministic
-  configured-order source summaries. Task 13 adds
+  observed-state fields, per-zone effective values plus deterministic
+  configured-order source summaries, bounded activity, and Store health. Task
+  13 adds
   `repairs.active_issue_codes`, containing only sorted stable issue-code
-  strings.
+  strings. Task 14 adds `activity` and `store` projections without changing
+  diagnostics schema version 1.
 
 Per-zone temperature and optional humidity summaries contain configured,
 enabled, valid, contributing, and excluded counts; counts for every
@@ -1056,8 +1058,13 @@ Task 13 reads active Repairs codes from the issue registry without creating,
 deleting, or mutating an issue and includes them even when runtime data is
 absent or configuration decoding fails. Issue IDs, raw config-entry IDs,
 entity IDs, names, translation placeholders, issue data, and issue-registry
-objects are never diagnostic fields. Recent redacted activity and Store health
-remain absent until their approved tasks implement those underlying features.
+objects are never diagnostic fields. Task 14 activity diagnostics use an
+explicit typed allowlist containing bounded record identity, generated
+group/zone UUIDs, activity type/reason/severity, timestamp, explanation, and
+strict scalar detail. Store diagnostics contain only loaded/dirty state,
+configured bounds, consecutive failure count, and last successful-save time.
+Diagnostic generation does not load or save Store data, prune mutable history,
+schedule a task, register a callback, or fire an event.
 
 ### 15.5 Repairs integration
 
@@ -1096,7 +1103,7 @@ a current observation, persistence, migration, or safety failure.
 | `missing_entity` | After reconciliation/guard completion, at least one configured thermostat or enabled temperature/humidity source has no Home Assistant State. One issue aggregates the entry. Existing unknown/unavailable States are not missing. Disabled observation does not evaluate sources. | The same evaluation finds no missing required reference. |
 | `incompatible_entity` | After reconciliation, an existing nontransient source has a definitive domain/binding/device-class conflict. Missing optional climate attributes, unknown/unavailable, stale, restored, implausible, jump-rejected, outlier, and contradictory observations are not incompatibilities. | Every evaluated existing binding is compatible after state or configuration correction. |
 | `migration_failed` | A known config/schema migration or fail-closed persisted/runtime validation boundary fails before setup can complete. Only a bounded failure category is stored; no exception text or malformed document is copied. | A later setup successfully validates the persisted hierarchy. Invalid configuration never loads merely to clear the issue. |
-| `store_write_failed` | A future Store owner reports three or more consecutive write failures through the typed hook. One or two failures do not create it; later failures are idempotent. | The future Store owner reports a successful/reset count of zero. |
+| `store_write_failed` | The Task 14 Store owner reports three or more consecutive write failures through the typed hook. One or two failures do not create it; later failures are idempotent. | The Store owner reports a successful/reset count of zero. |
 | `command_boundary_violation` | Any nonempty intent reaches `ObserveOnlyCommandSink`. The intent remains suppressed, the result remains `suppressed_observe_only`, only a stable reason is logged, and no payload is placed in the issue. | A later clean integration setup deletes the stale event issue before observation. Another violation recreates it immediately. |
 
 Missing/incompatible synchronization runs only after the existing startup guard
@@ -1109,9 +1116,10 @@ independent through their hashed entry scopes. Unload cancels coordinator
 callbacks but does not delete a still-valid persistent migration, Store, or
 command event merely to clean the registry.
 
-The Store hook is boundary-only in Task 13. Runtime Store loading, writing,
-retry/backoff, debounce, persistence tasks, and synthetic failures remain
-absent until the approved Store/lifecycle task. All English issue titles and
+Task 14 wires the Store hook to the entry-scoped Runtime Store. Three
+consecutive failures create the existing issue and a later successful save
+clears it. Only the first failure transition and later recovery are material
+activity; exception text is never copied. All English issue titles and
 actionable descriptions live under the established `issues` section in
 `translations/en.json`. No `RepairsFlow`, fix flow, automatic repair action, or
 configuration mutation exists.
@@ -1121,6 +1129,47 @@ that Intelligent Climate blocked the unexpected control attempt, no physical
 equipment was commanded, the integration should be disabled, and the defect
 should be reported. The sink invokes no physical adapter or Home Assistant
 service and preserves the original thermostat for independent control.
+
+### 15.6 Task 14 activity and Store implementation
+
+Task 14 implements `ActivityRecord` as a frozen/slotted value with a UUID
+record ID, timezone-aware timestamp, generated equipment-group and optional
+zone UUID, stable activity type/reason/severity values, concise explanation,
+and a strictly allowlisted scalar detail mapping. It rejects unknown fields,
+naive timestamps, incompatible type/reason pairs, nonfinite/nested details,
+entity-ID-like explanation text, URLs, and paths.
+
+`ActivityHistory` stores records oldest-to-newest, exposes immutable overall
+and per-zone latest views, retains records exactly on the age cutoff, removes
+records strictly older than it, and caps count at the lower of the configured
+limit and 500. Valid loaded records are sorted/deduplicated deterministically
+without listener or event publication; duplicate newly submitted record IDs
+are rejected.
+
+Material producers compare semantic state only. Snapshot revision,
+`calculated_at`, source report time, capability `discovered_at`, equivalent
+watchdog evaluation, and unchanged state reports alone create no activity.
+Initial healthy observations establish baselines; initial exclusions may
+explain degraded startup. The supported activity surfaces are exactly one
+equipment-group Activity Event, one zone Activity Event per configured zone,
+and one Latest Activity sensor per zone. Event entity state changes provide
+Recorder/Logbook visibility; no second custom Logbook record is emitted.
+
+Every newly accepted record fires exactly one
+`intelligent_climate_activity` event containing only entry ID, generated group
+and optional zone UUID, activity type, reason, severity, timestamp, and
+explanation. Event entity attributes and Latest Activity sensor attributes use
+their narrower documented allowlists.
+
+Runtime Store persistence keeps Home Assistant Store version 1, inner
+`schema_version: 1`, key `intelligent_climate.<entry_id>`, the existing
+`decisions` field, and an always-empty `command_journal`. It uses atomic writes,
+a 30-second debounce, five-minute maximum dirty interval, one entry-scoped
+writer, bounded retry, and a five-second clean-unload attempt. Current zone
+state and source baselines are saved schema-completely but not restored into
+Task 14 live state. Only activity history is restored. Migration, corruption
+quarantine, baseline reconciliation, and broader restart hardening remain Task
+15.
 
 ## 16. Testing plan
 

@@ -1,5 +1,11 @@
 """Domain models for Intelligent Climate."""
 
+from .activity import (
+    ActivityReason,
+    ActivityRecord,
+    ActivitySeverity,
+    ActivityType,
+)
 from .aggregation import (
     AggregationReason,
     AggregationStatus,
@@ -72,6 +78,10 @@ __all__ = [
     "DEFAULT_OPTIONS",
     "RUNTIME_STORE_SCHEMA_VERSION",
     "ZONE_DATA_VERSION",
+    "ActivityReason",
+    "ActivityRecord",
+    "ActivitySeverity",
+    "ActivityType",
     "AggregationReason",
     "AggregationStatus",
     "AggregationStrategy",

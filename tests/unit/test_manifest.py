@@ -7,6 +7,7 @@ import tomllib
 from pathlib import Path
 
 from custom_components.intelligent_climate.const import DOMAIN, INTEGRATION_VERSION
+from custom_components.intelligent_climate.models import ActivityType
 
 ROOT = Path(__file__).parents[2]
 CUSTOM_COMPONENTS_DIR = ROOT / "custom_components"
@@ -51,9 +52,8 @@ def test_manifest_matches_foundation_scope() -> None:
     assert manifest["codeowners"] == ["@GoHoos1"]
     assert manifest["config_flow"] is True
     assert manifest["dependencies"] == []
-    assert (
-        manifest["documentation"]
-        == "https://github.com/GoHoos1/intelligent-climate-public"
+    assert manifest["documentation"] == (
+        "https://github.com/GoHoos1/intelligent-climate-public"
     )
     assert manifest["integration_type"] == "hub"
     assert manifest["iot_class"] == "calculated"
@@ -65,11 +65,11 @@ def test_manifest_matches_foundation_scope() -> None:
 
 
 def test_manifest_and_package_versions_match_diagnostics_release() -> None:
-    """Test both release metadata files identify version 0.0.4."""
+    """Test both release metadata files identify version 0.0.5."""
     manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
     package = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert manifest["version"] == INTEGRATION_VERSION == "0.0.4"
+    assert manifest["version"] == INTEGRATION_VERSION == "0.0.5"
     assert package["project"]["version"] == INTEGRATION_VERSION
 
 
@@ -79,6 +79,22 @@ def test_manifest_contains_hacs_required_fields() -> None:
 
     assert isinstance(manifest, dict)
     assert manifest.keys() >= HACS_REQUIRED_MANIFEST_FIELDS
+
+
+def test_task_14_entity_and_event_translations_are_complete() -> None:
+    """English translations cover both entities and every activity event type."""
+    translations = json.loads(
+        (INTEGRATION_DIR / "translations" / "en.json").read_text()
+    )
+
+    assert translations["entity"]["sensor"]["latest_activity"]["name"] == (
+        "Latest activity"
+    )
+    event_translation = translations["entity"]["event"]["activity"]
+    assert event_translation["name"] == "Activity"
+    assert set(event_translation["state"]) == {
+        activity_type.value for activity_type in ActivityType
+    }
 
 
 def test_hacs_manifest_declares_integration_name() -> None:

@@ -7,6 +7,54 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.5 - 2026-07-28
+
+### Added
+
+- Added strict frozen/slotted activity records with stable UUIDs, aware
+  timestamps, bounded scalar detail, stable type/reason/severity vocabularies,
+  and privacy-safe explanations.
+- Added entry-scoped history pruned by configured age and count with an absolute
+  500-record maximum, immutable latest/zone views, deterministic restore, and
+  listener cleanup.
+- Added one diagnostic Activity Event entity on each equipment-group and zone
+  device plus one diagnostic Latest Activity sensor per zone.
+- Added one exact `intelligent_climate_activity` event-bus publication for every
+  newly accepted record. Event entities provide Recorder/Logbook visibility
+  without a duplicate custom Logbook record.
+- Added Home Assistant Store version 1 persistence at
+  `intelligent_climate.<entry_id>` with atomic writes, 30-second debounce,
+  five-minute maximum dirty interval, one writer, bounded retry, Store
+  failure/recovery activity, Repairs wiring, and a five-second unload limit.
+- Added backward-compatible diagnostics schema version 1 activity history and
+  Store-health projections.
+
+### Changed
+
+- Narrowed the unused Store v1 `decisions` array to strict typed activity
+  records without renaming the field or changing the Store/inner schema
+  version. `command_journal` remains always empty.
+- Added semantic materiality for runtime state, source exclusion/recovery,
+  thermostat mode/target, capability, Repairs, unsupported-control, Store, and
+  lifecycle activity while ignoring revisions, timestamps, and unchanged
+  reports alone.
+- Bumped integration and package versions from 0.0.4 to 0.0.5 without changing
+  config-entry version 1.0, zone data version 1, Store schema version 1, or
+  diagnostics schema version 1.
+
+### Security
+
+- Activity, Event attributes, Latest Activity attributes, diagnostics, Repairs,
+  and event-bus payloads exclude raw entity IDs, user-assigned names, State
+  objects, source values, contexts, credentials, URLs, paths, exception text,
+  and command payloads.
+- Persisted temperatures and source baselines are saved only for future
+  continuity work and are not hydrated into Task 14 coordinator state or public
+  entities.
+- The integration remains strictly observation-only and adds no physical
+  service call, writable climate capability, schedule, prediction, simulation,
+  or command adapter.
+
 ## 0.0.4 - 2026-07-27
 
 ### Added

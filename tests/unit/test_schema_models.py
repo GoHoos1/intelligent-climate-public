@@ -149,6 +149,24 @@ def runtime_store_document() -> dict[str, Any]:
     }
 
 
+def activity_document() -> dict[str, Any]:
+    """Return one valid strict activity stored in the legacy decisions field."""
+    return {
+        "record_id": DECISION_ID,
+        "timestamp": "2026-07-20T15:29:50+00:00",
+        "equipment_group_id": GROUP_ID,
+        "zone_id": ZONE_ID,
+        "activity_type": "source_quality_changed",
+        "reason_code": "source_excluded",
+        "severity": "warning",
+        "explanation": "A configured observation source was excluded.",
+        "detail": {
+            "source_id": TEMP_SOURCE_ID,
+            "new_quality": "stale",
+        },
+    }
+
+
 def assert_error(document: object, expected: str) -> None:
     """Assert a document raises a path-aware schema validation error."""
     with pytest.raises(SchemaValidationError, match=expected):
@@ -1131,42 +1149,58 @@ def test_runtime_store_decisions_are_bounded() -> None:
 
 
 def test_runtime_store_decisions_are_decoded_immutably() -> None:
-    """Test decoded decision records do not retain caller dict/list references."""
+    """Test decoded activity records do not retain caller mapping references."""
     document = runtime_store_document()
-    document["decisions"] = [
-        {
-            "decision_id": DECISION_ID,
-            "details": {"values": [23.7]},
-        }
-    ]
+    activity = activity_document()
+    document["decisions"] = [activity]
 
     decoded = decode_runtime_store_document(document)
-    document["decisions"][0]["details"]["values"].append(99.0)
+    activity["detail"]["new_quality"] = "valid"
 
-    assert encode_runtime_store_document(decoded)["decisions"] == [
-        {
-            "decision_id": DECISION_ID,
-            "details": {"values": [23.7]},
-        }
-    ]
+    assert encode_runtime_store_document(decoded)["decisions"] == [activity_document()]
     with pytest.raises(TypeError):
-        decoded.decisions[0]["decision_id"] = "changed"  # type: ignore[index]
+        decoded.decisions[0].detail["new_quality"] = "changed"  # type: ignore[index]
+
+
+def test_runtime_store_activity_ordering_and_duplicate_ids_are_strict() -> None:
+    """Typed Store history sorts deterministically and rejects duplicate IDs."""
+    document = runtime_store_document()
+    later = activity_document()
+    earlier = {
+        **activity_document(),
+        "record_id": "76907d21-8ae2-4dbb-b58c-2ded09b3b88b",
+        "timestamp": "2026-07-20T15:29:49+00:00",
+    }
+    document["decisions"] = [later, earlier]
+
+    decoded = decode_runtime_store_document(document)
+
+    assert [str(record.record_id) for record in decoded.decisions] == [
+        earlier["record_id"],
+        later["record_id"],
+    ]
+
+    document["decisions"] = [later, {**earlier, "record_id": later["record_id"]}]
+    with pytest.raises(SchemaValidationError, match="duplicate activity record_id"):
+        decode_runtime_store_document(document)
 
 
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        (inf, "must be finite"),
-        (object(), "must be a JSON-compatible value"),
+        (inf, "bounded scalars"),
+        (object(), "must be a scalar"),
     ],
 )
 def test_runtime_store_rejects_unsafe_nested_decision_values(
     value: object,
     expected: str,
 ) -> None:
-    """Generic future decision objects still enforce the JSON safety boundary."""
+    """Typed activity detail still enforces the strict scalar safety boundary."""
     document = runtime_store_document()
-    document["decisions"] = [{"detail": value}]
+    activity = activity_document()
+    activity["detail"] = {"source_id": value}
+    document["decisions"] = [activity]
 
     with pytest.raises(SchemaValidationError, match=expected):
         decode_runtime_store_document(document)

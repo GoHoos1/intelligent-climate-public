@@ -16,7 +16,14 @@ from enum import StrEnum
 from math import isfinite
 from types import MappingProxyType
 from typing import Any
+from uuid import UUID
 
+from .activity import (
+    ActivityReason,
+    ActivityRecord,
+    ActivitySeverity,
+    ActivityType,
+)
 from .identifiers import EquipmentGroupId, ObservationSourceId, ZoneId
 
 CONFIG_ENTRY_MAJOR_VERSION = 1
@@ -233,7 +240,7 @@ class RuntimeStoreDocument:
     last_clean_shutdown: bool
     zones: dict[ZoneId, RuntimeZoneState]
     source_baselines: dict[ObservationSourceId, SourceBaseline]
-    decisions: tuple[JsonObject, ...]
+    decisions: tuple[ActivityRecord, ...]
     command_journal: tuple[JsonObject, ...]
 
 
@@ -552,11 +559,7 @@ def decode_runtime_store_document(value: object) -> RuntimeStoreDocument:
         ),
         zones=_decode_runtime_zones(root.get("zones")),
         source_baselines=_decode_source_baselines(root.get("source_baselines")),
-        decisions=_json_object_tuple(
-            root.get("decisions"),
-            "decisions",
-            max_items=500,
-        ),
+        decisions=_decode_activity_records(root.get("decisions")),
         command_journal=command_journal,
     )
 
@@ -583,7 +586,9 @@ def encode_runtime_store_document(document: RuntimeStoreDocument) -> JsonObject:
                 key=lambda item: str(item[0]),
             )
         },
-        "decisions": [_encode_json_value(decision) for decision in document.decisions],
+        "decisions": [
+            _encode_activity_record(decision) for decision in document.decisions
+        ],
         "command_journal": [
             _encode_json_value(entry) for entry in document.command_journal
         ],
@@ -997,6 +1002,104 @@ def _decode_runtime_zones(value: object) -> dict[ZoneId, RuntimeZoneState]:
         zone_id = _parse_zone_id(raw_zone_id, f"zones.{raw_zone_id}")
         zones[zone_id] = _decode_runtime_zone_state(raw_state, f"zones.{raw_zone_id}")
     return zones
+
+
+def _decode_activity_records(value: object) -> tuple[ActivityRecord, ...]:
+    raw_records = _list(value, "decisions")
+    if len(raw_records) > 500:
+        raise SchemaValidationError("decisions", "must contain at most 500 items")
+    records = tuple(
+        _decode_activity_record(item, f"decisions[{index}]")
+        for index, item in enumerate(raw_records)
+    )
+    record_ids = tuple(record.record_id for record in records)
+    if len(set(record_ids)) != len(record_ids):
+        raise SchemaValidationError("decisions", "duplicate activity record_id")
+    return tuple(sorted(records, key=lambda item: (item.timestamp, item.record_id.hex)))
+
+
+def _decode_activity_record(value: object, path: str) -> ActivityRecord:
+    root = _object(value, path)
+    expected = {
+        "record_id",
+        "timestamp",
+        "equipment_group_id",
+        "zone_id",
+        "activity_type",
+        "reason_code",
+        "severity",
+        "explanation",
+        "detail",
+    }
+    _reject_unknown(root, expected, path)
+    raw_record_id = _non_empty_string(root.get("record_id"), f"{path}.record_id")
+    try:
+        record_id = UUID(raw_record_id)
+    except ValueError as err:
+        raise SchemaValidationError(
+            f"{path}.record_id",
+            "must be a UUID",
+        ) from err
+    raw_zone_id = root.get("zone_id")
+    detail_root = _object(root.get("detail"), f"{path}.detail")
+    detail: dict[str, str | int | float | bool | None] = {}
+    for key, item in detail_root.items():
+        if item is not None and not isinstance(item, str | int | float | bool):
+            raise SchemaValidationError(
+                f"{path}.detail.{key}",
+                "must be a scalar",
+            )
+        detail[key] = item
+    try:
+        return ActivityRecord(
+            record_id=record_id,
+            timestamp=_datetime(root.get("timestamp"), f"{path}.timestamp"),
+            equipment_group_id=_parse_equipment_group_id(
+                root.get("equipment_group_id"),
+                f"{path}.equipment_group_id",
+            ),
+            zone_id=(
+                None
+                if raw_zone_id is None
+                else _parse_zone_id(raw_zone_id, f"{path}.zone_id")
+            ),
+            activity_type=_enum(
+                ActivityType,
+                root.get("activity_type"),
+                f"{path}.activity_type",
+            ),
+            reason_code=_enum(
+                ActivityReason,
+                root.get("reason_code"),
+                f"{path}.reason_code",
+            ),
+            severity=_enum(
+                ActivitySeverity,
+                root.get("severity"),
+                f"{path}.severity",
+            ),
+            explanation=_non_empty_string(
+                root.get("explanation"),
+                f"{path}.explanation",
+            ),
+            detail=detail,
+        )
+    except ValueError as err:
+        raise SchemaValidationError(path, str(err)) from err
+
+
+def _encode_activity_record(record: ActivityRecord) -> JsonObject:
+    return {
+        "record_id": str(record.record_id),
+        "timestamp": record.timestamp.isoformat(),
+        "equipment_group_id": str(record.equipment_group_id),
+        "zone_id": None if record.zone_id is None else str(record.zone_id),
+        "activity_type": record.activity_type.value,
+        "reason_code": record.reason_code.value,
+        "severity": record.severity.value,
+        "explanation": record.explanation,
+        "detail": dict(record.detail),
+    }
 
 
 def _decode_runtime_zone_state(value: object, path: str) -> RuntimeZoneState:

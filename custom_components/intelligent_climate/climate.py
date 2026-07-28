@@ -279,50 +279,32 @@ class IntelligentClimateZoneClimateEntity(
     @override
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_humidity(self, humidity: int) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_swing_mode(self, swing_mode: str) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_set_swing_horizontal_mode(
@@ -330,31 +312,27 @@ class IntelligentClimateZoneClimateEntity(
         swing_horizontal_mode: str,
     ) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_turn_on(self) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_turn_off(self) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
-            translation_domain=DOMAIN,
-            translation_key="observation_only",
-        )
+        raise self._unsupported_control_error()
 
     @override
     async def async_toggle(self) -> None:
         """Reject mutation of an observation-only entity."""
-        raise ServiceValidationError(
+        raise self._unsupported_control_error()
+
+    def _unsupported_control_error(self) -> ServiceValidationError:
+        """Record one payload-free attempt and build the translated rejection."""
+        self.coordinator.async_record_unsupported_control_attempt(self.zone.zone_id)
+        return ServiceValidationError(
             translation_domain=DOMAIN,
             translation_key="observation_only",
         )

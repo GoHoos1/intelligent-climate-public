@@ -24,6 +24,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util.dt import utcnow
 
+from .activity import ActivityPublisher
 from .aggregation import (
     aggregate_humidity_sources,
     aggregate_temperature_sources,
@@ -33,7 +34,11 @@ from .climate_state import normalize_climate_state
 from .const import DOMAIN, STATE_CHANGE_DEBOUNCE_SECONDS
 from .control import ObserveOnlyCommandSink
 from .health import evaluate_humidity_health, evaluate_temperature_health
+from .history import ActivityHistory
 from .models import (
+    ActivityReason,
+    ActivitySeverity,
+    ActivityType,
     AggregationReason,
     AggregationStatus,
     ControlState,
@@ -54,6 +59,7 @@ from .models import (
 )
 from .observation import observe_humidity_source, observe_temperature_source
 from .repairs import RepairsManager
+from .storage import RuntimeStore
 from .type_aliases import IntelligentClimateConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,6 +79,9 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         *,
         now_fn: NowFunction = utcnow,
         issue_manager: RepairsManager | None = None,
+        history: ActivityHistory | None = None,
+        activity: ActivityPublisher | None = None,
+        runtime_store: RuntimeStore | None = None,
     ) -> None:
         """Initialize deterministic indexes and private orchestration state."""
         super().__init__(
@@ -86,6 +95,19 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self.configuration = configuration
         self._now_fn = now_fn
         self.issue_manager = issue_manager or RepairsManager(hass, entry.entry_id)
+        self.history = history or ActivityHistory(
+            max_records=configuration.options.history_max_records,
+            max_age_days=configuration.options.history_max_age_days,
+        )
+        self.activity = activity or ActivityPublisher(
+            hass,
+            entry_id=entry.entry_id,
+            equipment_group_id=configuration.equipment_group.equipment_group_id,
+            history=self.history,
+            now_fn=now_fn,
+        )
+        self.issue_manager.set_activity_reporter(self.activity)
+        self.runtime_store = runtime_store
         self.command_sink = ObserveOnlyCommandSink(self.issue_manager)
 
         self._zones_by_id = {zone.zone_id: zone for zone in configuration.zones}
@@ -131,16 +153,55 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         """Return a defensive copy of the deterministic thermostat index."""
         return dict(self._thermostat_to_zones)
 
+    @property
+    def source_baselines(self) -> dict[ObservationSourceId, SourceBaseline]:
+        """Return a defensive copy for schema-complete nonauthoritative saves."""
+        return dict(self._source_baselines)
+
     async def async_start(self) -> None:
         """Subscribe, publish the initial snapshot, then schedule deadlines."""
         if self._shutdown:
             raise RuntimeError("coordinator has shut down")
         if self._runtime_is_active:
             self._register_state_subscriptions()
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.SETUP_STARTED,
+            severity=ActivitySeverity.INFO,
+            explanation="Intelligent Climate observation setup started.",
+        )
         await self.async_config_entry_first_refresh()
         if self._runtime_is_active:
             self._schedule_reconciliation()
             self._schedule_watchdog(self.data.calculated_at)
+
+    def async_record_setup_complete(self) -> None:
+        """Record successful platform setup after activity entities subscribe."""
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.SETUP_COMPLETED,
+            severity=ActivitySeverity.INFO,
+            explanation="Intelligent Climate observation setup completed.",
+        )
+
+    def async_record_unload(self) -> None:
+        """Record the final clean-unload activity before Store flush."""
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.UNLOAD,
+            severity=ActivitySeverity.INFO,
+            explanation="Intelligent Climate observation unloaded cleanly.",
+        )
+
+    def async_record_unsupported_control_attempt(self, zone_id: ZoneId) -> None:
+        """Record one payload-free virtual-climate setter rejection."""
+        self.activity.record(
+            activity_type=ActivityType.UNSUPPORTED_CONTROL_ATTEMPT,
+            reason_code=ActivityReason.UNSUPPORTED_CONTROL_ATTEMPT,
+            severity=ActivitySeverity.WARNING,
+            explanation="A virtual climate control attempt was safely rejected.",
+            zone_id=zone_id,
+        )
 
     @property
     def _runtime_is_active(self) -> bool:
@@ -189,12 +250,14 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             self._evaluate_zone(zone, calculated_at)
             for zone in self.configuration.zones
         )
-        return self._new_snapshot(
+        snapshot = self._new_snapshot(
             thermostats=thermostats,
             zones=zones,
             reconciling=True,
             calculated_at=calculated_at,
         )
+        self._record_snapshot_activity(previous=None, current=snapshot)
+        return snapshot
 
     @property
     def _configured_thermostat_entity_ids(self) -> tuple[str, ...]:
@@ -571,6 +634,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             reconciling=self._reconciling,
             calculated_at=calculated_at,
         )
+        self._record_snapshot_activity(previous=self.data, current=snapshot)
         self.async_set_updated_data(snapshot)
         if not self._reconciling:
             self.issue_manager.async_sync_entity_conditions(self.configuration)
@@ -645,7 +709,19 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             reconciling=False,
             calculated_at=fire_time,
         )
+        self._record_snapshot_activity(previous=self.data, current=snapshot)
         self.async_set_updated_data(snapshot)
+        self.activity.record(
+            activity_type=ActivityType.LIFECYCLE,
+            reason_code=ActivityReason.RECONCILIATION_COMPLETED,
+            severity=(
+                ActivitySeverity.WARNING
+                if snapshot.control_state is ControlState.DEGRADED
+                else ActivitySeverity.INFO
+            ),
+            explanation="Startup observation reconciliation completed.",
+            timestamp=fire_time,
+        )
         self.issue_manager.async_sync_entity_conditions(self.configuration)
         self._schedule_watchdog(fire_time)
 
@@ -708,6 +784,170 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             return
         self._publish_targeted(affected_zone_ids, fire_time)
 
+    def _record_snapshot_activity(
+        self,
+        *,
+        previous: EntryObservationSnapshot | None,
+        current: EntryObservationSnapshot,
+    ) -> None:
+        """Produce only semantic activity, ignoring revisions and timestamps."""
+        if previous is not None and previous.control_state is not current.control_state:
+            self.activity.record(
+                activity_type=ActivityType.RUNTIME_STATE_CHANGED,
+                reason_code=ActivityReason.CONTROL_STATE_CHANGED,
+                severity=(
+                    ActivitySeverity.WARNING
+                    if current.control_state is ControlState.DEGRADED
+                    else ActivitySeverity.INFO
+                ),
+                explanation="The observation runtime state changed.",
+                detail={
+                    "previous_state": previous.control_state.value,
+                    "new_state": current.control_state.value,
+                },
+                timestamp=current.calculated_at,
+            )
+
+        previous_zones = (
+            {} if previous is None else {zone.zone_id: zone for zone in previous.zones}
+        )
+        for current_zone in current.zones:
+            previous_zone = previous_zones.get(current_zone.zone_id)
+            self._record_source_activity(previous_zone, current_zone)
+
+        previous_thermostats = (
+            {}
+            if previous is None
+            else {item.entity_id: item for item in previous.thermostats}
+        )
+        for thermostat in current.thermostats:
+            prior = previous_thermostats.get(thermostat.entity_id)
+            zone_ids = self._thermostat_to_zones.get(thermostat.entity_id, ())
+            if prior is None:
+                if thermostat.capability_discovery.status.value == "unavailable":
+                    for zone_id in zone_ids:
+                        self.activity.record(
+                            activity_type=(
+                                ActivityType.THERMOSTAT_CAPABILITIES_CHANGED
+                            ),
+                            reason_code=(
+                                ActivityReason.THERMOSTAT_CAPABILITIES_CHANGED
+                            ),
+                            severity=ActivitySeverity.WARNING,
+                            explanation="Thermostat capabilities are unavailable.",
+                            zone_id=zone_id,
+                            timestamp=current.calculated_at,
+                        )
+                continue
+            if _capability_semantics(prior) != _capability_semantics(thermostat):
+                for zone_id in zone_ids:
+                    self.activity.record(
+                        activity_type=ActivityType.THERMOSTAT_CAPABILITIES_CHANGED,
+                        reason_code=ActivityReason.THERMOSTAT_CAPABILITIES_CHANGED,
+                        severity=(
+                            ActivitySeverity.INFO
+                            if thermostat.capability_discovery.capabilities is not None
+                            else ActivitySeverity.WARNING
+                        ),
+                        explanation="Observed thermostat capabilities changed.",
+                        zone_id=zone_id,
+                        timestamp=current.calculated_at,
+                    )
+            if prior.state.hvac_mode != thermostat.state.hvac_mode:
+                for zone_id in zone_ids:
+                    self.activity.record(
+                        activity_type=ActivityType.THERMOSTAT_OBSERVATION_CHANGED,
+                        reason_code=ActivityReason.THERMOSTAT_MODE_CHANGED,
+                        severity=(
+                            ActivitySeverity.INFO
+                            if thermostat.state.hvac_mode is not None
+                            else ActivitySeverity.WARNING
+                        ),
+                        explanation="The observed thermostat mode changed.",
+                        zone_id=zone_id,
+                        timestamp=current.calculated_at,
+                    )
+            if _target_semantics(prior) != _target_semantics(thermostat):
+                for zone_id in zone_ids:
+                    self.activity.record(
+                        activity_type=ActivityType.THERMOSTAT_OBSERVATION_CHANGED,
+                        reason_code=ActivityReason.THERMOSTAT_TARGET_CHANGED,
+                        severity=(
+                            ActivitySeverity.INFO
+                            if any(
+                                value is not None
+                                for value in _target_semantics(thermostat)
+                            )
+                            else ActivitySeverity.WARNING
+                        ),
+                        explanation="The observed thermostat target changed.",
+                        zone_id=zone_id,
+                        timestamp=current.calculated_at,
+                    )
+
+    def _record_source_activity(
+        self,
+        previous: ZoneObservation | None,
+        current: ZoneObservation,
+    ) -> None:
+        previous_sources = {} if previous is None else _final_source_states(previous)
+        for source_id, observation in _final_source_states(current).items():
+            prior = previous_sources.get(source_id)
+            current_semantics = (observation.quality, observation.exclusion_reason)
+            if prior is None:
+                if observation.quality is SourceQuality.VALID:
+                    continue
+                reason = ActivityReason.SOURCE_EXCLUDED
+                explanation = "A configured observation source was excluded."
+            else:
+                prior_semantics = (prior.quality, prior.exclusion_reason)
+                if prior_semantics == current_semantics:
+                    continue
+                if (
+                    prior.quality is SourceQuality.VALID
+                    and observation.quality is not SourceQuality.VALID
+                ):
+                    reason = ActivityReason.SOURCE_EXCLUDED
+                    explanation = "A configured observation source was excluded."
+                elif (
+                    prior.quality is not SourceQuality.VALID
+                    and observation.quality is SourceQuality.VALID
+                ):
+                    reason = ActivityReason.SOURCE_RECOVERED
+                    explanation = "A configured observation source recovered."
+                else:
+                    reason = ActivityReason.SOURCE_EXCLUSION_CHANGED
+                    explanation = "An observation source exclusion reason changed."
+            self.activity.record(
+                activity_type=ActivityType.SOURCE_QUALITY_CHANGED,
+                reason_code=reason,
+                severity=(
+                    ActivitySeverity.INFO
+                    if observation.quality is SourceQuality.VALID
+                    else ActivitySeverity.WARNING
+                ),
+                explanation=explanation,
+                zone_id=current.zone_id,
+                detail={
+                    "source_id": str(source_id),
+                    "previous_quality": (
+                        None if prior is None else prior.quality.value
+                    ),
+                    "new_quality": observation.quality.value,
+                    "previous_exclusion_reason": (
+                        None
+                        if prior is None or prior.exclusion_reason is None
+                        else prior.exclusion_reason.value
+                    ),
+                    "new_exclusion_reason": (
+                        None
+                        if observation.exclusion_reason is None
+                        else observation.exclusion_reason.value
+                    ),
+                },
+                timestamp=current.calculated_at,
+            )
+
     def _now(self) -> datetime:
         result = self._now_fn()
         if result.tzinfo is None or result.utcoffset() is None:
@@ -734,6 +974,9 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self._cancel_watchdog = None
         self._pending_zone_ids.clear()
         self._pending_thermostat_entity_ids.clear()
+        if self.runtime_store is not None:
+            await self.runtime_store.async_shutdown()
+        self.activity.close()
         await super().async_shutdown()
 
 
@@ -764,3 +1007,60 @@ def _empty_aggregation(calculated_at: datetime) -> SourceAggregationResult:
 def _cancel(cancel: CALLBACK_TYPE | None) -> None:
     if cancel is not None:
         cancel()
+
+
+def _final_source_states(
+    zone: ZoneObservation,
+) -> dict[ObservationSourceId, SourceObservation[float]]:
+    result = {
+        observation.source_id: observation
+        for observation in (
+            *zone.temperature_observations,
+            *zone.humidity_observations,
+        )
+    }
+    result.update(
+        {
+            observation.source_id: observation
+            for observation in zone.temperature_aggregation.excluded_observations
+        }
+    )
+    if zone.humidity_aggregation is not None:
+        result.update(
+            {
+                observation.source_id: observation
+                for observation in zone.humidity_aggregation.excluded_observations
+            }
+        )
+    return result
+
+
+def _target_semantics(
+    thermostat: ThermostatRuntimeSnapshot,
+) -> tuple[float | None, float | None, float | None]:
+    state = thermostat.state
+    return (
+        state.target_temperature_c,
+        state.target_low_c,
+        state.target_high_c,
+    )
+
+
+def _capability_semantics(thermostat: ThermostatRuntimeSnapshot) -> tuple[object, ...]:
+    discovery = thermostat.capability_discovery
+    capabilities = discovery.capabilities
+    if capabilities is None:
+        return (discovery.status,)
+    return (
+        discovery.status,
+        tuple(sorted(mode.value for mode in capabilities.hvac_modes)),
+        int(capabilities.supported_features),
+        capabilities.target_temperature,
+        capabilities.target_temperature_range,
+        capabilities.fan_modes,
+        capabilities.preset_modes,
+        capabilities.current_temperature_available,
+        capabilities.current_humidity_available,
+        capabilities.auxiliary_heat_observable,
+        capabilities.stage_observable,
+    )

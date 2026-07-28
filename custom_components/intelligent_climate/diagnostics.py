@@ -12,11 +12,13 @@ from typing import Any
 from homeassistant.components.climate.const import ClimateEntityFeature
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
+from homeassistant.util.dt import utcnow
 
 from . import _decode_runtime_configuration
 from .const import DOMAIN, INTEGRATION_VERSION
 from .coordinator import IntelligentClimateCoordinator
 from .models import (
+    ActivityRecord,
     EntryObservationSnapshot,
     EntryRuntimeConfiguration,
     ExclusionReason,
@@ -304,6 +306,8 @@ def _options_projection(options: IntegrationOptions) -> DiagnosticDict:
         "outlier_floor_c": options.outlier_floor_c,
         "indoor_temperature_min_c": options.indoor_temperature_min_c,
         "indoor_temperature_max_c": options.indoor_temperature_max_c,
+        "history_max_records": options.history_max_records,
+        "history_max_age_days": options.history_max_age_days,
     }
 
 
@@ -313,13 +317,45 @@ def _runtime_projection(
     repairs: DiagnosticDict,
 ) -> DiagnosticDict:
     if runtime is None or not isinstance(runtime.data, EntryObservationSnapshot):
-        return {"available": False, "repairs": repairs}
+        return {
+            "available": False,
+            "repairs": repairs,
+            "activity": None,
+            "store": None,
+        }
 
     snapshot = runtime.data
     zones_by_id = {zone.zone_id: zone for zone in runtime.configuration.zones}
+    activity_records = runtime.history.bounded_records(now=utcnow())
+    runtime_store = runtime.runtime_store
     return {
         "available": True,
         "repairs": repairs,
+        "activity": {
+            "history_record_count": len(activity_records),
+            "configured_max_records": (
+                runtime.configuration.options.history_max_records
+            ),
+            "effective_max_records": runtime.history.max_records,
+            "configured_max_age_days": (
+                runtime.configuration.options.history_max_age_days
+            ),
+            "history": [_activity_projection(record) for record in activity_records],
+        },
+        "store": (
+            None
+            if runtime_store is None
+            else {
+                "loaded": runtime_store.loaded,
+                "dirty": runtime_store.dirty,
+                "consecutive_write_failure_count": (
+                    runtime_store.consecutive_write_failures
+                ),
+                "last_successful_save_timestamp": _optional_timestamp(
+                    runtime_store.last_successful_save
+                ),
+            }
+        ),
         "revision": snapshot.revision,
         "control_state": snapshot.control_state.value,
         "reconciling": snapshot.reconciling,
@@ -340,6 +376,21 @@ def _runtime_projection(
             for zone in snapshot.zones
             if zone.zone_id in zones_by_id
         ],
+    }
+
+
+def _activity_projection(record: ActivityRecord) -> DiagnosticDict:
+    """Return the explicit privacy-bounded activity diagnostic allowlist."""
+    return {
+        "record_id": str(record.record_id),
+        "timestamp": _timestamp(record.timestamp),
+        "equipment_group_id": str(record.equipment_group_id),
+        "zone_id": None if record.zone_id is None else str(record.zone_id),
+        "activity_type": record.activity_type.value,
+        "reason_code": record.reason_code.value,
+        "severity": record.severity.value,
+        "explanation": record.explanation,
+        "detail": dict(record.detail),
     }
 
 

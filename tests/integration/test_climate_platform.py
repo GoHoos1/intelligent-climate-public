@@ -503,23 +503,35 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
     entity_registry = er.async_get(hass)
     device_registry = dr.async_get(hass)
 
-    registry_entries = [
-        item
-        for item in er.async_entries_for_config_entry(
+    registry_entries = list(
+        er.async_entries_for_config_entry(
             entity_registry,
             entry.entry_id,
         )
-        if item.domain == Platform.CLIMATE
-    ]
-    assert [item.unique_id for item in registry_entries] == [
+    )
+    assert {item.unique_id for item in registry_entries} == {
+        f"{GROUP_ID}:activity",
+        f"{ZONE_IDS[0]}:activity",
+        f"{ZONE_IDS[0]}:latest_activity",
         f"{ZONE_IDS[0]}:zone",
+        f"{ZONE_IDS[1]}:activity",
+        f"{ZONE_IDS[1]}:latest_activity",
         f"{ZONE_IDS[1]}:zone",
-    ]
-    assert [item.config_subentry_id for item in registry_entries] == [
-        zones[0]["subentry_id"],
-        zones[1]["subentry_id"],
-    ]
-    assert all(item.supported_features == 0 for item in registry_entries)
+    }
+    assert {item.unique_id: item.config_subentry_id for item in registry_entries} == {
+        f"{GROUP_ID}:activity": None,
+        f"{ZONE_IDS[0]}:activity": zones[0]["subentry_id"],
+        f"{ZONE_IDS[0]}:latest_activity": zones[0]["subentry_id"],
+        f"{ZONE_IDS[0]}:zone": zones[0]["subentry_id"],
+        f"{ZONE_IDS[1]}:activity": zones[1]["subentry_id"],
+        f"{ZONE_IDS[1]}:latest_activity": zones[1]["subentry_id"],
+        f"{ZONE_IDS[1]}:zone": zones[1]["subentry_id"],
+    }
+    assert all(
+        item.supported_features == 0
+        for item in registry_entries
+        if item.domain == Platform.CLIMATE
+    )
     assert all(hass.states.get(item.entity_id) is not None for item in registry_entries)
 
     group_device = device_registry.async_get_device(identifiers={(DOMAIN, GROUP_ID)})
@@ -551,9 +563,13 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
         if any(identifier[0] == DOMAIN for identifier in device.identifiers)
     ]
     assert len(integration_devices) == 3
-    assert {platform.value for platform in PLATFORMS} == {CLIMATE_DOMAIN}
+    assert {platform.value for platform in PLATFORMS} == {
+        CLIMATE_DOMAIN,
+        Platform.EVENT,
+        Platform.SENSOR,
+    }
     assert not any(
-        state.domain in {"sensor", "binary_sensor", "switch", "event"}
+        state.domain in {"binary_sensor", "switch"}
         and state.entity_id.startswith(f"{state.domain}.intelligent_climate")
         for state in hass.states.async_all()
     )
@@ -573,13 +589,13 @@ async def test_empty_skeleton_creates_no_zone_entity_and_disabled_keeps_one(
         entry_id="empty-entry",
     )
     empty_entry = await _setup_entry(hass, empty)
-    assert (
-        er.async_entries_for_config_entry(
+    assert {
+        item.unique_id
+        for item in er.async_entries_for_config_entry(
             er.async_get(hass),
             empty_entry.entry_id,
         )
-        == []
-    )
+    } == {f"{GROUP_ID}:activity"}
     assert await hass.config_entries.async_unload(empty_entry.entry_id)
 
     _set_states(hass)
@@ -606,7 +622,13 @@ async def test_awaiting_first_zone_creates_only_equipment_group_device(
         finish_reconciliation=False,
     )
 
-    assert er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id) == []
+    assert {
+        item.unique_id
+        for item in er.async_entries_for_config_entry(
+            er.async_get(hass),
+            entry.entry_id,
+        )
+    } == {f"{GROUP_ID}:activity"}
     group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
     assert group_device is not None
     assert group_device.config_entries_subentries[entry.entry_id] == {None}
@@ -865,7 +887,11 @@ async def test_platform_setup_has_runtime_and_coordinator_started_first(
                 forwarded_entry.runtime_data.data.revision == 1,
             )
         )
-        assert platforms == (Platform.CLIMATE,)
+        assert platforms == (
+            Platform.CLIMATE,
+            Platform.EVENT,
+            Platform.SENSOR,
+        )
         await original(forwarded_entry, platforms)
 
     with patch.object(

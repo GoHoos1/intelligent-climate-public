@@ -172,8 +172,11 @@ async def async_setup_entry(
     """Set up an Intelligent Climate config entry."""
     from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 
+    from .activity import ActivityPublisher
     from .coordinator import IntelligentClimateCoordinator
+    from .history import ActivityHistory
     from .repairs import MigrationFailureCategory, RepairsManager
+    from .storage import RuntimeStore
     from .validation import EntityValidationError
 
     issue_manager = RepairsManager(hass, entry.entry_id)
@@ -219,6 +222,25 @@ async def async_setup_entry(
         )
         raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
 
+    history = ActivityHistory(
+        max_records=configuration.options.history_max_records,
+        max_age_days=configuration.options.history_max_age_days,
+    )
+    runtime_store = RuntimeStore(
+        hass,
+        entry_id=entry.entry_id,
+        configuration=configuration,
+        history=history,
+        repairs=issue_manager,
+    )
+    await runtime_store.async_load()
+    activity = ActivityPublisher(
+        hass,
+        entry_id=entry.entry_id,
+        equipment_group_id=configuration.equipment_group.equipment_group_id,
+        history=history,
+    )
+    issue_manager.set_activity_reporter(activity)
     issue_manager.async_prepare_clean_setup()
     coordinator: IntelligentClimateCoordinator | None = None
     try:
@@ -227,11 +249,18 @@ async def async_setup_entry(
             entry,
             configuration,
             issue_manager=issue_manager,
+            history=history,
+            activity=activity,
+            runtime_store=runtime_store,
         )
+        runtime_store.attach_runtime(coordinator, activity)
         await coordinator.async_start()
     except ConfigEntryNotReady as err:
         if coordinator is not None:
             await coordinator.async_shutdown()
+        else:
+            await runtime_store.async_shutdown()
+            activity.close()
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.RUNTIME_VALIDATION
         )
@@ -242,6 +271,9 @@ async def async_setup_entry(
     except (KeyError, ValueError) as err:
         if coordinator is not None:
             await coordinator.async_shutdown()
+        else:
+            await runtime_store.async_shutdown()
+            activity.close()
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.RUNTIME_VALIDATION
         )
@@ -256,8 +288,9 @@ async def async_setup_entry(
         await coordinator.async_shutdown()
         object.__delattr__(entry, "runtime_data")
         raise ConfigEntryError(
-            "Unable to set up the Intelligent Climate climate platform"
+            "Unable to set up the Intelligent Climate entity platforms"
         ) from err
+    coordinator.async_record_setup_complete()
     return True
 
 
@@ -271,5 +304,8 @@ async def async_unload_entry(
         return True
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
+    coordinator.async_record_unload()
+    if coordinator.runtime_store is not None:
+        await coordinator.runtime_store.async_final_save()
     await coordinator.async_shutdown()
     return True
