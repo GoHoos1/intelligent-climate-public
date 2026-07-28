@@ -422,6 +422,17 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     )
     baselines = dict(coordinator._source_baselines)
     pending_jumps = dict(coordinator._pending_temperature_jumps)
+    history_records = coordinator.history.records
+    runtime_store = coordinator.runtime_store
+    assert runtime_store is not None
+    store_state = (
+        runtime_store.loaded,
+        runtime_store.dirty,
+        runtime_store.consecutive_write_failures,
+        runtime_store.last_successful_save,
+        runtime_store._save_handle,
+        runtime_store.write_task,
+    )
     known_salt = b"known-report-salt-material-000001"
 
     with (
@@ -451,7 +462,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert report["diagnostics_schema_version"] == 1
     assert report["integration"] == {
         "domain": DOMAIN,
-        "version": "0.0.4",
+        "version": "0.0.5",
         "config_entry_version": 1,
         "config_entry_minor_version": 0,
     }
@@ -504,11 +515,31 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
         "outlier_floor_c": 1.7,
         "indoor_temperature_min_c": 1.7,
         "indoor_temperature_max_c": 43.3,
+        "history_max_records": 500,
+        "history_max_age_days": 30,
     }
 
     runtime = report["runtime"]
     assert runtime["available"] is True
     assert runtime["repairs"] == {"active_issue_codes": []}
+    assert runtime["store"] == {
+        "loaded": True,
+        "dirty": True,
+        "consecutive_write_failure_count": 0,
+        "last_successful_save_timestamp": (
+            None if store_state[3] is None else store_state[3].isoformat()
+        ),
+    }
+    assert runtime["activity"]["configured_max_records"] == 500
+    assert runtime["activity"]["effective_max_records"] == 500
+    assert runtime["activity"]["configured_max_age_days"] == 30
+    assert runtime["activity"]["history_record_count"] == len(
+        runtime["activity"]["history"]
+    )
+    assert {record["activity_type"] for record in runtime["activity"]["history"]} >= {
+        "lifecycle",
+        "runtime_state_changed",
+    }
     assert runtime["revision"] == snapshot.revision
     assert runtime["control_state"] == "observing"
     assert runtime["reconciling"] is False
@@ -592,6 +623,15 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     )
     assert coordinator._source_baselines == baselines
     assert coordinator._pending_temperature_jumps == pending_jumps
+    assert coordinator.history.records is history_records
+    assert store_state == (
+        runtime_store.loaded,
+        runtime_store.dirty,
+        runtime_store.consecutive_write_failures,
+        runtime_store.last_successful_save,
+        runtime_store._save_handle,
+        runtime_store.write_task,
+    )
     service_call.assert_not_awaited()
     reload.assert_not_called()
 
@@ -648,6 +688,8 @@ async def test_unloaded_lifecycle_configurations_are_safely_decoded(
     assert report["runtime"] == {
         "available": False,
         "repairs": {"active_issue_codes": []},
+        "activity": None,
+        "store": None,
     }
     for forbidden in SENSITIVE_VALUES:
         assert forbidden not in _serialized(report)
@@ -700,6 +742,8 @@ async def test_invalid_persisted_configuration_returns_bounded_decode_status(
     assert report["runtime"] == {
         "available": False,
         "repairs": {"active_issue_codes": []},
+        "activity": None,
+        "store": None,
     }
     serialized = _serialized(report)
     assert "traceback" not in serialized.casefold()
@@ -954,5 +998,7 @@ async def test_repairs_projection_survives_absent_runtime_and_failed_decode(
     assert report["runtime"] == {
         "available": False,
         "repairs": {"active_issue_codes": ["migration_failed"]},
+        "activity": None,
+        "store": None,
     }
     assert "never-copy" not in _serialized(report)
