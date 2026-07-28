@@ -592,3 +592,29 @@ def test_task_14_modules_have_no_physical_control_or_future_feature_path() -> No
     ]
 
     assert offenders == []
+
+
+def test_task_15_migration_and_recovery_change_no_control_surface() -> None:
+    """Lifecycle hardening changes persistence only, never physical behavior."""
+    setup = (INTEGRATION_DIR / "__init__.py").read_text()
+    storage = (INTEGRATION_DIR / "storage.py").read_text()
+    schema = (INTEGRATION_DIR / "models" / "schema.py").read_text()
+    constants = (INTEGRATION_DIR / "const.py").read_text()
+    combined = "\n".join((setup, storage, schema, constants))
+
+    assert "CONFIG_ENTRY_MINOR_VERSION = 1" in schema
+    assert "STORE_VERSION = 1" in storage
+    assert "STORE_MINOR_VERSION = 2" in storage
+    assert "RUNTIME_STORE_SCHEMA_VERSION = 1" in schema
+    assert (
+        "PLATFORMS = (Platform.CLIMATE, Platform.EVENT, Platform.SENSOR)" in constants
+    )
+    assert "async_migrate_entry" in setup
+    assert "restored_source_baselines" in setup
+    assert "hass.services" not in combined
+    assert "services.async_call" not in combined
+    assert "SERVICE_SET_" not in combined
+    assert "weekly_schedule" not in combined
+    assert "manual_override" not in combined
+    assert "prediction" not in combined
+    assert "simulation" not in combined

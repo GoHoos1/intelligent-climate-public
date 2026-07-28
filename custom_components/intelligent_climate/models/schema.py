@@ -27,7 +27,7 @@ from .activity import (
 from .identifiers import EquipmentGroupId, ObservationSourceId, ZoneId
 
 CONFIG_ENTRY_MAJOR_VERSION = 1
-CONFIG_ENTRY_MINOR_VERSION = 0
+CONFIG_ENTRY_MINOR_VERSION = 1
 ZONE_DATA_VERSION = 1
 RUNTIME_STORE_SCHEMA_VERSION = 1
 

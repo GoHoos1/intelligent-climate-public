@@ -801,7 +801,7 @@ def test_config_future_minor_version_is_rejected() -> None:
         migrate_config_entry_document(
             equipment_group_document(),
             version=1,
-            minor_version=1,
+            minor_version=2,
         )
 
 
@@ -811,7 +811,7 @@ def test_options_future_minor_version_is_rejected() -> None:
         migrate_options_document(
             options_document(),
             version=1,
-            minor_version=1,
+            minor_version=2,
         )
 
 

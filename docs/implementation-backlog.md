@@ -577,6 +577,28 @@ Safety impact: Protects restart and upgrade paths.
 
 Observation-only: Yes.
 
+Status: Implemented. Config entries migrate transactionally from 1.0 to 1.1:
+the complete parent, options, and zone graph is decoded and validated before
+one parent update. Any invalid or future graph remains unchanged and creates
+the existing bounded migration Repair.
+
+The Home Assistant Store envelope migrates canonically from 1.1 to 1.2 while
+Store major version 1, inner `schema_version: 1`, `decisions`, and the empty
+`command_journal` remain unchanged. Valid history and configured-source
+baselines restore; baselines are comparison-only inputs to live reconciliation.
+Persisted zone observations never become coordinator or public entity state.
+
+Missing Store data starts empty. Semantically invalid data is retained in one
+entry-scoped quarantine and is replaced only after a successful clean save.
+Future or unreadable envelopes are preserved read-only. Diagnostics expose
+only bounded recovery health, and Repairs/activity receive stable categories
+without malformed payloads or exception text.
+
+Reload, failed platform unload, clean unload, restart, pending debounce,
+multiple-entry isolation, and callback/task cleanup are covered without
+changing entity inventory or adding a service call, writable capability,
+schedule, prediction, simulation, adapter, or physical control.
+
 ## 16. Phase 1 Integration and Acceptance Testing
 
 Purpose: Prove the complete Phase 1 observation baseline meets the accepted

@@ -20,10 +20,12 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentryDataWithId
 from homeassistant.const import ATTR_DEVICE_CLASS
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.intelligent_climate import (
     _decode_runtime_configuration,
+    async_migrate_entry,
     async_setup_entry,
     async_unload_entry,
 )
@@ -42,6 +44,7 @@ from custom_components.intelligent_climate.models import (
     RuntimeConfigurationState,
     SourceQuality,
 )
+from custom_components.intelligent_climate.repairs import IssueCode, issue_id
 
 GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
 ZONE_ID = "99246285-6f02-4e8a-94ed-bdfd4a5e62c4"
@@ -118,6 +121,7 @@ def _entry(
     data: dict[str, object] | None = None,
     zone_data: dict[str, object] | None = None,
     entry_id: str = "entry-1",
+    minor_version: int = CONFIG_ENTRY_MINOR_VERSION,
 ) -> MockConfigEntry:
     return MockConfigEntry(
         domain=DOMAIN,
@@ -125,7 +129,7 @@ def _entry(
         data=_parent_data() if data is None else data,
         subentries_data=[] if zone_data is None else [_subentry(zone_data)],
         version=CONFIG_ENTRY_MAJOR_VERSION,
-        minor_version=CONFIG_ENTRY_MINOR_VERSION,
+        minor_version=minor_version,
         state=config_entries.ConfigEntryState.SETUP_IN_PROGRESS,
     )
 
@@ -146,6 +150,101 @@ async def _assert_invalid(hass: HomeAssistant, entry: ConfigEntry) -> None:
     ):
         await async_setup_entry(hass, entry)
     assert entry.entry_id not in hass.data.get(DOMAIN, {})
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_config_entry_1_0_migration_is_atomic_and_canonical(
+    hass: HomeAssistant,
+) -> None:
+    """A fully valid 1.0 hierarchy becomes canonical 1.1 in one update."""
+    _set_valid_states(hass)
+    entry = _entry(zone_data=_zone_data(), minor_version=0)
+    entry.add_to_hass(hass)
+    original_zone = dict(entry.subentries["zone-subentry-1"].data)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.version == 1
+    assert entry.minor_version == 1
+    assert dict(entry.data) == _parent_data()
+    assert entry.options["history_max_records"] == 500
+    assert entry.options["history_max_age_days"] == 30
+    assert dict(entry.subentries["zone-subentry-1"].data) == original_zone
+    assert (
+        ir.async_get(hass).async_get_issue(
+            DOMAIN,
+            issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED),
+        )
+        is None
+    )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_failed_config_entry_migration_leaves_full_graph_unchanged(
+    hass: HomeAssistant,
+) -> None:
+    """Invalid parent or zone data fails closed before any persisted update."""
+    _set_valid_states(hass)
+    invalid_parent = deepcopy(_parent_data())
+    invalid_parent["equipment_group"]["future_field"] = True  # type: ignore[index]
+    entry = _entry(
+        data=invalid_parent,
+        zone_data=_zone_data(),
+        minor_version=0,
+    )
+    entry.add_to_hass(hass)
+    before_data = deepcopy(dict(entry.data))
+    before_options = deepcopy(dict(entry.options))
+    before_zones = {
+        key: deepcopy(dict(value.data)) for key, value in entry.subentries.items()
+    }
+
+    with patch.object(
+        hass.config_entries,
+        "async_update_entry",
+        wraps=hass.config_entries.async_update_entry,
+    ) as update:
+        assert not await async_migrate_entry(hass, entry)
+
+    update.assert_not_called()
+    assert entry.minor_version == 0
+    assert dict(entry.data) == before_data
+    assert dict(entry.options) == before_options
+    assert {
+        key: dict(value.data) for key, value in entry.subentries.items()
+    } == before_zones
+    assert (
+        ir.async_get(hass).async_get_issue(
+            DOMAIN,
+            issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED),
+        )
+        is not None
+    )
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_current_and_future_config_entry_migration_boundaries(
+    hass: HomeAssistant,
+) -> None:
+    """Current entries are no-ops and future entries fail closed."""
+    current = _entry(entry_id="entry-current")
+    assert await async_migrate_entry(hass, current)
+    assert current.minor_version == CONFIG_ENTRY_MINOR_VERSION
+
+    future = _entry(
+        entry_id="entry-future",
+        minor_version=CONFIG_ENTRY_MINOR_VERSION + 1,
+    )
+    future.add_to_hass(hass)
+    assert not await async_migrate_entry(hass, future)
+    assert future.minor_version == CONFIG_ENTRY_MINOR_VERSION + 1
+    assert (
+        ir.async_get(hass).async_get_issue(
+            DOMAIN,
+            issue_id(future.entry_id, IssueCode.MIGRATION_FAILED),
+        )
+        is not None
+    )
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

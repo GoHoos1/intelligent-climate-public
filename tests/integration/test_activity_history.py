@@ -38,6 +38,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
+from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.intelligent_climate import async_unload_entry
@@ -47,6 +50,9 @@ from custom_components.intelligent_climate.const import (
     SUBENTRY_TYPE_ZONE,
 )
 from custom_components.intelligent_climate.control import ObservationIntent
+from custom_components.intelligent_climate.diagnostics import (
+    async_get_config_entry_diagnostics,
+)
 from custom_components.intelligent_climate.event import (
     _zone_subentries_by_id as event_zone_subentries,
 )
@@ -57,8 +63,22 @@ from custom_components.intelligent_climate.models import (
     DEFAULT_OPTIONS,
     ActivityReason,
     ActivityType,
+    ControlState,
+    EquipmentGroupId,
+    ObservationSourceId,
+    RuntimeStoreDocument,
+    RuntimeZoneState,
+    SourceBaseline,
+    SourceQuality,
     ZoneId,
     encode_options,
+    encode_runtime_store_document,
+)
+from custom_components.intelligent_climate.repairs import (
+    IssueCode,
+    MigrationFailureCategory,
+    RepairsManager,
+    issue_id,
 )
 from custom_components.intelligent_climate.sensor import (
     _zone_subentries_by_id as sensor_zone_subentries,
@@ -66,6 +86,7 @@ from custom_components.intelligent_climate.sensor import (
 from custom_components.intelligent_climate.sensor import (
     async_setup_entry as async_setup_sensor_entry,
 )
+from custom_components.intelligent_climate.storage import StoreLoadStatus
 
 GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
 ZONE_ID = "99246285-6f02-4e8a-94ed-bdfd4a5e62c4"
@@ -196,6 +217,44 @@ async def _flush(hass: HomeAssistant, entry: ConfigEntry) -> None:
         generation=coordinator._debounce_generation,
     )
     await hass.async_block_till_done()
+
+
+def _store_document(
+    *,
+    entry_id: str = ENTRY_ID,
+    persisted_temperature: float = 40.0,
+    baseline_temperature: float = 10.0,
+    clean_shutdown: bool = False,
+) -> dict[str, Any]:
+    """Return one valid Store-v1 payload with intentionally stale live values."""
+    saved_at = utcnow()
+    return dict(
+        encode_runtime_store_document(
+            RuntimeStoreDocument(
+                entry_id=entry_id,
+                equipment_group_id=EquipmentGroupId.parse(GROUP_ID),
+                saved_at=saved_at,
+                last_clean_shutdown=clean_shutdown,
+                zones={
+                    ZoneId.parse(ZONE_ID): RuntimeZoneState(
+                        last_runtime_state=ControlState.OBSERVING,
+                        last_live_observation_at=saved_at,
+                        last_effective_temperature_c=persisted_temperature,
+                        last_effective_humidity_pct=None,
+                        last_decision_id=None,
+                    )
+                },
+                source_baselines={
+                    ObservationSourceId.parse(SOURCE_ID): SourceBaseline(
+                        baseline_temperature,
+                        saved_at,
+                    )
+                },
+                decisions=(),
+                command_journal=(),
+            )
+        )
+    )
 
 
 def _entity_id(hass: HomeAssistant, platform: Platform, unique_id: str) -> str:
@@ -712,3 +771,208 @@ async def test_repairs_activity_and_multiple_entry_isolation(
 
     assert await hass.config_entries.async_unload(first.entry_id)
     assert await hass.config_entries.async_unload(second.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_store_1_1_migration_restores_baseline_for_reconciliation_only(
+    hass: HomeAssistant,
+) -> None:
+    """Startup migrates 0.0.5 data but never publishes its saved temperature."""
+    _set_states(hass, sensor_state="20.0")
+    legacy_store: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}",
+        atomic_writes=True,
+        minor_version=1,
+    )
+    await legacy_store.async_save(_store_document())
+    events: list[dict[str, object]] = []
+    unsubscribe = hass.bus.async_listen(
+        EVENT_ACTIVITY,
+        lambda event: events.append(dict(event.data)),
+    )
+
+    with patch(
+        "homeassistant.core.ServiceRegistry.async_call",
+        new_callable=AsyncMock,
+    ) as service_call:
+        entry = await _setup(hass, _entry())
+
+    coordinator = entry.runtime_data
+    runtime_store = coordinator.runtime_store
+    assert runtime_store.load_status is StoreLoadStatus.MIGRATED
+    assert runtime_store.minor_version == 2
+    assert runtime_store.previous_clean_shutdown is False
+    assert (
+        runtime_store.restored_source_baselines[
+            ObservationSourceId.parse(SOURCE_ID)
+        ].last_accepted_value
+        == 10.0
+    )
+    observation = coordinator.data.zones[0].temperature_observations[0]
+    assert observation.quality is SourceQuality.JUMP_REJECTED
+    assert coordinator.data.zones[0].effective_temperature_c is None
+    climate_state = hass.states.get(
+        _entity_id(hass, Platform.CLIMATE, f"{ZONE_ID}:zone")
+    )
+    assert climate_state is not None
+    assert climate_state.state == STATE_UNAVAILABLE
+    assert ATTR_CURRENT_TEMPERATURE not in climate_state.attributes
+    assert all(
+        state.attributes.get(ATTR_CURRENT_TEMPERATURE) != 40.0
+        for state in hass.states.async_all()
+    )
+    assert (
+        sum(
+            payload["reason_code"] == ActivityReason.STORE_MIGRATED.value
+            for payload in events
+        )
+        == 1
+    )
+    assert (
+        sum(
+            payload["reason_code"] == ActivityReason.UNCLEAN_SHUTDOWN_DETECTED.value
+            for payload in events
+        )
+        == 1
+    )
+    service_call.assert_not_awaited()
+
+    unsubscribe()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    current_store: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}",
+        atomic_writes=True,
+        minor_version=2,
+    )
+    saved = await current_store.async_load()
+    assert saved is not None
+    assert saved["schema_version"] == 1
+    assert saved["last_clean_shutdown"] is True
+    assert saved["command_journal"] == []
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_invalid_store_is_quarantined_then_repaired_by_clean_save(
+    hass: HomeAssistant,
+) -> None:
+    """Semantic corruption cannot block setup and clears only after replacement."""
+    _set_states(hass)
+    primary: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}",
+        atomic_writes=True,
+        minor_version=2,
+    )
+    await primary.async_save(_store_document(entry_id="wrong-entry"))
+
+    entry = await _setup(hass, _entry())
+    runtime_store = entry.runtime_data.runtime_store
+    registry = ir.async_get(hass)
+    migration_issue = issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED)
+    assert runtime_store.load_status is StoreLoadStatus.QUARANTINED
+    assert runtime_store.quarantine_present is True
+    assert registry.async_get_issue(DOMAIN, migration_issue) is not None
+    assert entry.runtime_data.data.zones[0].effective_temperature_c == 20.0
+    diagnostics = await async_get_config_entry_diagnostics(hass, entry)
+    assert diagnostics["runtime"]["store"]["load_status"] == "quarantined"
+    assert diagnostics["runtime"]["store"]["quarantine_present"] is True
+    assert "wrong-entry" not in json.dumps(diagnostics)
+
+    assert await runtime_store._async_attempt_save(last_clean_shutdown=False)
+
+    assert cast(Any, runtime_store).load_status is StoreLoadStatus.LOADED
+    assert cast(Any, runtime_store).quarantine_present is False
+    assert registry.async_get_issue(DOMAIN, migration_issue) is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_existing_quarantine_repair_survives_setup_until_verified_cleanup(
+    hass: HomeAssistant,
+) -> None:
+    """A valid primary cannot clear a leftover quarantine issue during setup."""
+    _set_states(hass)
+    primary: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}",
+        atomic_writes=True,
+        minor_version=2,
+    )
+    await primary.async_save(
+        _store_document(
+            baseline_temperature=20.0,
+            clean_shutdown=True,
+        )
+    )
+    quarantine: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}.quarantine",
+        atomic_writes=True,
+    )
+    await quarantine.async_save(
+        {
+            "quarantined_at": utcnow().isoformat(),
+            "reason_code": "invalid_nonauthoritative_store",
+            "data": {"invalid": True},
+        }
+    )
+    RepairsManager(hass, ENTRY_ID).async_report_migration_failure(
+        MigrationFailureCategory.STORE_VALIDATION
+    )
+
+    entry = await _setup(hass, _entry())
+    runtime_store = entry.runtime_data.runtime_store
+    registry = ir.async_get(hass)
+    migration_issue = issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED)
+
+    assert runtime_store.load_status is StoreLoadStatus.LOADED
+    assert runtime_store.quarantine_present is True
+    assert registry.async_get_issue(DOMAIN, migration_issue) is not None
+
+    assert await runtime_store._async_attempt_save(last_clean_shutdown=False)
+
+    assert not cast(Any, runtime_store).quarantine_present
+    assert cast(Any, registry).async_get_issue(DOMAIN, migration_issue) is None
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_future_store_minor_is_preserved_read_only_across_unload(
+    hass: HomeAssistant,
+) -> None:
+    """Unknown future persistence starts safely without destructive downgrade."""
+    _set_states(hass)
+    future_payload = _store_document()
+    future_store: Store[dict[str, Any]] = Store(
+        hass,
+        1,
+        f"intelligent_climate.{ENTRY_ID}",
+        atomic_writes=True,
+        minor_version=99,
+    )
+    await future_store.async_save(future_payload)
+
+    entry = await _setup(hass, _entry())
+    runtime_store = entry.runtime_data.runtime_store
+    assert runtime_store.load_status is StoreLoadStatus.UNSUPPORTED
+    assert runtime_store.read_only is True
+    assert runtime_store.dirty is False
+    assert (
+        ir.async_get(hass).async_get_issue(
+            DOMAIN,
+            issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED),
+        )
+        is not None
+    )
+    assert entry.runtime_data.data.zones[0].effective_temperature_c == 20.0
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    reloaded_future = await future_store.async_load()
+    assert reloaded_future == future_payload

@@ -839,7 +839,12 @@ Predictive, model, schedule, manual-override, window-suspension, fan-control, au
 
 ### 12.4 Corrupt or missing Store
 
-Because runtime Store data is nonauthoritative, a missing file starts with an empty runtime. Task 14 also fails an invalid, unsupported, or unreadable Store safely to empty nonauthoritative activity history and starts live Reconciliation. It never restores a temperature or baseline directly to coordinator/public entity state. Comprehensive Store migration, corruption quarantine, restored-baseline reconciliation, and restart hardening remain Task 15 scope.
+Because runtime Store data is nonauthoritative, a missing file starts with an
+empty runtime. Task 15 quarantines semantically invalid data, preserves future
+or unreadable envelopes read-only, and starts live Reconciliation. Only strict
+configured-source baselines restore as comparison state; no persisted
+temperature or other saved zone observation becomes coordinator/public entity
+state.
 
 ## 13. Control state machine
 
@@ -986,8 +991,9 @@ change or remove an existing field:
   configured-order source summaries, bounded activity, and Store health. Task
   13 adds
   `repairs.active_issue_codes`, containing only sorted stable issue-code
-  strings. Task 14 adds `activity` and `store` projections without changing
-  diagnostics schema version 1.
+  strings. Task 14 adds `activity` and `store` projections; Task 15 adds bounded
+  Store migration/recovery health without changing diagnostics schema version
+  1.
 
 Per-zone temperature and optional humidity summaries contain configured,
 enabled, valid, contributing, and excluded counts; counts for every
@@ -1061,8 +1067,10 @@ entity IDs, names, translation placeholders, issue data, and issue-registry
 objects are never diagnostic fields. Task 14 activity diagnostics use an
 explicit typed allowlist containing bounded record identity, generated
 group/zone UUIDs, activity type/reason/severity, timestamp, explanation, and
-strict scalar detail. Store diagnostics contain only loaded/dirty state,
-configured bounds, consecutive failure count, and last successful-save time.
+strict scalar detail. Store diagnostics contain only envelope version, bounded
+load/recovery status, read-only/quarantine/prior-shutdown flags, restored
+baseline count, loaded/dirty state, configured bounds, consecutive failure
+count, and last successful-save time. They never contain a quarantine payload.
 Diagnostic generation does not load or save Store data, prune mutable history,
 schedule a task, register a callback, or fire an event.
 
@@ -1166,10 +1174,49 @@ Runtime Store persistence keeps Home Assistant Store version 1, inner
 `decisions` field, and an always-empty `command_journal`. It uses atomic writes,
 a 30-second debounce, five-minute maximum dirty interval, one entry-scoped
 writer, bounded retry, and a five-second clean-unload attempt. Current zone
-state and source baselines are saved schema-completely but not restored into
-Task 14 live state. Only activity history is restored. Migration, corruption
-quarantine, baseline reconciliation, and broader restart hardening remain Task
-15.
+state and source baselines are saved schema-completely but are not restored into
+Task 14 live state. Only activity history is restored. Task 15, documented
+below, adds migration, corruption quarantine, comparison-only baseline
+restoration, and broader restart hardening.
+
+### 15.7 Task 15 migration and recovery implementation
+
+Release 0.0.6 advances the config-entry minor version from 1.0 to 1.1. The
+migration decodes and validates the complete parent/options/zone hierarchy in
+memory before one `async_update_entry` call. Zone data version 1 is unchanged,
+so no subentry mutation is required. Invalid, future, or semantically
+inconsistent graphs remain unchanged, create the existing `migration_failed`
+Repair, install no runtime listeners or entities, and queue no command.
+
+Home Assistant Store major version 1 and inner `schema_version: 1` remain
+unchanged. The Store envelope minor version migrates canonically from 1.1 to
+1.2 through the strict runtime decoder and encoder. The existing `decisions`
+field remains typed activity history and `command_journal` remains empty.
+
+Runtime loading distinguishes missing, loaded, migrated, quarantined,
+unsupported, and failed persistence. A missing Store starts empty.
+Semantically invalid data is moved to one bounded entry-scoped quarantine
+before the primary key is removed; a later successful clean save replaces it
+and clears the migration Repair. Future or unreadable Store envelopes are
+preserved read-only to prevent a destructive downgrade. Home Assistant's Store
+helper retains syntactically corrupt JSON under its `.corrupt.<timestamp>`
+recovery path and creates its standard storage-corruption Repair.
+
+Only configured-source baselines with strict identities and timestamps at or
+before the save are admitted. They seed source-health comparison during a new
+live reconciliation and are never observations. Persisted zone temperatures,
+humidity, runtime state, and timestamps are not loaded into coordinator/public
+state. Restored activity is not republished merely because it was loaded.
+Unclean prior shutdown creates one bounded lifecycle activity and still
+requires live reconciliation.
+
+Diagnostics schema version 1 adds only Store major/minor version, bounded load
+status, read-only/quarantine flags, prior-clean-shutdown status, and restored
+baseline count. It never includes the quarantine payload. Setup failure,
+platform failure, failed platform unload, clean unload, reload, restart,
+pending debounce, and multiple-entry cleanup retain one owner for every
+listener, callback, timer, and Store task. No path invokes a physical service
+or adds a writable capability.
 
 ## 16. Testing plan
 

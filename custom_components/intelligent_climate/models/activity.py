@@ -53,6 +53,8 @@ class ActivityReason(StrEnum):
 
     SETUP_STARTED = "setup_started"
     SETUP_COMPLETED = "setup_completed"
+    STORE_MIGRATED = "store_migrated"
+    UNCLEAN_SHUTDOWN_DETECTED = "unclean_shutdown_detected"
     RECONCILIATION_COMPLETED = "reconciliation_completed"
     UNLOAD = "unload"
     CONTROL_STATE_CHANGED = "control_state_changed"
@@ -84,6 +86,8 @@ _REASONS_BY_TYPE: Mapping[ActivityType, frozenset[ActivityReason]] = {
         {
             ActivityReason.SETUP_STARTED,
             ActivityReason.SETUP_COMPLETED,
+            ActivityReason.STORE_MIGRATED,
+            ActivityReason.UNCLEAN_SHUTDOWN_DETECTED,
             ActivityReason.RECONCILIATION_COMPLETED,
             ActivityReason.UNLOAD,
         }

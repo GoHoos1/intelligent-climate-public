@@ -15,8 +15,8 @@
       "description": "One or more existing observation sources no longer match their configured temperature or humidity binding. Inspect the Intelligent Climate entry and reconfigure the affected zone with a compatible source. Continue using the original thermostat for physical HVAC control."
     },
     "migration_failed": {
-      "title": "Intelligent Climate configuration could not be validated",
-      "description": "Intelligent Climate could not safely migrate or validate its persisted configuration, so observation did not start. Inspect the integration entry and logs, then correct or recreate the configuration before reloading. The original thermostat remains available for physical HVAC control."
+      "title": "Intelligent Climate persisted data could not be validated",
+      "description": "Intelligent Climate could not safely migrate or validate persisted configuration or runtime data. Invalid configuration does not start; unsafe runtime data is ignored while live observation reconciles when possible. Inspect the integration entry, storage health, and logs before reloading. The original thermostat remains available for physical HVAC control."
     },
     "store_write_failed": {
       "title": "Intelligent Climate runtime data could not be saved",

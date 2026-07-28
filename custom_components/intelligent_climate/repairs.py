@@ -46,6 +46,9 @@ class MigrationFailureCategory(StrEnum):
     SCHEMA_VALIDATION = "schema_validation"
     ENTITY_VALIDATION = "entity_validation"
     RUNTIME_VALIDATION = "runtime_validation"
+    STORE_LOAD = "store_load"
+    STORE_VALIDATION = "store_validation"
+    STORE_VERSION = "store_version"
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,15 +145,25 @@ class RepairsManager:
         """Return an immutable sorted view without exposing issue IDs."""
         return active_issue_codes(self._hass, self._entry_id)
 
-    def async_prepare_clean_setup(self) -> None:
+    def async_prepare_clean_setup(
+        self,
+        *,
+        preserve_migration_failure: bool = False,
+    ) -> None:
         """Clear setup-rechecked and stale command-event issues."""
-        for code in (
+        codes = [
             IssueCode.MISSING_ENTITY,
             IssueCode.INCOMPATIBLE_ENTITY,
-            IssueCode.MIGRATION_FAILED,
             IssueCode.COMMAND_BOUNDARY_VIOLATION,
-        ):
+        ]
+        if not preserve_migration_failure:
+            codes.append(IssueCode.MIGRATION_FAILED)
+        for code in codes:
             self.async_delete_issue(code)
+
+    def async_clear_migration_failure(self) -> None:
+        """Clear a recovered persisted-data failure."""
+        self.async_delete_issue(IssueCode.MIGRATION_FAILED)
 
     def async_sync_entity_conditions(
         self,

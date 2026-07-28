@@ -346,7 +346,16 @@ def _runtime_projection(
             None
             if runtime_store is None
             else {
+                "version": runtime_store.version,
+                "minor_version": runtime_store.minor_version,
                 "loaded": runtime_store.loaded,
+                "load_status": runtime_store.load_status.value,
+                "read_only": runtime_store.read_only,
+                "quarantine_present": runtime_store.quarantine_present,
+                "previous_clean_shutdown": runtime_store.previous_clean_shutdown,
+                "restored_source_baseline_count": len(
+                    runtime_store.restored_source_baselines
+                ),
                 "dirty": runtime_store.dirty,
                 "consecutive_write_failure_count": (
                     runtime_store.consecutive_write_failures
