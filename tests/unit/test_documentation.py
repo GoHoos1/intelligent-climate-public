@@ -25,6 +25,7 @@ def test_readme_recent_changes_is_near_top_and_links_full_changelog() -> None:
     recent_body = README[
         recent : _heading_position(README, "What Intelligent Climate does today")
     ]
+    assert "**0.0.5**" in recent_body
     assert "**0.0.4**" in recent_body
     assert "**0.0.3**" in recent_body
     assert "**0.0.2**" in recent_body
@@ -45,6 +46,7 @@ def test_readme_prioritizes_user_guidance_before_architecture() -> None:
         "Source health and availability",
         "Downloading diagnostics",
         "Repairs notifications",
+        "Activity history and events",
         "Troubleshooting",
         "Privacy and local-first behavior",
     )
@@ -74,6 +76,7 @@ def test_readme_has_complete_requested_section_order() -> None:
         "Source health and availability",
         "Downloading diagnostics",
         "Repairs notifications",
+        "Activity history and events",
         "Troubleshooting",
         "Privacy and local-first behavior",
         "Current roadmap and Phase 1 status",
@@ -90,6 +93,7 @@ def test_changelog_contains_versioned_release_sections() -> None:
 
     assert headings == [
         "Unreleased",
+        "0.0.5 - 2026-07-28",
         "0.0.4 - 2026-07-27",
         "0.0.3 - 2026-07-25",
         "0.0.2 - 2026-07-24",
@@ -135,4 +139,6 @@ def test_readme_documents_diagnostics_privacy_scope_and_repairs() -> None:
     assert "cannot redact" in lower_diagnostics
     assert "Settings > System > Repairs" in normalized_repairs
     assert "no automatic Repairs flow" in normalized_repairs
-    assert "Store persistence remains unimplemented" in normalized_repairs
+    assert "wires the Store-write issue to the bounded runtime Store" in (
+        normalized_repairs
+    )
