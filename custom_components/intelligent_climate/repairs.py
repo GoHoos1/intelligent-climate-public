@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import (
@@ -54,6 +55,16 @@ class IssuePolicy:
     severity: ir.IssueSeverity
     is_persistent: bool
     is_fixable: bool = False
+
+
+class ActivityReporter(Protocol):
+    """Narrow optional activity boundary for actual Repairs transitions."""
+
+    def async_report_repair_activity(self, issue_code: str, *, created: bool) -> None:
+        """Report one actual issue-registry creation or resolution."""
+
+    def async_report_command_boundary_violation(self) -> None:
+        """Report one payload-free unexpected command intent."""
 
 
 def issue_policy(code: IssueCode) -> IssuePolicy:
@@ -107,14 +118,24 @@ def active_issue_codes(
 class RepairsManager:
     """Synchronize one config entry's bounded Repairs issues."""
 
-    __slots__ = ("_entry_id", "_hass")
+    __slots__ = ("_activity_reporter", "_entry_id", "_hass")
 
-    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        activity_reporter: ActivityReporter | None = None,
+    ) -> None:
         """Initialize the entry-scoped issue boundary."""
         if not entry_id:
             raise ValueError("config-entry ID must not be empty")
         self._hass = hass
         self._entry_id = entry_id
+        self._activity_reporter = activity_reporter
+
+    def set_activity_reporter(self, reporter: ActivityReporter) -> None:
+        """Attach the entry-scoped activity boundary after safe Store loading."""
+        self._activity_reporter = reporter
 
     @property
     def active_issue_codes(self) -> tuple[IssueCode, ...]:
@@ -188,6 +209,8 @@ class RepairsManager:
 
     def async_report_command_boundary_violation(self) -> None:
         """Create the persistent unexpected-command issue without payload data."""
+        if self._activity_reporter is not None:
+            self._activity_reporter.async_report_command_boundary_violation()
         self._async_create_issue(
             IssueCode.COMMAND_BOUNDARY_VIOLATION,
             {
@@ -203,6 +226,11 @@ class RepairsManager:
         if registry.async_get_issue(DOMAIN, current_id) is None:
             return
         ir.async_delete_issue(self._hass, DOMAIN, current_id)
+        if self._activity_reporter is not None:
+            self._activity_reporter.async_report_repair_activity(
+                code.value,
+                created=False,
+            )
 
     def _async_sync_counted_issue(self, code: IssueCode, count: int) -> None:
         if count == 0:
@@ -245,6 +273,11 @@ class RepairsManager:
             severity=policy.severity,
             translation_key=code.value,
         )
+        if existing is None and self._activity_reporter is not None:
+            self._activity_reporter.async_report_repair_activity(
+                code.value,
+                created=True,
+            )
 
 
 def _entity_condition_counts(
