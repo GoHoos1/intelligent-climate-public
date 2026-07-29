@@ -16,8 +16,9 @@ ENTRY_ID = "01JPRIVATECONFIGENTRY000000"
 
 
 def test_issue_code_vocabulary_is_stable_and_complete() -> None:
-    """Task 13 exposes only the five approved stable issue codes."""
+    """Phase 1 exposes only the six approved stable issue codes."""
     assert tuple(code.value for code in IssueCode) == (
+        "no_zones_configured",
         "missing_entity",
         "incompatible_entity",
         "migration_failed",
