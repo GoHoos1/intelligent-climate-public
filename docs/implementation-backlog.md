@@ -627,3 +627,15 @@ inventory, diagnostics redaction, lifecycle, and deterministic fixture tests.
 Safety impact: Release gate for observation-only Phase 1.
 
 Observation-only: Yes.
+
+Status: Implemented in release-candidate 0.0.8. Automated acceptance evidence
+passes for P1-AC-001 through P1-AC-035; P1-AC-003 and P1-AC-026 additionally
+require their documented Home Assistant UI walkthroughs before final Phase 1
+acceptance.
+
+Release 0.0.8 completes atomic first-zone setup, multi-thermostat independent
+and shared/zoned configuration, parent and zone reconfiguration, all safe
+options, the exact Phase 1 entity matrix, guarded degraded-state recovery,
+reason-coded/cooldown-bounded logging, the supplied sanitized Nest fixture, and
+network-isolated acceptance gates. It adds no Phase 2 behavior or physical
+command path.
