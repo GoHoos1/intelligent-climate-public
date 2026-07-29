@@ -721,6 +721,145 @@ async def test_missing_thermostat_is_snapshot_degradation_not_refresh_failure(
     await coordinator.async_shutdown()
 
 
+async def test_degraded_recovery_requires_two_valid_evaluations_30_seconds_apart(
+    hass: HomeAssistant,
+) -> None:
+    configuration = _configuration(zone_count=1)
+    configuration = replace(
+        configuration,
+        options=replace(configuration.options, source_stale_after_seconds=300),
+    )
+    _set_states(hass)
+    coordinator = IntelligentClimateCoordinator(
+        hass,
+        _entry(),
+        configuration,
+        now_fn=lambda: NOW,
+    )
+    await coordinator.async_start()
+    await coordinator._async_reconciliation_complete(
+        NOW + timedelta(seconds=60),
+        generation=coordinator._reconciliation_generation,
+    )
+    _assert_control_state(coordinator, ControlState.OBSERVING)
+
+    sensor_attributes = {
+        ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+        ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+    }
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "unavailable",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=61)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=61))
+    _assert_control_state(coordinator, ControlState.DEGRADED)
+
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "20",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=62)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=62))
+    _assert_control_state(coordinator, ControlState.DEGRADED)
+
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "unavailable",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=80)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=80))
+    assert coordinator._recovery_candidate_at is None
+
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "20",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=81)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=81))
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=110))
+    _assert_control_state(coordinator, ControlState.DEGRADED)
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=111))
+    _assert_control_state(coordinator, ControlState.OBSERVING)
+    await coordinator.async_shutdown()
+
+
+async def test_lifecycle_transition_recovery_logs_have_reason_codes_and_cooldown(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(
+        logging.INFO,
+        logger="custom_components.intelligent_climate.coordinator",
+    )
+    configuration = _configuration(zone_count=1)
+    configuration = replace(
+        configuration,
+        options=replace(configuration.options, source_stale_after_seconds=300),
+    )
+    _set_states(hass)
+    coordinator = IntelligentClimateCoordinator(
+        hass,
+        _entry(),
+        configuration,
+        now_fn=lambda: NOW,
+    )
+    await coordinator.async_start()
+    coordinator.async_record_setup_complete()
+    await coordinator._async_reconciliation_complete(
+        NOW + timedelta(seconds=60),
+        generation=coordinator._reconciliation_generation,
+    )
+
+    sensor_attributes = {
+        ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE,
+        ATTR_UNIT_OF_MEASUREMENT: UnitOfTemperature.CELSIUS,
+    }
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "unavailable",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=61)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=61))
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "20",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=62)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=62))
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=92))
+    hass.states.async_set(
+        SHARED_SENSOR,
+        "unavailable",
+        sensor_attributes,
+        timestamp=(NOW + timedelta(seconds=93)).timestamp(),
+    )
+    coordinator._publish_targeted({ZONE_IDS[0]}, NOW + timedelta(seconds=93))
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("reason_code=setup_started" in message for message in messages)
+    assert any("reason_code=setup_completed" in message for message in messages)
+    assert any(
+        "reason_code=reconciliation_completed" in message for message in messages
+    )
+    assert any("reason_code=source_recovered" in message for message in messages)
+    assert (
+        sum(message.startswith("Observation source excluded:") for message in messages)
+        == 1
+    )
+    assert (
+        sum(message.startswith("Observation runtime degraded:") for message in messages)
+        == 1
+    )
+    await coordinator.async_shutdown()
+
+
 async def test_shutdown_is_idempotent_and_late_callbacks_cannot_publish(
     hass: HomeAssistant,
 ) -> None:
@@ -1134,3 +1273,11 @@ async def test_real_config_entry_reload_replaces_runtime_without_services(
         assert service_call.call_count == 0
 
     assert not hasattr(entry, "runtime_data")
+
+
+def _assert_control_state(
+    coordinator: IntelligentClimateCoordinator,
+    expected: ControlState,
+) -> None:
+    """Assert a mutable coordinator snapshot state without static narrowing."""
+    assert coordinator.data.control_state is expected
