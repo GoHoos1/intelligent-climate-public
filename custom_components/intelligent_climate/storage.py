@@ -118,6 +118,8 @@ class RuntimeStore:
         "_expected_group_id",
         "_expected_source_ids",
         "_expected_zone_ids",
+        "_final_save_attempted",
+        "_final_save_lock",
         "_hass",
         "_history",
         "_last_successful_save",
@@ -176,6 +178,8 @@ class RuntimeStore:
         self._consecutive_failures = 0
         self._last_successful_save: datetime | None = None
         self._closing = False
+        self._final_save_lock = asyncio.Lock()
+        self._final_save_attempted = False
         self._unsubscribe_history = history.async_add_listener(self._activity_accepted)
 
         expected_group = configuration.equipment_group.equipment_group_id
@@ -599,7 +603,15 @@ class RuntimeStore:
         )
 
     async def async_final_save(self) -> None:
-        """Attempt a clean save within five seconds without blocking unload."""
+        """Attempt one clean save within five seconds without blocking shutdown."""
+        async with self._final_save_lock:
+            if self._final_save_attempted:
+                return
+            await self._async_final_save()
+            self._final_save_attempted = True
+
+    async def _async_final_save(self) -> None:
+        """Perform the single bounded clean-save attempt."""
         self._closing = True
         if self._save_handle is not None:
             self._save_handle.cancel()
@@ -629,16 +641,17 @@ class RuntimeStore:
 
     async def async_shutdown(self) -> None:
         """Cancel every Store timer/task/listener without another save."""
-        self._closing = True
-        if self._save_handle is not None:
-            self._save_handle.cancel()
-            self._save_handle = None
-        task = self._write_task
-        if task is not None and not task.done():
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-        self._write_task = None
+        async with self._final_save_lock:
+            self._closing = True
+            if self._save_handle is not None:
+                self._save_handle.cancel()
+                self._save_handle = None
+            task = self._write_task
+            if task is not None and not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            self._write_task = None
         self._unsubscribe_history()
 
     def _now(self) -> datetime:

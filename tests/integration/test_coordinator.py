@@ -732,7 +732,7 @@ async def test_shutdown_is_idempotent_and_late_callbacks_cannot_publish(
     watchdog_generation = coordinator._watchdog_generation
     reconciliation_generation = coordinator._reconciliation_generation
 
-    await coordinator.async_shutdown()
+    await coordinator._async_core_shutdown()
     await coordinator.async_shutdown()
     _set_states(hass, shared_value=21, timestamp=NOW + timedelta(seconds=1))
     _set_states(hass, shared_value=21, timestamp=NOW + timedelta(seconds=2))

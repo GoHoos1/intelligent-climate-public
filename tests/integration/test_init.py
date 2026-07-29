@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -843,12 +843,29 @@ async def test_failed_platform_unload_keeps_live_coordinator(
 ) -> None:
     _set_valid_states(hass)
     entry = _entry(zone_data=_zone_data())
-    with patch.object(
-        hass.config_entries,
-        "async_forward_entry_setups",
-        new_callable=AsyncMock,
+    unregister_shutdown = Mock()
+    with (
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            new_callable=AsyncMock,
+        ),
+        patch.object(
+            HomeAssistant,
+            "async_add_shutdown_job",
+            autospec=True,
+            return_value=unregister_shutdown,
+        ) as add_shutdown_job,
     ):
         assert await async_setup_entry(hass, entry)
+    add_shutdown_job.assert_called_once()
+    assert add_shutdown_job.call_args.args[0] is hass
+    assert (
+        add_shutdown_job.call_args.args[1].target
+        == entry.runtime_data._async_core_shutdown
+    )
+    entry.runtime_data.async_add_core_shutdown_job()
+    add_shutdown_job.assert_called_once()
     coordinator = entry.runtime_data
 
     with patch.object(
@@ -862,6 +879,7 @@ async def test_failed_platform_unload_keeps_live_coordinator(
     unload.assert_awaited_once_with(entry, PLATFORMS)
     assert coordinator._shutdown is False
     assert entry.runtime_data is coordinator
+    unregister_shutdown.assert_not_called()
 
     with patch.object(
         hass.config_entries,
@@ -870,4 +888,44 @@ async def test_failed_platform_unload_keeps_live_coordinator(
         return_value=True,
     ):
         assert await async_unload_entry(hass, entry)
+    unregister_shutdown.assert_called_once_with()
+    coordinator.async_unregister_core_shutdown_job()
+    unregister_shutdown.assert_called_once_with()
     assert coordinator._shutdown is True
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_home_assistant_core_stop_persists_clean_shutdown_marker(
+    hass: HomeAssistant,
+) -> None:
+    """A real core stop awaits the entry-scoped verified final Store save."""
+    _set_valid_states(hass)
+    entry = _entry(zone_data=_zone_data())
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+    runtime_store = entry.runtime_data.runtime_store
+    assert runtime_store is not None
+
+    with patch(
+        "homeassistant.core.ServiceRegistry.async_call",
+        new_callable=AsyncMock,
+    ) as service_call:
+        await hass.async_stop(force=True)
+
+    stored = runtime_store._store._data
+    assert stored is not None
+    assert stored["version"] == 1
+    assert stored["minor_version"] == 2
+    assert stored["data"]["last_clean_shutdown"] is True
+    assert runtime_store.last_successful_save is not None
+    assert runtime_store.dirty is False
+    assert runtime_store.write_task is None
+    assert entry.runtime_data._shutdown is True
+    assert entry.runtime_data._cancel_reconciliation is None
+    assert entry.runtime_data._cancel_watchdog is None
+    await entry.runtime_data._async_core_shutdown()
+    service_call.assert_not_awaited()

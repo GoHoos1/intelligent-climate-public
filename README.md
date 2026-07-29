@@ -14,7 +14,7 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.6**. Intelligent Climate is pre-alpha software
+The current release is **0.0.7**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
 redacted integration diagnostics, Repairs notifications, and bounded activity
@@ -23,6 +23,11 @@ development.
 
 ## Recent changes
 
+- **0.0.7**
+  - Corrected normal Home Assistant restart detection by registering an awaited
+    core-shutdown final save and releasing entry-scoped runtime callbacks.
+  - Made the bounded clean-save path idempotent across core shutdown and
+    ordinary integration unload.
 - **0.0.6**
   - Added transactional config-entry 1.0-to-1.1 and Store-envelope 1.1-to-1.2
     migration with fail-closed validation and bounded quarantine.
@@ -305,9 +310,9 @@ command payloads, exception text, URLs, or paths.
 
 Activity is retained oldest-to-newest for the configured age and count limits,
 with an absolute maximum of 500 records. Store writes are debounced for 30
-seconds and forced within five minutes while dirty. A clean unload attempts a
-final save for at most five seconds; persistence failure never changes or
-blocks physical equipment.
+seconds and forced within five minutes while dirty. A clean unload or Home
+Assistant core shutdown attempts a final save for at most five seconds;
+persistence failure never changes or blocks physical equipment.
 
 ## Troubleshooting
 
@@ -461,7 +466,7 @@ record fires one `intelligent_climate_activity` bus event and updates only the
 matching Activity Event/Latest Activity surfaces. Runtime Store writes use Home
 Assistant Store version 1, key `intelligent_climate.<entry_id>`, atomic writes,
 a 30-second debounce, a five-minute maximum dirty interval, bounded retry, and
-a five-second unload limit.
+a five-second unload/core-shutdown limit.
 
 ### Aggregation behavior
 
