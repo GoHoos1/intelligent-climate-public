@@ -463,7 +463,7 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert report["diagnostics_schema_version"] == 1
     assert report["integration"] == {
         "domain": DOMAIN,
-        "version": "0.0.7",
+        "version": "0.0.8",
         "config_entry_version": 1,
         "config_entry_minor_version": 1,
     }
