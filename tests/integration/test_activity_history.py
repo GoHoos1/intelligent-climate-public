@@ -280,17 +280,33 @@ async def test_exact_inventory_devices_subentries_bus_and_startup_activity(
         er.async_get(hass),
         entry.entry_id,
     )
-    assert {item.unique_id for item in registry_entries} == {
+    group_unique_ids = {
         f"{GROUP_ID}:activity",
-        f"{ZONE_ID}:activity",
-        f"{ZONE_ID}:latest_activity",
-        f"{ZONE_ID}:zone",
+        f"{GROUP_ID}:configuration_degraded",
+        f"{GROUP_ID}:equipment_relationship",
+        f"{GROUP_ID}:thermostat_capability_status",
     }
+    zone_unique_ids = {
+        f"{ZONE_ID}:{key}"
+        for key in {
+            "activity",
+            "effective_temperature",
+            "latest_activity",
+            "observation_enabled",
+            "operating_mode",
+            "reconciling",
+            "sensor_data_degraded",
+            "thermostat_data_degraded",
+            "valid_temperature_sources",
+            "zone",
+        }
+    }
+    assert {item.unique_id for item in registry_entries} == (
+        group_unique_ids | zone_unique_ids
+    )
     assert {item.unique_id: item.config_subentry_id for item in registry_entries} == {
-        f"{GROUP_ID}:activity": None,
-        f"{ZONE_ID}:activity": f"{ENTRY_ID}-zone-subentry",
-        f"{ZONE_ID}:latest_activity": f"{ENTRY_ID}-zone-subentry",
-        f"{ZONE_ID}:zone": f"{ENTRY_ID}-zone-subentry",
+        **dict.fromkeys(group_unique_ids),
+        **dict.fromkeys(zone_unique_ids, f"{ENTRY_ID}-zone-subentry"),
     }
 
     group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
