@@ -4,7 +4,7 @@ requires = ["setuptools>=69"]
 
 [project]
 name = "intelligent-climate"
-version = "0.0.6"
+version = "0.0.7"
 description = "Observation-only repository foundation for a future Home Assistant custom integration."
 readme = "README.md"
 requires-python = ">=3.14.2"

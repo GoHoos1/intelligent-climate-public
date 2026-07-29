@@ -1218,6 +1218,14 @@ pending debounce, and multiple-entry cleanup retain one owner for every
 listener, callback, timer, and Store task. No path invokes a physical service
 or adds a writable capability.
 
+Release 0.0.7 registers one supported Home Assistant shutdown job per loaded
+entry. Home Assistant awaits that job before stopping integrations; it performs
+the same verified, five-second clean save used by ordinary unload and then
+releases the coordinator's entry-scoped subscriptions, timers, callbacks, and
+Store tasks. Repeated or concurrent final-save requests are idempotent. An
+ordinary unload removes the shutdown job only after platform unload succeeds,
+while a failed platform unload preserves the live job and coordinator.
+
 ## 16. Testing plan
 
 ### 16.1 Tooling and quality gates

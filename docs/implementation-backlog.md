@@ -599,6 +599,13 @@ multiple-entry isolation, and callback/task cleanup are covered without
 changing entity inventory or adding a service call, writable capability,
 schedule, prediction, simulation, adapter, or physical control.
 
+Release 0.0.7 corrects full-core restart detection by registering one supported
+Home Assistant shutdown job per loaded entry. The awaited job performs the
+verified bounded clean save and releases entry-scoped runtime callbacks before
+core shutdown continues. Repeated final-save requests are idempotent, ordinary
+unload removes the job after successful platform unload, and failed unload
+preserves it.
+
 ## 16. Phase 1 Integration and Acceptance Testing
 
 Purpose: Prove the complete Phase 1 observation baseline meets the accepted

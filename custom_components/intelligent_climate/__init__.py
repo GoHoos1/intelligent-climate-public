@@ -358,6 +358,7 @@ async def async_setup_entry(
         raise ConfigEntryError(
             "Unable to set up the Intelligent Climate entity platforms"
         ) from err
+    coordinator.async_add_core_shutdown_job()
     coordinator.async_record_setup_complete()
     return True
 
@@ -372,6 +373,7 @@ async def async_unload_entry(
         return True
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
+    coordinator.async_unregister_core_shutdown_job()
     coordinator.async_record_unload()
     if coordinator.runtime_store is not None:
         await coordinator.runtime_store.async_final_save()

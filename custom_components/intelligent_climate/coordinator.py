@@ -12,6 +12,7 @@ from homeassistant.core import (
     Event,
     EventStateChangedData,
     EventStateReportedData,
+    HassJob,
     HomeAssistant,
     callback,
 )
@@ -140,6 +141,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self._cancel_watchdog: CALLBACK_TYPE | None = None
         self._cancel_state_change_subscription: CALLBACK_TYPE | None = None
         self._cancel_state_report_subscription: CALLBACK_TYPE | None = None
+        self._cancel_core_shutdown_job: CALLBACK_TYPE | None = None
         self._debounce_generation = 0
         self._reconciliation_generation = 0
         self._watchdog_generation = 0
@@ -187,6 +189,35 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             severity=ActivitySeverity.INFO,
             explanation="Intelligent Climate observation setup completed.",
         )
+
+    def async_add_core_shutdown_job(self) -> None:
+        """Register one awaited, entry-scoped Home Assistant shutdown job."""
+        if self._cancel_core_shutdown_job is not None:
+            return
+        self._cancel_core_shutdown_job = self.hass.async_add_shutdown_job(
+            HassJob(
+                self._async_core_shutdown,
+                "Intelligent Climate core shutdown",
+            )
+        )
+
+    def async_unregister_core_shutdown_job(self) -> None:
+        """Remove the entry-scoped shutdown job idempotently."""
+        if self._cancel_core_shutdown_job is None:
+            return
+        cancel = self._cancel_core_shutdown_job
+        self._cancel_core_shutdown_job = None
+        cancel()
+
+    async def _async_core_shutdown(self) -> None:
+        """Persist a clean marker and release runtime callbacks on core stop."""
+        if self._shutdown:
+            return
+        try:
+            if self.runtime_store is not None:
+                await self.runtime_store.async_final_save()
+        finally:
+            await self._async_shutdown(remove_core_shutdown_job=False)
 
     def async_record_store_migrated(self) -> None:
         """Record one successful runtime Store envelope migration."""
@@ -981,8 +1012,16 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
 
     async def async_shutdown(self) -> None:
         """Idempotently cancel every owned subscription and timer."""
+        await self._async_shutdown(remove_core_shutdown_job=True)
+
+    async def _async_shutdown(self, *, remove_core_shutdown_job: bool) -> None:
+        """Cancel owned resources, optionally removing the core-shutdown job."""
         if self._shutdown:
+            if remove_core_shutdown_job:
+                self.async_unregister_core_shutdown_job()
             return
+        if remove_core_shutdown_job:
+            self.async_unregister_core_shutdown_job()
         self._shutdown = True
         self._debounce_generation += 1
         self._reconciliation_generation += 1

@@ -839,10 +839,41 @@ async def test_activity_during_save_remains_dirty_and_final_save_retries(
     fake.async_save.side_effect = _save_with_new_activity
 
     await runtime.async_final_save()
+    await runtime.async_final_save()
 
     assert fake.async_save.await_count == 2
     assert runtime.dirty is False
     assert runtime.last_successful_save == NOW
+    await runtime.async_shutdown()
+    publisher.close()
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_concurrent_final_saves_share_one_bounded_attempt(
+    hass: HomeAssistant,
+) -> None:
+    """Core shutdown and unload cannot start duplicate final-save writers."""
+    fake = _fake_store()
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def _blocked_save(data: object) -> None:
+        started.set()
+        await release.wait()
+        fake.async_load.return_value = deepcopy(data)
+
+    fake.async_save.side_effect = _blocked_save
+    runtime, publisher, _history = _runtime(hass, fake)
+    _activity(publisher)
+
+    first = asyncio.create_task(runtime.async_final_save())
+    await started.wait()
+    second = asyncio.create_task(runtime.async_final_save())
+    release.set()
+    await asyncio.gather(first, second)
+
+    assert fake.async_save.await_count == 1
+    assert runtime.dirty is False
     await runtime.async_shutdown()
     publisher.close()
 

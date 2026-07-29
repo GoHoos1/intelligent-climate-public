@@ -7,6 +7,24 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.7 - 2026-07-28
+
+### Fixed
+
+- Registered one awaited, entry-scoped Home Assistant shutdown job so a normal
+  full-core restart persists `last_clean_shutdown: true` before integrations
+  and background tasks stop.
+- Made the bounded final-save path idempotent, so concurrent or repeated core
+  shutdown and integration-unload calls share one verified persistence attempt.
+- Released coordinator subscriptions, debounce callbacks, reconciliation
+  deadlines, watchdog deadlines, and Store tasks during full-core shutdown.
+
+### Security
+
+- A normal Home Assistant restart is no longer falsely reported as an unclean
+  shutdown. The correction changes no entity, schema, event payload, writable
+  capability, or physical-command boundary.
+
 ## 0.0.6 - 2026-07-28
 
 ### Added
