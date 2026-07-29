@@ -6,6 +6,10 @@
     }
   },
   "issues": {
+    "no_zones_configured": {
+      "title": "Intelligent Climate has no configured zones",
+      "description": "The equipment group remains safely loaded but has no climate zone to observe. Add a zone from the Intelligent Climate integration entry, or remove the equipment-group entry if it is no longer needed. Continue using the original thermostat for physical HVAC control."
+    },
     "missing_entity": {
       "title": "Intelligent Climate entity is missing",
       "description": "One or more configured thermostats or enabled observation sources no longer exist in Home Assistant. Open the Intelligent Climate integration entry and reconfigure the affected zone to replace or remove the missing references. Continue using the original thermostat for physical HVAC control."
@@ -28,6 +32,20 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "configuration_degraded": {
+        "name": "Configuration degraded"
+      },
+      "reconciling": {
+        "name": "Reconciling"
+      },
+      "sensor_data_degraded": {
+        "name": "Sensor data degraded"
+      },
+      "thermostat_data_degraded": {
+        "name": "Thermostat data degraded"
+      }
+    },
     "event": {
       "activity": {
         "name": "Activity",
@@ -46,8 +64,34 @@
       }
     },
     "sensor": {
+      "effective_humidity": {
+        "name": "Effective humidity"
+      },
+      "effective_temperature": {
+        "name": "Effective temperature"
+      },
+      "equipment_relationship": {
+        "name": "Equipment relationship"
+      },
       "latest_activity": {
         "name": "Latest activity"
+      },
+      "operating_mode": {
+        "name": "Operating mode"
+      },
+      "temperature_spread": {
+        "name": "Temperature spread"
+      },
+      "thermostat_capability_status": {
+        "name": "Thermostat capability status"
+      },
+      "valid_temperature_sources": {
+        "name": "Valid temperature sources"
+      }
+    },
+    "switch": {
+      "observation_enabled": {
+        "name": "Observation enabled"
       }
     }
   },
@@ -65,14 +109,56 @@
           "equipment_type": "The type of heating and cooling equipment in this group."
         }
       },
-      "thermostat": {
-        "title": "Select thermostat",
-        "description": "Select the one existing climate entity owned by this equipment group.",
+      "thermostats": {
+        "title": "Select thermostats",
+        "description": "Select every existing climate entity owned by this equipment group.",
         "data": {
-          "thermostat_entity_id": "Thermostat"
+          "thermostat_entity_ids": "Thermostats"
         },
         "data_description": {
-          "thermostat_entity_id": "An existing Home Assistant climate entity that is not owned by another Intelligent Climate entry."
+          "thermostat_entity_ids": "One or more existing Home Assistant climate entities that are not owned by another Intelligent Climate entry."
+        }
+      },
+      "relationship": {
+        "title": "Describe the thermostat relationship",
+        "description": "Multiple thermostats must be explicitly modeled as independent systems in one group or shared/zoned equipment.",
+        "data": {
+          "equipment_relationship": "Equipment relationship"
+        }
+      },
+      "first_zone": {
+        "title": "Create the first zone",
+        "description": "The parent equipment group is not created until this first complete zone is valid.",
+        "data": {
+          "zone_name": "Zone name",
+          "zone_thermostat_entity_ids": "Zone thermostats",
+          "temperature_sources": "Temperature sources"
+        },
+        "data_description": {
+          "zone_name": "A recognizable display name for this climate zone.",
+          "zone_thermostat_entity_ids": "During initial setup, assign every selected thermostat to the first zone. Membership can be redistributed through parent reconfiguration after more zones are added.",
+          "temperature_sources": "Existing climate entities or temperature sensor entities."
+        }
+      },
+      "confirm": {
+        "title": "Confirm observation-only setup",
+        "description": "Create {equipment_group} with {thermostat_count} thermostat(s), relationship {relationship}, and first zone {zone}. Intelligent Climate remains observation-only and will not change HVAC equipment."
+      },
+      "reconfigure": {
+        "title": "Reconfigure equipment group",
+        "description": "Change equipment metadata, thermostat ownership, or the relationship without changing the stable equipment-group identity.",
+        "data": {
+          "equipment_group_name": "Equipment group name",
+          "equipment_type": "Equipment type",
+          "equipment_relationship": "Equipment relationship",
+          "thermostat_entity_ids": "Thermostats"
+        }
+      },
+      "reconfigure_zone": {
+        "title": "Assign thermostats to {zone}",
+        "description": "Choose the parent thermostats that serve this zone. Every parent thermostat must remain assigned to at least one zone.",
+        "data": {
+          "zone_thermostat_entity_ids": "Zone thermostats"
         }
       }
     },
@@ -83,8 +169,45 @@
       "missing_entity": "The selected entity does not exist in Home Assistant.",
       "wrong_domain": "Select a climate entity.",
       "duplicate_thermostat_owner": "This thermostat already belongs to another Intelligent Climate equipment group.",
+      "duplicate_thermostat_selection": "Select each thermostat only once.",
+      "invalid_relationship": "Use Single system for one thermostat, or explicitly choose Independent or Shared/zoned for multiple thermostats.",
+      "shared_requires_zone": "Shared/zoned equipment requires at least one configured zone.",
+      "thermostat_outside_group": "Every zone thermostat must belong to this equipment group.",
+      "unassigned_thermostat": "Every equipment-group thermostat must be assigned to at least one zone.",
       "invalid_existing_configuration": "An existing Intelligent Climate entry is malformed, so thermostat ownership cannot be determined safely.",
       "invalid_entity_selection": "Select a valid Home Assistant entity."
+    },
+    "abort": {
+      "reconfigure_successful": "The equipment group was reconfigured successfully.",
+      "invalid_input": "The proposed equipment graph could not be validated safely.",
+      "invalid_existing_configuration": "Stored Intelligent Climate configuration is malformed and cannot be updated safely."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Observation options",
+        "description": "Change observation, aggregation, source-health, and bounded-history behavior. These options never control physical HVAC equipment.",
+        "data": {
+          "observation_enabled": "Observation enabled",
+          "temperature_strategy": "Temperature aggregation",
+          "humidity_strategy": "Humidity aggregation",
+          "min_valid_temperature_sources": "Minimum valid temperature sources",
+          "min_valid_humidity_sources": "Minimum valid humidity sources",
+          "source_stale_after_seconds": "Source freshness limit (seconds)",
+          "startup_reconciliation_seconds": "Startup reconciliation period (seconds)",
+          "jump_limit_c_per_5_minutes": "Jump limit (°C per 5 minutes)",
+          "outlier_floor_c": "Outlier floor (°C)",
+          "indoor_temperature_min_c": "Plausible indoor minimum (°C)",
+          "indoor_temperature_max_c": "Plausible indoor maximum (°C)",
+          "history_max_records": "Maximum activity records",
+          "history_max_age_days": "Maximum activity age (days)",
+          "log_level_detail": "Logging detail"
+        }
+      }
+    },
+    "error": {
+      "invalid_options": "The submitted observation options are inconsistent or outside the supported bounds."
     }
   },
   "config_subentries": {
@@ -99,10 +222,12 @@
           "description": "Create a named climate zone using the equipment group's thermostat and one or more temperature sources.",
           "data": {
             "zone_name": "Zone name",
+            "zone_thermostat_entity_ids": "Zone thermostats",
             "temperature_sources": "Temperature sources"
           },
           "data_description": {
             "zone_name": "A recognizable display name for this climate zone.",
+            "zone_thermostat_entity_ids": "One or more thermostats from the parent equipment group.",
             "temperature_sources": "Existing climate entities or sensor entities with the temperature device class."
           }
         },
@@ -111,11 +236,23 @@
           "description": "Change the zone display name or temperature sources without changing stable zone or retained source identities.",
           "data": {
             "zone_name": "Zone name",
+            "zone_thermostat_entity_ids": "Zone thermostats",
             "temperature_sources": "Temperature sources"
           },
           "data_description": {
             "zone_name": "The new display name for this climate zone.",
+            "zone_thermostat_entity_ids": "One or more thermostats from the parent equipment group.",
             "temperature_sources": "Existing climate entities or sensor entities with the temperature device class."
+          }
+        },
+        "source": {
+          "title": "Configure source {position} of {count}",
+          "description": "Set calibration and aggregation metadata for {source}. Values are stored with the stable source identity.",
+          "data": {
+            "source_offset_c": "Calibration offset (°C)",
+            "source_weight": "Weight",
+            "source_priority": "Priority",
+            "source_enabled": "Enabled"
           }
         }
       },
@@ -129,7 +266,13 @@
         "wrong_device_class": "Every selected sensor must use the temperature device class.",
         "duplicate_temperature_source": "A temperature source cannot be selected more than once in one zone.",
         "no_temperature_sources": "Select at least one temperature source.",
-        "invalid_parent_thermostat": "The owning equipment group must contain exactly one valid primary thermostat.",
+        "invalid_parent_thermostat": "The owning equipment group must contain one or more valid thermostats.",
+        "duplicate_thermostat_selection": "Select each thermostat only once.",
+        "unassigned_thermostat": "Every parent thermostat must remain assigned to at least one zone.",
+        "invalid_source_offset": "Enter a finite calibration offset between -20°C and 20°C.",
+        "invalid_source_weight": "Enter a finite source weight greater than zero.",
+        "invalid_source_priority": "Enter a whole-number priority of zero or greater.",
+        "invalid_source_enabled": "Choose whether this source is enabled.",
         "invalid_existing_configuration": "Stored Intelligent Climate configuration is malformed and cannot be updated safely.",
         "invalid_entity_selection": "Select valid Home Assistant entities."
       },
@@ -139,7 +282,7 @@
         "missing_entity": "The configured parent thermostat no longer exists in Home Assistant.",
         "wrong_domain": "The configured parent thermostat is not a climate entity.",
         "duplicate_thermostat_owner": "The configured thermostat is owned by another Intelligent Climate entry.",
-        "invalid_parent_thermostat": "The owning equipment group must contain exactly one valid primary thermostat.",
+        "invalid_parent_thermostat": "The owning equipment group must contain one or more valid thermostats.",
         "invalid_existing_configuration": "Stored Intelligent Climate configuration is malformed and cannot be updated safely."
       }
     }
