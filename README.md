@@ -19,8 +19,9 @@ intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
 redacted integration diagnostics, Repairs notifications, and bounded activity
 history are implemented and tested. Release 0.0.8 is the Phase 1 acceptance
-candidate; final acceptance still requires the documented Home Assistant UI
-walkthrough. Later phases remain under active design and development.
+release. All 35 Phase 1 acceptance criteria passed automated validation and the
+documented Home Assistant UI walkthrough on 2026-07-29. Later phases remain
+under active design and development.
 
 ## Recent changes
 
@@ -427,8 +428,9 @@ health, aggregation, the event-driven coordinator, read-only zone climate
 entities, redacted diagnostics, Repairs notifications, and bounded activity
 history/events with Store v1 persistence, migration, quarantine, and lifecycle
 recovery hardening. Automated acceptance evidence is complete; final Phase 1
-acceptance is pending the documented Home Assistant UI walkthrough for the
-0.0.8 candidate.
+acceptance was completed on 2026-07-29 through the documented Home Assistant
+0.0.8 UI, activity, diagnostics, and restart walkthrough. All 35 Phase 1
+acceptance criteria pass.
 
 Scheduled control begins no earlier than Phase 2, and predictive control
 remains a later phase.
@@ -440,6 +442,7 @@ approved sequence and explicit exclusions.
 
 - [Product specification](docs/product-specification.md)
 - [Phase 1 technical design](docs/phase-1-technical-design.md)
+- [Phase 1 acceptance record](docs/phase-1-acceptance.md)
 - [Implementation backlog](docs/implementation-backlog.md)
 - [Phase 1 non-goals](docs/non-goals-phase-1.md)
 - [Development guide](docs/development.md)

@@ -1356,6 +1356,12 @@ Every criterion below is mandatory. “Pass” means the stated evidence exists 
 
 Phase 1 is accepted only when P1-AC-001 through P1-AC-035 all pass.
 
+### 17.1 Acceptance status
+
+Phase 1 was accepted on 2026-07-29 using release 0.0.8. All 35 criteria passed.
+The automated, CI, and live Home Assistant evidence is recorded in
+[`phase-1-acceptance.md`](phase-1-acceptance.md).
+
 ## 18. Phase 2 handoff contracts
 
 Phase 1 leaves deliberate extension points without implementing control:
