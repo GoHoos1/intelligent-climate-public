@@ -224,6 +224,24 @@ def test_manager_rejects_empty_entry_scope(hass: HomeAssistant) -> None:
         RepairsManager(hass, "")
 
 
+def test_no_zone_issue_is_idempotent_and_clears_when_a_zone_exists(
+    hass: HomeAssistant,
+) -> None:
+    """Final-zone removal stays actionable until a zone is configured."""
+    manager = RepairsManager(hass, ENTRY_ID)
+
+    manager.async_sync_zone_presence(has_zones=False)
+    first = _issue(hass, ENTRY_ID, IssueCode.NO_ZONES_CONFIGURED)
+    assert first is not None
+    assert first.data == {"issue_code": "no_zones_configured"}
+
+    manager.async_sync_zone_presence(has_zones=False)
+    assert _issue(hass, ENTRY_ID, IssueCode.NO_ZONES_CONFIGURED) is first
+
+    manager.async_sync_zone_presence(has_zones=True)
+    assert _issue(hass, ENTRY_ID, IssueCode.NO_ZONES_CONFIGURED) is None
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_missing_entities_wait_for_guard_aggregate_and_recover(
     hass: HomeAssistant,
@@ -599,6 +617,7 @@ def test_all_registry_entries_match_documented_issue_policy(
     manager = RepairsManager(hass, ENTRY_ID)
     manager._async_sync_counted_issue(IssueCode.MISSING_ENTITY, 1)
     manager._async_sync_counted_issue(IssueCode.INCOMPATIBLE_ENTITY, 1)
+    manager.async_sync_zone_presence(has_zones=False)
     manager.async_report_migration_failure(MigrationFailureCategory.SCHEMA_VALIDATION)
     manager.async_notify_store_write_failures(3)
     manager.async_report_command_boundary_violation()
