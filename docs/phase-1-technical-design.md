@@ -198,7 +198,6 @@ intelligent-climate/
 │       ├── storage.py
 │       ├── history.py
 │       ├── services.yaml
-│       ├── strings.json
 │       ├── quality_scale.yaml
 │       ├── translations/
 │       │   └── en.json
