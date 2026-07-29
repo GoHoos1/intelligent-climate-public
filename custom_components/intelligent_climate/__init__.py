@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from .const import PLATFORMS, SUBENTRY_TYPE_ZONE
@@ -17,13 +18,17 @@ from .models import (
     RuntimeConfigurationState,
     SchemaMigrationError,
     SchemaValidationError,
+    SharedEquipmentPolicy,
+    ThermostatBinding,
     ThermostatRole,
     ZoneConfig,
+    decode_configuration_graph,
     decode_equipment_group_document,
     decode_options,
     decode_zone_config,
     encode_equipment_group_document,
     encode_options,
+    encode_zone_config,
 )
 from .type_aliases import IntelligentClimateConfigEntry
 
@@ -45,6 +50,94 @@ def _is_empty_zone_skeleton(zone: ZoneConfig) -> bool:
             zone.stage_entity_ids,
             zone.fan_entity_ids,
         )
+    )
+
+
+def _normalize_graph_after_zone_removal(
+    hass: HomeAssistant,
+    entry: IntelligentClimateConfigEntry,
+) -> None:
+    """Keep parent membership and shared metadata aligned after zone removal."""
+    document = decode_equipment_group_document(
+        entry.data,
+        version=entry.version,
+        minor_version=entry.minor_version,
+    )
+    group = document.equipment_group
+    if any(
+        subentry.subentry_type != SUBENTRY_TYPE_ZONE
+        for subentry in entry.subentries.values()
+    ):
+        return
+
+    zone_ids = tuple(
+        decode_zone_config(subentry.data).zone_id
+        for subentry in entry.subentries.values()
+    )
+    zones = tuple(
+        decode_zone_config(subentry.data) for subentry in entry.subentries.values()
+    )
+    if zones and any(
+        not zone.thermostat_entity_ids or not zone.temperature_sources for zone in zones
+    ):
+        return
+    assigned = {entity_id for zone in zones for entity_id in zone.thermostat_entity_ids}
+    if zones:
+        retained_entity_ids = tuple(
+            binding.entity_id
+            for binding in group.thermostats
+            if binding.entity_id in assigned
+        )
+        thermostats = tuple(
+            ThermostatBinding(
+                entity_id=entity_id,
+                role=(
+                    ThermostatRole.PRIMARY if index == 0 else ThermostatRole.SECONDARY
+                ),
+            )
+            for index, entity_id in enumerate(retained_entity_ids)
+        )
+    else:
+        thermostats = group.thermostats
+
+    relationship = group.relationship
+    shared_policy = group.shared_policy
+    if zones and len(thermostats) == 1:
+        relationship = EquipmentRelationship.SINGLE_SYSTEM
+        shared_policy = None
+    elif not zone_ids and relationship is EquipmentRelationship.SHARED_ZONED:
+        relationship = EquipmentRelationship.INDEPENDENT
+        shared_policy = None
+    elif relationship is EquipmentRelationship.SHARED_ZONED:
+        assert shared_policy is not None
+        retained = tuple(
+            item for item in shared_policy.zone_priority_order if item in zone_ids
+        )
+        added = tuple(item for item in zone_ids if item not in retained)
+        shared_policy = SharedEquipmentPolicy(
+            zone_priority_order=(*retained, *added),
+            conflict_policy=shared_policy.conflict_policy,
+        )
+
+    updated_group = replace(
+        group,
+        relationship=relationship,
+        thermostats=thermostats,
+        shared_policy=shared_policy,
+    )
+    if updated_group == group:
+        return
+
+    hass.config_entries.async_update_entry(
+        entry,
+        data=dict(
+            encode_equipment_group_document(EquipmentGroupDocument(updated_group))
+        ),
+    )
+    _LOGGER.info(
+        "Equipment graph normalized after zone removal: config_entry_id=%s "
+        "reason_code=zone_membership_removed",
+        entry.entry_id,
     )
 
 
@@ -118,21 +211,33 @@ def _decode_runtime_configuration(
         )
 
     if (
-        equipment_group.relationship is not EquipmentRelationship.SINGLE_SYSTEM
-        or equipment_group.shared_policy is not None
-        or len(equipment_group.thermostats) != 1
-        or equipment_group.thermostats[0].role is not ThermostatRole.PRIMARY
+        sum(
+            binding.role is ThermostatRole.PRIMARY
+            for binding in equipment_group.thermostats
+        )
+        != 1
+        or (
+            equipment_group.relationship is EquipmentRelationship.SINGLE_SYSTEM
+            and len(equipment_group.thermostats) != 1
+        )
+        or (
+            equipment_group.relationship is not EquipmentRelationship.SINGLE_SYSTEM
+            and len(equipment_group.thermostats) < 2
+        )
     ):
         raise SchemaValidationError(
             "equipment_group.thermostats",
             "invalid parent thermostat",
         )
-    thermostat_entity_id = equipment_group.thermostats[0].entity_id
-    validate_persisted_thermostat_reference(
-        hass,
-        thermostat_entity_id,
-        exclude_entry_id=entry.entry_id,
+    thermostat_entity_ids = tuple(
+        binding.entity_id for binding in equipment_group.thermostats
     )
+    for thermostat_entity_id in thermostat_entity_ids:
+        validate_persisted_thermostat_reference(
+            hass,
+            thermostat_entity_id,
+            exclude_entry_id=entry.entry_id,
+        )
     if not zones:
         return EntryRuntimeConfiguration(
             equipment_group=equipment_group,
@@ -142,10 +247,12 @@ def _decode_runtime_configuration(
         )
 
     for zone in zones:
-        if zone.thermostat_entity_ids != (thermostat_entity_id,):
+        if not zone.thermostat_entity_ids or not set(
+            zone.thermostat_entity_ids
+        ).issubset(thermostat_entity_ids):
             raise SchemaValidationError(
                 "thermostat_entity_ids",
-                "must contain the owning parent thermostat exactly once",
+                "must contain only owning parent thermostats",
             )
         validate_persisted_temperature_sources(zone.temperature_sources)
         for source in zone.temperature_sources:
@@ -162,6 +269,10 @@ def _decode_runtime_configuration(
                     "duplicate observation source_id",
                 )
             source_ids.add(humidity_source.source_id)
+    decode_configuration_graph(
+        dict(encode_equipment_group_document(EquipmentGroupDocument(equipment_group))),
+        [dict(encode_zone_config(zone)) for zone in zones],
+    )
     return EntryRuntimeConfiguration(
         equipment_group=equipment_group,
         zones=tuple(zones),
@@ -240,6 +351,7 @@ async def async_setup_entry(
 
     issue_manager = RepairsManager(hass, entry.entry_id)
     try:
+        _normalize_graph_after_zone_removal(hass, entry)
         configuration = _decode_runtime_configuration(hass, entry)
     except EntityValidationError as err:
         issue_manager.async_report_migration_failure(
@@ -303,6 +415,7 @@ async def async_setup_entry(
     issue_manager.async_prepare_clean_setup(
         preserve_migration_failure=runtime_store.requires_repair
     )
+    issue_manager.async_sync_zone_presence(has_zones=bool(configuration.zones))
     if (failure_category := runtime_store.migration_failure_category) is not None:
         issue_manager.async_report_migration_failure(failure_category)
     coordinator: IntelligentClimateCoordinator | None = None
