@@ -628,10 +628,12 @@ Safety impact: Release gate for observation-only Phase 1.
 
 Observation-only: Yes.
 
-Status: Implemented in release-candidate 0.0.8. Automated acceptance evidence
-passes for P1-AC-001 through P1-AC-035; P1-AC-003 and P1-AC-026 additionally
-require their documented Home Assistant UI walkthroughs before final Phase 1
-acceptance.
+Status: Complete in release 0.0.8. Automated acceptance evidence passes for
+P1-AC-001 through P1-AC-035. The required P1-AC-003 configuration walkthrough
+and P1-AC-026 Event/Logbook, Latest Activity, diagnostics, and restart
+walkthrough passed on the validated Home Assistant installation on 2026-07-29.
+The complete evidence is recorded in
+[`phase-1-acceptance.md`](phase-1-acceptance.md).
 
 Release 0.0.8 completes atomic first-zone setup, multi-thermostat independent
 and shared/zoned configuration, parent and zone reconfiguration, all safe
