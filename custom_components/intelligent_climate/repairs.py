@@ -32,6 +32,7 @@ _TRANSIENT_STATES = frozenset({STATE_UNKNOWN, STATE_UNAVAILABLE})
 class IssueCode(StrEnum):
     """Stable Intelligent Climate issue-code vocabulary."""
 
+    NO_ZONES_CONFIGURED = "no_zones_configured"
     MISSING_ENTITY = "missing_entity"
     INCOMPATIBLE_ENTITY = "incompatible_entity"
     MIGRATION_FAILED = "migration_failed"
@@ -183,6 +184,16 @@ class RepairsManager:
         self._async_sync_counted_issue(
             IssueCode.INCOMPATIBLE_ENTITY,
             incompatible_count,
+        )
+
+    def async_sync_zone_presence(self, *, has_zones: bool) -> None:
+        """Keep the actionable final-zone-removal issue synchronized."""
+        if has_zones:
+            self.async_delete_issue(IssueCode.NO_ZONES_CONFIGURED)
+            return
+        self._async_create_issue(
+            IssueCode.NO_ZONES_CONFIGURED,
+            {"issue_code": IssueCode.NO_ZONES_CONFIGURED.value},
         )
 
     def async_report_migration_failure(
