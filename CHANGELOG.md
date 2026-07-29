@@ -7,6 +7,36 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.8 - 2026-07-29
+
+### Added
+
+- Added atomic equipment-group and first-zone setup, parent reconfiguration,
+  complete zone/source reconfiguration, and the full safe options flow.
+- Added independent and shared/zoned multi-thermostat graphs with explicit zone
+  membership and conflict-safe observed state.
+- Added the exact Phase 1 sensor, binary-sensor, switch, climate, and Event
+  entity matrix.
+- Added a sanitized deterministic Nest fixture, full flow-family branch
+  coverage, and explicit network isolation for the complete test suite.
+
+### Changed
+
+- Degraded runtime state now requires two valid evaluations separated by at
+  least 30 seconds before returning to observing.
+- Lifecycle, state-transition, failure, and recovery logs use stable reason
+  codes with bounded warning repetition.
+- Native zone removal reconciles thermostat membership and shared-zone
+  priority without changing stable equipment, zone, or retained-source IDs.
+
+### Security
+
+- The new observation switch changes configuration and reloads the integration
+  only; it cannot call or alter physical climate equipment.
+- Multi-thermostat disagreement degrades the virtual observation instead of
+  inventing a shared mode, action, or target.
+- Phase 1 remains network-isolated and strictly observation-only.
+
 ## 0.0.7 - 2026-07-28
 
 ### Fixed
