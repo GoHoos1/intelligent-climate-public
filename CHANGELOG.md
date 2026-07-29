@@ -5,7 +5,12 @@ distribution repository. It does not assert that a public release tag exists.
 
 ## Unreleased
 
-No unreleased changes.
+### Documentation
+
+- Recorded the completed Home Assistant 0.0.8 UI, activity, diagnostics, and
+  restart walkthrough and formally closed all 35 Phase 1 acceptance criteria.
+- Added the Phase 1 acceptance record and updated release, roadmap, design, and
+  backlog status from acceptance candidate to accepted.
 
 ## 0.0.8 - 2026-07-29
 
