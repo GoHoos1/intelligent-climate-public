@@ -64,6 +64,7 @@ class ActivityReason(StrEnum):
     THERMOSTAT_MODE_CHANGED = "thermostat_mode_changed"
     THERMOSTAT_TARGET_CHANGED = "thermostat_target_changed"
     THERMOSTAT_CAPABILITIES_CHANGED = "thermostat_capabilities_changed"
+    NO_ZONES_CONFIGURED = "no_zones_configured"
     MISSING_ENTITY = "missing_entity"
     INCOMPATIBLE_ENTITY = "incompatible_entity"
     MIGRATION_FAILED = "migration_failed"
@@ -113,6 +114,7 @@ _REASONS_BY_TYPE: Mapping[ActivityType, frozenset[ActivityReason]] = {
     ),
     ActivityType.REPAIR_ISSUE_CREATED: frozenset(
         {
+            ActivityReason.NO_ZONES_CONFIGURED,
             ActivityReason.MISSING_ENTITY,
             ActivityReason.INCOMPATIBLE_ENTITY,
             ActivityReason.MIGRATION_FAILED,
@@ -122,6 +124,7 @@ _REASONS_BY_TYPE: Mapping[ActivityType, frozenset[ActivityReason]] = {
     ),
     ActivityType.REPAIR_ISSUE_RESOLVED: frozenset(
         {
+            ActivityReason.NO_ZONES_CONFIGURED,
             ActivityReason.MISSING_ENTITY,
             ActivityReason.INCOMPATIBLE_ENTITY,
             ActivityReason.MIGRATION_FAILED,
