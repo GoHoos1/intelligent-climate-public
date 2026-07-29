@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
+from types import MappingProxyType
 from typing import cast
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
 import pytest
 
@@ -24,9 +26,15 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.selector import EntitySelector, TextSelector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.intelligent_climate import zone_flow as zone_flow_module
 from custom_components.intelligent_climate.const import (
+    CONF_SOURCE_ENABLED,
+    CONF_SOURCE_OFFSET_C,
+    CONF_SOURCE_PRIORITY,
+    CONF_SOURCE_WEIGHT,
     CONF_TEMPERATURE_SOURCES,
     CONF_ZONE_NAME,
+    CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     DOMAIN,
     SUBENTRY_TYPE_ZONE,
 )
@@ -41,6 +49,7 @@ from custom_components.intelligent_climate.models import (
     decode_zone_config,
 )
 from custom_components.intelligent_climate.validation import (
+    EntityValidationCode,
     EntityValidationError,
     validate_live_temperature_selection,
     validate_persisted_temperature_sources,
@@ -51,8 +60,10 @@ GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
 ZONE_ID = "99246285-6f02-4e8a-94ed-bdfd4a5e62c4"
 SOURCE_ID = "f15f73b1-ea59-4b28-819f-7b99acf065bf"
 THERMOSTAT = "climate.main_floor"
+SECOND_THERMOSTAT = "climate.upstairs"
 SENSOR = "sensor.dining_room_temperature"
 CLIMATE_SOURCE = "climate.dining_room"
+SECOND_ZONE_ID = "7294e2ec-6f1f-4fbc-9f30-4a44d356cce8"
 
 
 def _parent_data(
@@ -95,17 +106,40 @@ def _source(
     }
 
 
+def _multi_parent_data(*, second_zone_configured: bool) -> dict[str, object]:
+    priority = [ZONE_ID]
+    if second_zone_configured:
+        priority.append(SECOND_ZONE_ID)
+    return {
+        "equipment_group": {
+            "equipment_group_id": GROUP_ID,
+            "name": "Main Floor HVAC",
+            "equipment_type": EquipmentType.AIR_SOURCE_HEAT_PUMP.value,
+            "relationship": "shared_zoned",
+            "thermostats": [
+                {"entity_id": THERMOSTAT, "role": "primary"},
+                {"entity_id": SECOND_THERMOSTAT, "role": "secondary"},
+            ],
+            "shared_policy": {
+                "zone_priority_order": priority,
+                "conflict_policy": "priority_order",
+            },
+        }
+    }
+
+
 def _zone_data(
     *,
     name: str = "Dining Room",
     zone_id: str = ZONE_ID,
     sources: list[dict[str, object]] | None = None,
+    thermostats: list[str] | None = None,
 ) -> dict[str, object]:
     return {
         "data_version": 1,
         "zone_id": zone_id,
         "name": name,
-        "thermostat_entity_ids": [THERMOSTAT],
+        "thermostat_entity_ids": [THERMOSTAT] if thermostats is None else thermostats,
         "temperature_sources": [_source()] if sources is None else sources,
         "humidity_sources": [],
         "window_door_entity_ids": [],
@@ -179,14 +213,23 @@ async def _submit_add(
     *,
     name: object = "Dining Room",
     sources: object = None,
+    zone_thermostats: object = None,
+    source_values: list[dict[str, object]] | None = None,
 ) -> config_entries.SubentryFlowResult:
     initial = await _start_add(hass, entry)
     if sources is None:
         sources = [SENSOR]
-    return await hass.config_entries.subentries.async_configure(
+    if zone_thermostats is None:
+        zone_thermostats = [THERMOSTAT]
+    result = await hass.config_entries.subentries.async_configure(
         initial["flow_id"],
-        user_input={CONF_ZONE_NAME: name, CONF_TEMPERATURE_SOURCES: sources},
+        user_input={
+            CONF_ZONE_NAME: name,
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: zone_thermostats,
+            CONF_TEMPERATURE_SOURCES: sources,
+        },
     )
+    return await _complete_source_forms(hass, result, source_values=source_values)
 
 
 async def _start_reconfigure(
@@ -209,14 +252,44 @@ async def _submit_reconfigure(
     *,
     name: str = "Dining Room",
     sources: list[str] | None = None,
+    zone_thermostats: list[str] | None = None,
+    source_values: list[dict[str, object]] | None = None,
 ) -> config_entries.SubentryFlowResult:
-    return await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.subentries.async_configure(
         initial["flow_id"],
         user_input={
             CONF_ZONE_NAME: name,
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: (
+                [THERMOSTAT] if zone_thermostats is None else zone_thermostats
+            ),
             CONF_TEMPERATURE_SOURCES: [SENSOR] if sources is None else sources,
         },
     )
+    return await _complete_source_forms(hass, result, source_values=source_values)
+
+
+async def _complete_source_forms(
+    hass: HomeAssistant,
+    result: config_entries.SubentryFlowResult,
+    *,
+    source_values: list[dict[str, object]] | None = None,
+) -> config_entries.SubentryFlowResult:
+    index = 0
+    while result["type"] is FlowResultType.FORM and result["step_id"] == "source":
+        schema = result["data_schema"]
+        assert isinstance(schema, vol.Schema)
+        values = {
+            marker.schema: marker.description["suggested_value"]
+            for marker in schema.schema
+        }
+        if source_values is not None and index < len(source_values):
+            values.update(source_values[index])
+        result = await hass.config_entries.subentries.async_configure(
+            result["flow_id"],
+            user_input=values,
+        )
+        index += 1
+    return result
 
 
 def _errors(result: config_entries.SubentryFlowResult) -> dict[str, str]:
@@ -236,7 +309,11 @@ async def test_add_form_has_name_and_multiple_filtered_entity_selector(
     assert result["step_id"] == "user"
     assert isinstance(schema, vol.Schema)
     selectors = {marker.schema: selector for marker, selector in schema.schema.items()}
-    assert set(selectors) == {CONF_ZONE_NAME, CONF_TEMPERATURE_SOURCES}
+    assert set(selectors) == {
+        CONF_ZONE_NAME,
+        CONF_ZONE_THERMOSTAT_ENTITY_IDS,
+        CONF_TEMPERATURE_SOURCES,
+    }
     assert isinstance(selectors[CONF_ZONE_NAME], TextSelector)
     entity_selector = selectors[CONF_TEMPERATURE_SOURCES]
     assert isinstance(entity_selector, EntitySelector)
@@ -326,9 +403,12 @@ async def test_add_accepts_unavailable_existing_sources(
 ) -> None:
     hass.states.async_set(entity_id, "unavailable", attributes)
 
-    result = await _submit_add(hass, _make_parent(hass), sources=[entity_id])
+    with patch.object(hass.config_entries, "async_reload") as reload:
+        result = await _submit_add(hass, _make_parent(hass), sources=[entity_id])
+        await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    reload.assert_not_awaited()
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -384,7 +464,7 @@ async def test_add_maps_sources_with_exact_defaults(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_first_zone_commit_schedules_one_reload_that_observes_zone(
+async def test_first_zone_commit_completes_one_reload_that_observes_zone(
     hass: HomeAssistant,
 ) -> None:
     """The real flow manager commits the first subentry before reload begins."""
@@ -398,21 +478,21 @@ async def test_first_zone_commit_schedules_one_reload_that_observes_zone(
 
     with patch.object(
         hass.config_entries,
-        "async_schedule_reload",
-        wraps=hass.config_entries.async_schedule_reload,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
     ) as reload:
         result = await _submit_add(hass, entry)
         await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    reload.assert_called_once_with(entry.entry_id)
+    reload.assert_awaited_once_with(entry.entry_id)
     assert entry.state is config_entries.ConfigEntryState.LOADED
     assert len(entry.runtime_data.configuration.zones) == 1
     assert len(entry.subentries) == 1
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_later_zone_commit_schedules_exactly_one_reload(
+async def test_later_zone_commit_completes_exactly_one_reload(
     hass: HomeAssistant,
 ) -> None:
     """Every additional committed zone refreshes the owning runtime once."""
@@ -423,8 +503,8 @@ async def test_later_zone_commit_schedules_exactly_one_reload(
 
     with patch.object(
         hass.config_entries,
-        "async_schedule_reload",
-        wraps=hass.config_entries.async_schedule_reload,
+        "async_reload",
+        wraps=hass.config_entries.async_reload,
     ) as reload:
         result = await _submit_add(
             hass,
@@ -435,7 +515,7 @@ async def test_later_zone_commit_schedules_exactly_one_reload(
         await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    reload.assert_called_once_with(entry.entry_id)
+    reload.assert_awaited_once_with(entry.entry_id)
     assert len(entry.subentries) == 2
     assert len(entry.runtime_data.configuration.zones) == 2
 
@@ -446,7 +526,7 @@ async def test_invalid_and_canceled_zone_flows_schedule_no_reload(
 ) -> None:
     """Forms and cancellation never trigger a parent reload."""
     entry = _make_parent(hass)
-    with patch.object(hass.config_entries, "async_schedule_reload") as reload:
+    with patch.object(hass.config_entries, "async_reload") as reload:
         invalid = await _submit_add(hass, entry)
         initial = await _start_add(hass, entry)
         hass.config_entries.subentries.async_abort(initial["flow_id"])
@@ -471,7 +551,7 @@ async def test_failed_subentry_commit_schedules_no_reload(
             "async_add_subentry",
             side_effect=RuntimeError("commit failed"),
         ),
-        patch.object(hass.config_entries, "async_schedule_reload") as reload,
+        patch.object(hass.config_entries, "async_reload") as reload,
         pytest.raises(RuntimeError, match="commit failed"),
     ):
         await _submit_add(hass, entry)
@@ -479,6 +559,32 @@ async def test_failed_subentry_commit_schedules_no_reload(
 
     reload.assert_not_called()
     assert entry.subentries == {}
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_committed_zone_skips_reload_during_core_shutdown(
+    hass: HomeAssistant,
+) -> None:
+    """A committed zone remains durable when core shutdown wins the reload race."""
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+
+    with (
+        patch.object(
+            type(hass),
+            "is_stopping",
+            new_callable=PropertyMock,
+            return_value=True,
+        ),
+        patch.object(hass.config_entries, "async_reload") as reload,
+    ):
+        result = await _submit_add(hass, entry)
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    reload.assert_not_awaited()
+    assert len(entry.subentries) == 1
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -503,6 +609,180 @@ async def test_add_accepts_multiple_compatible_sources(hass: HomeAssistant) -> N
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_add_source_editor_persists_calibration_weight_priority_and_enable(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    result = await _submit_add(
+        hass,
+        _make_parent(hass),
+        source_values=[
+            {
+                CONF_SOURCE_OFFSET_C: -1.5,
+                CONF_SOURCE_WEIGHT: 2.25,
+                CONF_SOURCE_PRIORITY: 3,
+                CONF_SOURCE_ENABLED: False,
+            }
+        ],
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    zone = decode_zone_config(
+        next(
+            iter(hass.config_entries.async_entries(DOMAIN)[0].subentries.values())
+        ).data
+    )
+    source = zone.temperature_sources[0]
+    assert source.offset_c == -1.5
+    assert source.weight == 2.25
+    assert source.priority == 3
+    assert source.enabled is False
+
+
+@pytest.mark.parametrize(
+    ("values", "error_key"),
+    [
+        (
+            {
+                CONF_SOURCE_OFFSET_C: float("nan"),
+                CONF_SOURCE_WEIGHT: 1,
+                CONF_SOURCE_PRIORITY: 0,
+                CONF_SOURCE_ENABLED: True,
+            },
+            CONF_SOURCE_OFFSET_C,
+        ),
+        (
+            {
+                CONF_SOURCE_OFFSET_C: 0,
+                CONF_SOURCE_WEIGHT: 0,
+                CONF_SOURCE_PRIORITY: 0,
+                CONF_SOURCE_ENABLED: True,
+            },
+            CONF_SOURCE_WEIGHT,
+        ),
+        (
+            {
+                CONF_SOURCE_OFFSET_C: 0,
+                CONF_SOURCE_WEIGHT: 1,
+                CONF_SOURCE_PRIORITY: 0.5,
+                CONF_SOURCE_ENABLED: True,
+            },
+            CONF_SOURCE_PRIORITY,
+        ),
+        (
+            {
+                CONF_SOURCE_OFFSET_C: 0,
+                CONF_SOURCE_WEIGHT: 1,
+                CONF_SOURCE_PRIORITY: 0,
+                CONF_SOURCE_ENABLED: "yes",
+            },
+            CONF_SOURCE_ENABLED,
+        ),
+    ],
+)
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_source_editor_rejects_invalid_metadata_without_commit(
+    hass: HomeAssistant,
+    values: dict[str, object],
+    error_key: str,
+) -> None:
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass)
+    flow = ZoneSubentryFlowHandler()
+    flow.hass = hass
+    flow.handler = (entry.entry_id, SUBENTRY_TYPE_ZONE)
+    flow.context = config_entries.SubentryFlowContext(source=config_entries.SOURCE_USER)
+    result = await flow.async_step_user(
+        {
+            CONF_ZONE_NAME: "Dining Room",
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
+            CONF_TEMPERATURE_SOURCES: [SENSOR],
+        }
+    )
+    assert result["step_id"] == "source"
+
+    result = await flow.async_step_source(values)
+
+    assert _errors(result)[error_key].startswith("invalid_source_")
+    assert entry.subentries == {}
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_add_shared_zone_updates_priority_and_thermostat_membership(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    _set_temperature_sensor(hass, "sensor.upstairs_temperature")
+    hass.states.async_set(SECOND_THERMOSTAT, "cool")
+    entry = _make_parent(
+        hass,
+        data=_multi_parent_data(second_zone_configured=False),
+        subentries=[_subentry_data()],
+    )
+
+    result = await _submit_add(
+        hass,
+        entry,
+        name="Upstairs",
+        sources=["sensor.upstairs_temperature"],
+        zone_thermostats=[SECOND_THERMOSTAT],
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    zones = [decode_zone_config(item.data) for item in entry.subentries.values()]
+    assert {zone.thermostat_entity_ids for zone in zones} == {
+        (THERMOSTAT,),
+        (SECOND_THERMOSTAT,),
+    }
+    group = entry.data["equipment_group"]
+    assert isinstance(group, dict)
+    policy = group["shared_policy"]
+    assert isinstance(policy, dict)
+    assert policy["zone_priority_order"] == [ZONE_ID, str(zones[1].zone_id)]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_zone_reconfigure_cannot_leave_parent_thermostat_unassigned(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    _set_temperature_sensor(hass, "sensor.upstairs_temperature")
+    hass.states.async_set(SECOND_THERMOSTAT, "cool")
+    second = _zone_data(
+        name="Upstairs",
+        zone_id=SECOND_ZONE_ID,
+        thermostats=[SECOND_THERMOSTAT],
+        sources=[
+            _source(
+                "sensor.upstairs_temperature",
+                source_id="ce30dafc-fadd-4cc4-b261-8a896d5a6d12",
+            )
+        ],
+    )
+    entry = _make_parent(
+        hass,
+        data=_multi_parent_data(second_zone_configured=True),
+        subentries=[
+            _subentry_data(),
+            _subentry_data(
+                data=second,
+                name="Upstairs",
+                subentry_id="zone-subentry-2",
+            ),
+        ],
+    )
+
+    result = await _submit_reconfigure(
+        hass,
+        await _start_reconfigure(hass, entry),
+        zone_thermostats=[SECOND_THERMOSTAT],
+    )
+
+    assert _errors(result)[CONF_ZONE_THERMOSTAT_ENTITY_IDS] == ("unassigned_thermostat")
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_reconfigure_suggests_current_name_and_sources(
     hass: HomeAssistant,
 ) -> None:
@@ -518,6 +798,7 @@ async def test_reconfigure_suggests_current_name_and_sources(
 
     assert suggested == {
         CONF_ZONE_NAME: "Dining Room",
+        CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
         CONF_TEMPERATURE_SOURCES: [SENSOR],
     }
 
@@ -684,12 +965,25 @@ async def test_reconfigure_framework_errors_propagate(
         subentry_id="zone-subentry-1",
     )
 
+    result = await flow.async_step_reconfigure(
+        {
+            CONF_ZONE_NAME: "Great Room",
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
+            CONF_TEMPERATURE_SOURCES: [SENSOR],
+        }
+    )
+    assert result["step_id"] == "source"
     with (
         patch.object(hass.config_entries, method, side_effect=error),
         pytest.raises(type(error), match=str(error)),
     ):
-        await flow.async_step_reconfigure(
-            {CONF_ZONE_NAME: "Great Room", CONF_TEMPERATURE_SOURCES: [SENSOR]}
+        await flow.async_step_source(
+            {
+                CONF_SOURCE_OFFSET_C: 0.0,
+                CONF_SOURCE_WEIGHT: 1.0,
+                CONF_SOURCE_PRIORITY: 0,
+                CONF_SOURCE_ENABLED: True,
+            }
         )
 
 
@@ -721,13 +1015,18 @@ async def test_invalid_add_never_consumes_zone_or_source_ids(
         (
             {
                 CONF_ZONE_NAME: "Dining Room",
+                CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
                 CONF_TEMPERATURE_SOURCES: [SENSOR],
                 "future": True,
             },
             "base",
         ),
         (
-            {CONF_ZONE_NAME: "   ", CONF_TEMPERATURE_SOURCES: [SENSOR]},
+            {
+                CONF_ZONE_NAME: "   ",
+                CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
+                CONF_TEMPERATURE_SOURCES: [SENSOR],
+            },
             CONF_ZONE_NAME,
         ),
     ],
@@ -774,7 +1073,12 @@ async def test_add_duplicate_name_and_malformed_sibling_fail_closed(
         data=_parent_data(thermostat="climate.second"),
         subentries=[malformed],
     )
-    failed = await _submit_add(hass, other, name="Living Room")
+    failed = await _submit_add(
+        hass,
+        other,
+        name="Living Room",
+        zone_thermostats=["climate.second"],
+    )
     assert _errors(failed)["base"] == "invalid_zone_data"
 
 
@@ -947,3 +1251,146 @@ async def test_validation_helpers_reject_nonlist_and_duplicate_persisted_sources
     )
     with pytest.raises(EntityValidationError, match="duplicate_temperature_source"):
         validate_persisted_temperature_sources((source, duplicate))
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_zone_flow_private_defensive_boundaries(hass: HomeAssistant) -> None:
+    malformed_identity = config_entries.ConfigSubentry(
+        data=MappingProxyType(_zone_data()),
+        subentry_id="zone-subentry-bad",
+        subentry_type=SUBENTRY_TYPE_ZONE,
+        title="Dining Room",
+        unique_id="7294e2ec-6f1f-4fbc-9f30-4a44d356cce8",
+    )
+    with pytest.raises(SchemaValidationError, match="config subentry unique ID"):
+        zone_flow_module.decode_zone_subentry(malformed_identity)
+
+    entry = _make_parent(hass)
+    with (
+        patch(
+            "custom_components.intelligent_climate.zone_flow."
+            "validate_live_thermostat_selections",
+            return_value=(),
+        ),
+        pytest.raises(EntityValidationError, match="invalid_parent_thermostat"),
+    ):
+        zone_flow_module._parent_thermostats(hass, entry)
+
+    hass.states.async_set("climate.outside_group", "heat")
+    with pytest.raises(EntityValidationError, match="invalid_entity_selection"):
+        zone_flow_module._zone_thermostats(
+            hass,
+            ["climate.outside_group"],
+            parent_entity_ids=(THERMOSTAT,),
+            entry_id=entry.entry_id,
+        )
+
+    errors: dict[str, str] = {}
+    zone_flow_module._set_parent_error(
+        errors,
+        EntityValidationError(EntityValidationCode.INVALID_EXISTING_CONFIGURATION),
+    )
+    assert errors["base"] == "invalid_existing_configuration"
+
+    for value in (True, "1"):
+        with pytest.raises(ValueError):
+            zone_flow_module._finite_number(value)
+        with pytest.raises(ValueError):
+            zone_flow_module._nonnegative_integer(value)
+
+    flow = ZoneSubentryFlowHandler()
+    flow.hass = hass
+    flow.handler = ("missing-entry", SUBENTRY_TYPE_ZONE)
+    flow.context = config_entries.SubentryFlowContext(source=config_entries.SOURCE_USER)
+    result = await flow.async_step_user()
+    assert _errors(result)["base"] == "invalid_zone_data"
+
+    with patch.object(hass.config_entries, "async_reload") as reload:
+        await zone_flow_module._async_reload_after_zone_commit(hass, entry, ZONE_ID)
+    reload.assert_not_awaited()
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_zone_reconfigure_and_source_defensive_abort_paths(
+    hass: HomeAssistant,
+) -> None:
+    _set_temperature_sensor(hass)
+    entry = _make_parent(hass, subentries=[_subentry_data()])
+    flow = ZoneSubentryFlowHandler()
+    flow.hass = hass
+    flow.handler = (entry.entry_id, SUBENTRY_TYPE_ZONE)
+    flow.context = config_entries.SubentryFlowContext(
+        source=config_entries.SOURCE_RECONFIGURE,
+        subentry_id="zone-subentry-1",
+    )
+
+    result = await flow.async_step_reconfigure(
+        {
+            CONF_ZONE_NAME: "Dining Room",
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
+            CONF_TEMPERATURE_SOURCES: [SENSOR],
+            "future": True,
+        }
+    )
+    assert _errors(result)["base"] == "invalid_input"
+    result = await flow.async_step_reconfigure(
+        {
+            CONF_ZONE_NAME: "Dining Room",
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: ["climate.missing"],
+            CONF_TEMPERATURE_SOURCES: [SENSOR],
+        }
+    )
+    assert _errors(result)[CONF_ZONE_THERMOSTAT_ENTITY_IDS] == "missing_entity"
+
+    result = await flow.async_step_reconfigure(
+        {
+            CONF_ZONE_NAME: "Dining Room",
+            CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
+            CONF_TEMPERATURE_SOURCES: [SENSOR],
+        }
+    )
+    assert result["step_id"] == "source"
+    result = await flow.async_step_source(
+        {
+            CONF_SOURCE_OFFSET_C: 0,
+            CONF_SOURCE_WEIGHT: 1,
+            CONF_SOURCE_PRIORITY: 0,
+            CONF_SOURCE_ENABLED: True,
+            "future": True,
+        }
+    )
+    assert _errors(result)["base"] == "invalid_input"
+
+    with patch(
+        "custom_components.intelligent_climate.zone_flow.decode_zone_config",
+        return_value=replace(flow._pending_zone, name="Different"),
+    ):
+        result = await flow.async_step_source(
+            {
+                CONF_SOURCE_OFFSET_C: 0,
+                CONF_SOURCE_WEIGHT: 1,
+                CONF_SOURCE_PRIORITY: 0,
+                CONF_SOURCE_ENABLED: True,
+            }
+        )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "invalid_zone_data"
+
+    flow._begin_source_configuration(
+        "reconfigure",
+        decode_zone_config(entry.subentries["zone-subentry-1"].data),
+    )
+    flow.context = config_entries.SubentryFlowContext(
+        source=config_entries.SOURCE_RECONFIGURE,
+        subentry_id="missing",
+    )
+    result = await flow.async_step_source(
+        {
+            CONF_SOURCE_OFFSET_C: 0,
+            CONF_SOURCE_WEIGHT: 1,
+            CONF_SOURCE_PRIORITY: 0,
+            CONF_SOURCE_ENABLED: True,
+        }
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "invalid_zone_data"

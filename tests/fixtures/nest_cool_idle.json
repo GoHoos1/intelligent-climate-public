@@ -1,0 +1,31 @@
+{
+  "fixture_schema_version": 1,
+  "source": "sanitized supplied Google Nest diagnostic",
+  "climate_state": {
+    "entity_id": "climate.nest_fixture",
+    "state": "cool",
+    "attributes": {
+      "current_temperature": 23.689987,
+      "current_humidity": 50.0,
+      "hvac_action": "off",
+      "hvac_modes": [
+        "heat",
+        "cool",
+        "heat_cool",
+        "off"
+      ],
+      "supported_features": 1,
+      "temperature": 25.0
+    },
+    "temperature_unit": "°C"
+  },
+  "expected": {
+    "hvac_mode": "cool",
+    "hvac_action": "off",
+    "current_temperature_c": 23.689987,
+    "current_humidity_pct": 50.0,
+    "target_temperature_c": 25.0,
+    "stage_observable": false,
+    "auxiliary_heat_observable": false
+  }
+}

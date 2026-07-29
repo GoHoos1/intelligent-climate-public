@@ -14,15 +14,23 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.7**. Intelligent Climate is pre-alpha software
+The current release is **0.0.8**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation. Its
 observation pipeline, read-only zone climate entities, startup recovery, and
 redacted integration diagnostics, Repairs notifications, and bounded activity
-history are implemented and tested. Later phases remain under active design and
-development.
+history are implemented and tested. Release 0.0.8 is the Phase 1 acceptance
+candidate; final acceptance still requires the documented Home Assistant UI
+walkthrough. Later phases remain under active design and development.
 
 ## Recent changes
 
+- **0.0.8**
+  - Completed atomic UI setup, parent/zone reconfiguration, safe options, and
+    multi-thermostat independent/shared equipment graphs.
+  - Added the exact Phase 1 condition, health, mode, configuration, and
+    observation entity matrix.
+  - Added guarded degraded-state recovery, stable reason-coded logs, an
+    isolated Nest fixture, and network-isolated acceptance tests.
 - **0.0.7**
   - Corrected normal Home Assistant restart detection by registering an awaited
     core-shutdown final save and releasing entry-scoped runtime callbacks.
@@ -66,10 +74,17 @@ development.
 
 Intelligent Climate currently provides:
 
-- UI-based setup for an HVAC equipment group with one existing Home Assistant
-  `climate` thermostat.
-- Native zone add and reconfigure flows.
+- Atomic UI-based setup for an HVAC equipment group and first zone, with one or
+  more existing Home Assistant `climate` thermostats.
+- Single-system, independent-thermostat, and shared/zoned equipment
+  relationships, including explicit thermostat membership for every zone.
+- Native parent and zone reconfigure flows plus safe runtime options.
 - One read-only virtual `climate` entity for every configured zone.
+- Effective temperature, optional humidity, optional temperature spread,
+  valid-source count, operating-mode, relationship, capability, and latest
+  activity sensors.
+- Configuration, source, thermostat, and reconciliation health binary sensors,
+  plus a configuration-only observation-enabled switch for each zone.
 - Zone temperature calculated from one or more configured temperature sensors
   or a thermostat's public `current_temperature` attribute.
 - Optional humidity aggregation when humidity sources are configured.
@@ -101,10 +116,9 @@ Phase 1 does not provide:
 - Schedules, manual overrides, occupancy control, or window suspension.
 - Predictive control, adaptive start or stop, thermal models, or simulation.
 - Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
-- Sensor, binary-sensor, switch, diagnostics-device, or frontend entities
-  beyond the required per-zone Latest Activity diagnostic sensor.
-- Event entities beyond the required equipment-group and per-zone activity
-  surfaces.
+- Predictive, model, schedule, override, fan-control, or simulation entities.
+- A custom frontend or activity panel beyond the Home Assistant entity,
+  Logbook, event-bus, and diagnostics surfaces.
 - Automatic repair actions or a configuration-changing Repairs flow.
 
 Unavailable or questionable observations are excluded instead of being
@@ -132,9 +146,11 @@ Use the public repository URL above when adding the HACS custom repository.
 The setup flow asks for:
 
 1. An equipment-group display name and descriptive equipment type.
-2. One existing thermostat entity from the `climate` domain.
-3. A first-zone display name.
-4. One or more existing temperature sources.
+2. One or more existing thermostat entities from the `climate` domain.
+3. For multiple thermostats, whether they are independent or share/zoned
+   equipment.
+4. A first-zone display name, thermostat membership, and one or more existing
+   temperature sources.
 
 A temperature source can be:
 
@@ -153,16 +169,20 @@ mode, target, preset, fan setting, or any other physical behavior.
 
 Open the Intelligent Climate entry under **Settings > Devices & services**.
 Use the entry's zone/subentry controls to add another zone. Use a zone's
-reconfigure action to change its name or temperature sources.
+reconfigure action to change its name, thermostat membership, temperature
+sources, and each retained source's offset, weight, priority, and enabled
+state. Use the parent reconfigure action to change the equipment-group name,
+equipment type, thermostat membership, or relationship.
 
 Zone and source identities are generated once and remain stable when display
 names change. Retained source bindings preserve their calibration, weight,
 priority, enabled state, and source identity.
 
-The current relationship model assigns the equipment group's one thermostat to
-each configured zone. Removing and recreating the parent entry is still
-required for parent-level equipment or thermostat changes that are not exposed
-by the current reconfigure surface.
+The options flow changes observation enablement, aggregation, freshness,
+plausibility, outlier, minimum-source, and bounded-history settings without
+manual YAML or Store edits. In shared/zoned groups it also maintains the
+configured zone-priority order; this is descriptive in Phase 1 and never
+arbitrates physical commands.
 
 ## Understanding the read-only zone climate entity
 
@@ -264,6 +284,7 @@ publicly.**
 Actionable Intelligent Climate failures appear under **Settings > System >
 Repairs** in Home Assistant. Task 13 reports these entry-scoped conditions:
 
+- The equipment group has no configured zones after its final zone is removed.
 - A configured thermostat or enabled source is missing after startup
   reconciliation.
 - An existing source is definitively incompatible with its configured binding.
@@ -273,8 +294,9 @@ Repairs** in Home Assistant. Task 13 reports these entry-scoped conditions:
 - The observation-only command boundary blocks an unexpected physical-command
   intent.
 
-Missing and incompatible entity issues clear after the configured references
-recover. Configuration migration issues clear after a later valid migration;
+The no-zone issue clears after a zone is added. Missing and incompatible entity
+issues clear after the configured references recover. Configuration migration
+issues clear after a later valid migration;
 Store validation/quarantine issues clear only after a clean replacement save.
 Store-write issues clear after a successful save, and command-boundary issues
 clear during a later clean setup. The command boundary suppresses the intent
@@ -398,15 +420,16 @@ starts with live reconciliation and no restored public temperature.
 
 ## Current roadmap and Phase 1 status
 
-Phase 1 is being delivered in small observation-only slices. Tasks 1 through 15
-are implemented: repository and schema foundations, UI configuration, zone
+Phase 1 was delivered in small observation-only slices. Tasks 1 through 16 are
+implemented: repository and schema foundations, UI configuration, zone
 identity, entity validation, capability discovery, source normalization and
 health, aggregation, the event-driven coordinator, read-only zone climate
 entities, redacted diagnostics, Repairs notifications, and bounded activity
 history/events with Store v1 persistence, migration, quarantine, and lifecycle
-recovery hardening.
+recovery hardening. Automated acceptance evidence is complete; final Phase 1
+acceptance is pending the documented Home Assistant UI walkthrough for the
+0.0.8 candidate.
 
-Remaining Phase 1 work is final integration and acceptance testing in Task 16.
 Scheduled control begins no earlier than Phase 2, and predictive control
 remains a later phase.
 

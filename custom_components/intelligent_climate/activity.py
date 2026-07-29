@@ -23,6 +23,7 @@ from .models.activity import ActivityScalar
 type NowFunction = Callable[[], datetime]
 
 _REPAIR_REASONS = {
+    "no_zones_configured": ActivityReason.NO_ZONES_CONFIGURED,
     "missing_entity": ActivityReason.MISSING_ENTITY,
     "incompatible_entity": ActivityReason.INCOMPATIBLE_ENTITY,
     "migration_failed": ActivityReason.MIGRATION_FAILED,

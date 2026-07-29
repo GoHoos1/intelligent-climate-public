@@ -65,11 +65,11 @@ def test_manifest_matches_foundation_scope() -> None:
 
 
 def test_manifest_and_package_versions_match_diagnostics_release() -> None:
-    """Test both release metadata files identify version 0.0.7."""
+    """Test both release metadata files identify version 0.0.8."""
     manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
     package = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert manifest["version"] == INTEGRATION_VERSION == "0.0.7"
+    assert manifest["version"] == INTEGRATION_VERSION == "0.0.8"
     assert package["project"]["version"] == INTEGRATION_VERSION
 
 
@@ -98,10 +98,11 @@ def test_task_14_entity_and_event_translations_are_complete() -> None:
 
 
 def test_hacs_manifest_declares_integration_name() -> None:
-    """Test HACS metadata declares only the integration package."""
+    """Test HACS metadata declares the integration and minimum HA version."""
     hacs_manifest = json.loads((ROOT / "hacs.json").read_text())
 
     assert isinstance(hacs_manifest, dict)
-    assert set(hacs_manifest) == {"name"}
+    assert set(hacs_manifest) == {"homeassistant", "name"}
     assert hacs_manifest["name"] == "Intelligent Climate"
+    assert hacs_manifest["homeassistant"] == "2026.7.0"
     assert "render_readme" not in hacs_manifest

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import timedelta
-from typing import cast
-from unittest.mock import patch
+from typing import Any, cast
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.components.climate import (
@@ -40,7 +40,11 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import (
+    ConfigEntryError,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
@@ -51,6 +55,10 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
+from custom_components.intelligent_climate import (
+    binary_sensor as binary_sensor_platform,
+)
+from custom_components.intelligent_climate import switch as switch_platform
 from custom_components.intelligent_climate.climate import (
     IntelligentClimateZoneClimateEntity,
 )
@@ -76,6 +84,7 @@ SOURCE_IDS = (
 )
 HUMIDITY_SOURCE_ID = "4d61f93e-a98a-4ce1-bd4a-58b571bdd115"
 THERMOSTAT = "climate.physical"
+SECOND_THERMOSTAT = "climate.physical_upstairs"
 SENSORS = ("sensor.dining_room_temperature", "sensor.living_room_temperature")
 HUMIDITY_SENSOR = "sensor.dining_room_humidity"
 
@@ -509,30 +518,52 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
             entry.entry_id,
         )
     )
-    assert {item.unique_id for item in registry_entries} == {
+    group_unique_ids = {
         f"{GROUP_ID}:activity",
-        f"{ZONE_IDS[0]}:activity",
-        f"{ZONE_IDS[0]}:latest_activity",
-        f"{ZONE_IDS[0]}:zone",
-        f"{ZONE_IDS[1]}:activity",
-        f"{ZONE_IDS[1]}:latest_activity",
-        f"{ZONE_IDS[1]}:zone",
+        f"{GROUP_ID}:configuration_degraded",
+        f"{GROUP_ID}:equipment_relationship",
+        f"{GROUP_ID}:thermostat_capability_status",
     }
+    zone_keys = {
+        "activity",
+        "effective_temperature",
+        "latest_activity",
+        "observation_enabled",
+        "operating_mode",
+        "reconciling",
+        "sensor_data_degraded",
+        "thermostat_data_degraded",
+        "valid_temperature_sources",
+        "zone",
+    }
+    expected_unique_ids = group_unique_ids | {
+        f"{zone_id}:{key}" for zone_id in ZONE_IDS for key in zone_keys
+    }
+    assert {item.unique_id for item in registry_entries} == expected_unique_ids
     assert {item.unique_id: item.config_subentry_id for item in registry_entries} == {
-        f"{GROUP_ID}:activity": None,
-        f"{ZONE_IDS[0]}:activity": zones[0]["subentry_id"],
-        f"{ZONE_IDS[0]}:latest_activity": zones[0]["subentry_id"],
-        f"{ZONE_IDS[0]}:zone": zones[0]["subentry_id"],
-        f"{ZONE_IDS[1]}:activity": zones[1]["subentry_id"],
-        f"{ZONE_IDS[1]}:latest_activity": zones[1]["subentry_id"],
-        f"{ZONE_IDS[1]}:zone": zones[1]["subentry_id"],
+        **dict.fromkeys(group_unique_ids),
+        **{
+            f"{zone_id}:{key}": zones[index]["subentry_id"]
+            for index, zone_id in enumerate(ZONE_IDS)
+            for key in zone_keys
+        },
     }
     assert all(
         item.supported_features == 0
         for item in registry_entries
         if item.domain == Platform.CLIMATE
     )
-    assert all(hass.states.get(item.entity_id) is not None for item in registry_entries)
+    assert all(
+        hass.states.get(item.entity_id) is not None
+        for item in registry_entries
+        if item.disabled_by is None
+    )
+    assert {
+        item.unique_id for item in registry_entries if item.disabled_by is not None
+    } == {
+        f"{GROUP_ID}:equipment_relationship",
+        f"{GROUP_ID}:thermostat_capability_status",
+    }
 
     group_device = device_registry.async_get_device(identifiers={(DOMAIN, GROUP_ID)})
     assert group_device is not None
@@ -564,18 +595,116 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
     ]
     assert len(integration_devices) == 3
     assert {platform.value for platform in PLATFORMS} == {
+        Platform.BINARY_SENSOR,
         CLIMATE_DOMAIN,
         Platform.EVENT,
         Platform.SENSOR,
+        Platform.SWITCH,
     }
-    assert not any(
-        state.domain in {"binary_sensor", "switch"}
-        and state.entity_id.startswith(f"{state.domain}.intelligent_climate")
-        for state in hass.states.async_all()
-    )
     assert DOMAIN not in hass.services.async_services()
 
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_humidity_and_multi_source_zone_adds_exact_conditional_sensors(
+    hass: HomeAssistant,
+) -> None:
+    _set_states(hass)
+    zone = _zone_data(0, humidity=True)
+    temperature_sources = cast(
+        list[dict[str, object]], zone["temperature_sources"]
+    ).copy()
+    temperature_sources.append(_temperature_source(1))
+    zone["temperature_sources"] = temperature_sources
+    entry = await _setup_entry(
+        hass,
+        _entry(zones=[_subentry(0, data=zone)]),
+    )
+    registry = er.async_get(hass)
+
+    humidity_id = registry.async_get_entity_id(
+        Platform.SENSOR,
+        DOMAIN,
+        f"{ZONE_IDS[0]}:effective_humidity",
+    )
+    spread_id = registry.async_get_entity_id(
+        Platform.SENSOR,
+        DOMAIN,
+        f"{ZONE_IDS[0]}:temperature_spread",
+    )
+    assert humidity_id is not None
+    assert spread_id is not None
+    assert float(hass.states.get(humidity_id).state) == 47.5  # type: ignore[union-attr]
+    assert float(hass.states.get(spread_id).state) == pytest.approx(1.6)  # type: ignore[union-attr]
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_conflicting_multi_thermostat_zone_is_degraded_and_unambiguous(
+    hass: HomeAssistant,
+) -> None:
+    _set_states(hass, mode=HVACMode.HEAT, action=HVACAction.HEATING, target=21)
+    hass.states.async_set(
+        SECOND_THERMOSTAT,
+        HVACMode.COOL,
+        {
+            ATTR_HVAC_MODES: [HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL],
+            ATTR_SUPPORTED_FEATURES: int(ClimateEntityFeature.TARGET_TEMPERATURE),
+            ATTR_CURRENT_TEMPERATURE: 23.0,
+            ATTR_HVAC_ACTION: HVACAction.COOLING,
+            ATTR_TEMPERATURE: 25.0,
+        },
+    )
+    parent = _parent_data()
+    group = parent["equipment_group"]
+    assert isinstance(group, dict)
+    group.update(
+        {
+            "relationship": "independent",
+            "thermostats": [
+                {"entity_id": THERMOSTAT, "role": "primary"},
+                {"entity_id": SECOND_THERMOSTAT, "role": "secondary"},
+            ],
+        }
+    )
+    zone = _zone_data(0)
+    zone["thermostat_entity_ids"] = [THERMOSTAT, SECOND_THERMOSTAT]
+    physical_before = {
+        THERMOSTAT: hass.states.get(THERMOSTAT),
+        SECOND_THERMOSTAT: hass.states.get(SECOND_THERMOSTAT),
+    }
+
+    entry = await _setup_entry(
+        hass,
+        _entry(data=parent, zones=[_subentry(0, data=zone)]),
+    )
+
+    observation = entry.runtime_data.data.zones[0]
+    assert entry.runtime_data.data.control_state.value == "degraded"
+    assert observation.thermostat_data_degraded is True
+    climate_state = hass.states.get(_entity_id(hass, ZONE_IDS[0]))
+    assert climate_state is not None
+    assert climate_state.state == "unknown"
+    assert ATTR_HVAC_ACTION not in climate_state.attributes
+    assert ATTR_TEMPERATURE not in climate_state.attributes
+    degraded_id = er.async_get(hass).async_get_entity_id(
+        Platform.BINARY_SENSOR,
+        DOMAIN,
+        f"{ZONE_IDS[0]}:thermostat_data_degraded",
+    )
+    assert degraded_id is not None
+    assert hass.states.get(degraded_id).state == "on"  # type: ignore[union-attr]
+    assert {
+        THERMOSTAT: hass.states.get(THERMOSTAT),
+        SECOND_THERMOSTAT: hass.states.get(SECOND_THERMOSTAT),
+    } == physical_before
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert {
+        THERMOSTAT: hass.states.get(THERMOSTAT),
+        SECOND_THERMOSTAT: hass.states.get(SECOND_THERMOSTAT),
+    } == physical_before
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -595,7 +724,12 @@ async def test_empty_skeleton_creates_no_zone_entity_and_disabled_keeps_one(
             er.async_get(hass),
             empty_entry.entry_id,
         )
-    } == {f"{GROUP_ID}:activity"}
+    } == {
+        f"{GROUP_ID}:activity",
+        f"{GROUP_ID}:configuration_degraded",
+        f"{GROUP_ID}:equipment_relationship",
+        f"{GROUP_ID}:thermostat_capability_status",
+    }
     assert await hass.config_entries.async_unload(empty_entry.entry_id)
 
     _set_states(hass)
@@ -608,6 +742,71 @@ async def test_empty_skeleton_creates_no_zone_entity_and_disabled_keeps_one(
     assert disabled_state.state == "unavailable"
     assert ATTR_CURRENT_TEMPERATURE not in disabled_state.attributes
     assert await hass.config_entries.async_unload(disabled_entry.entry_id)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_observation_switch_changes_only_entry_options(
+    hass: HomeAssistant,
+) -> None:
+    _set_states(hass)
+    entry = await _setup_entry(hass, _entry())
+    switch_id = er.async_get(hass).async_get_entity_id(
+        Platform.SWITCH,
+        DOMAIN,
+        f"{ZONE_IDS[0]}:observation_enabled",
+    )
+    assert switch_id is not None
+    physical_before = hass.states.get(THERMOSTAT)
+
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        new_callable=AsyncMock,
+    ) as reload:
+        await hass.services.async_call(
+            Platform.SWITCH,
+            "turn_on",
+            {"entity_id": switch_id},
+            blocking=True,
+        )
+        reload.assert_not_awaited()
+        await hass.services.async_call(
+            Platform.SWITCH,
+            "turn_off",
+            {"entity_id": switch_id},
+            blocking=True,
+        )
+        reload.assert_awaited_once_with(entry.entry_id)
+
+    assert entry.options["observation_enabled"] is False
+    assert hass.states.get(THERMOSTAT) == physical_before
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def test_new_platform_subentry_indexes_skip_foreign_and_reject_missing_id() -> None:
+    foreign = ConfigSubentryDataWithId(
+        data={},
+        subentry_id="foreign",
+        subentry_type="future",
+        title="Foreign",
+        unique_id="foreign",
+    )
+    entry = _entry(zones=[foreign])
+    assert binary_sensor_platform._zone_subentries_by_id(cast(Any, entry)) == {}
+    assert switch_platform._zone_subentries_by_id(cast(Any, entry)) == {}
+
+    missing_id = ConfigSubentryDataWithId(
+        data={},
+        subentry_id="missing-id",
+        subentry_type=SUBENTRY_TYPE_ZONE,
+        title="Missing",
+        unique_id=None,
+    )
+    entry = _entry(zones=[missing_id])
+    with pytest.raises(ConfigEntryError, match="missing its stable ID"):
+        binary_sensor_platform._zone_subentries_by_id(cast(Any, entry))
+    with pytest.raises(ConfigEntryError, match="missing its stable ID"):
+        switch_platform._zone_subentries_by_id(cast(Any, entry))
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -628,7 +827,12 @@ async def test_awaiting_first_zone_creates_only_equipment_group_device(
             er.async_get(hass),
             entry.entry_id,
         )
-    } == {f"{GROUP_ID}:activity"}
+    } == {
+        f"{GROUP_ID}:activity",
+        f"{GROUP_ID}:configuration_degraded",
+        f"{GROUP_ID}:equipment_relationship",
+        f"{GROUP_ID}:thermostat_capability_status",
+    }
     group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
     assert group_device is not None
     assert group_device.config_entries_subentries[entry.entry_id] == {None}
@@ -887,11 +1091,7 @@ async def test_platform_setup_has_runtime_and_coordinator_started_first(
                 forwarded_entry.runtime_data.data.revision == 1,
             )
         )
-        assert platforms == (
-            Platform.CLIMATE,
-            Platform.EVENT,
-            Platform.SENSOR,
-        )
+        assert platforms == PLATFORMS
         await original(forwarded_entry, platforms)
 
     with patch.object(

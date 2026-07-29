@@ -41,8 +41,10 @@ from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
     ControlState,
+    EquipmentRelationship,
     RuntimeConfigurationState,
     SourceQuality,
+    decode_equipment_group_document,
 )
 from custom_components.intelligent_climate.repairs import IssueCode, issue_id
 
@@ -50,7 +52,11 @@ GROUP_ID = "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3"
 ZONE_ID = "99246285-6f02-4e8a-94ed-bdfd4a5e62c4"
 SOURCE_ID = "f15f73b1-ea59-4b28-819f-7b99acf065bf"
 THERMOSTAT = "climate.main_floor"
+SECOND_THERMOSTAT = "climate.upstairs"
 SENSOR = "sensor.room_temperature"
+SECOND_SENSOR = "sensor.upstairs_temperature"
+SECOND_ZONE_ID = "7294e2ec-6f1f-4fbc-9f30-4a44d356cce8"
+SECOND_SOURCE_ID = "ce30dafc-fadd-4cc4-b261-8a896d5a6d12"
 
 
 def _parent_data(thermostat: str | None = THERMOSTAT) -> dict[str, object]:
@@ -140,6 +146,49 @@ def _set_valid_states(hass: HomeAssistant) -> None:
         SENSOR,
         "20",
         {ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
+    )
+
+
+def _shared_entry() -> MockConfigEntry:
+    second_zone = _zone_data(
+        thermostats=[SECOND_THERMOSTAT],
+        sources=[_source(SECOND_SENSOR, source_id=SECOND_SOURCE_ID)],
+    )
+    second_zone["zone_id"] = SECOND_ZONE_ID
+    second_zone["name"] = "Upstairs"
+    parent = _parent_data()
+    parent_group = parent["equipment_group"]
+    assert isinstance(parent_group, dict)
+    parent_group.update(
+        {
+            "relationship": EquipmentRelationship.SHARED_ZONED.value,
+            "thermostats": [
+                {"entity_id": THERMOSTAT, "role": "primary"},
+                {"entity_id": SECOND_THERMOSTAT, "role": "secondary"},
+            ],
+            "shared_policy": {
+                "zone_priority_order": [ZONE_ID, SECOND_ZONE_ID],
+                "conflict_policy": "priority_order",
+            },
+        }
+    )
+    return MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="shared-entry",
+        data=parent,
+        subentries_data=[
+            _subentry(_zone_data()),
+            config_entries.ConfigSubentryDataWithId(
+                data=second_zone,
+                subentry_id="zone-subentry-2",
+                subentry_type=SUBENTRY_TYPE_ZONE,
+                title="Upstairs",
+                unique_id=SECOND_ZONE_ID,
+            ),
+        ],
+        version=CONFIG_ENTRY_MAJOR_VERSION,
+        minor_version=CONFIG_ENTRY_MINOR_VERSION,
+        state=config_entries.ConfigEntryState.SETUP_IN_PROGRESS,
     )
 
 
@@ -266,10 +315,69 @@ async def test_valid_selected_parent_and_zone_graph(hass: HomeAssistant) -> None
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_shared_multi_zone_graph_loads_and_indexes_every_thermostat(
+    hass: HomeAssistant,
+) -> None:
+    _set_valid_states(hass)
+    hass.states.async_set(SECOND_THERMOSTAT, "cool")
+    hass.states.async_set(
+        SECOND_SENSOR,
+        "22",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
+    )
+    entry = _shared_entry()
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    configuration = entry.runtime_data.configuration
+    assert configuration.state is RuntimeConfigurationState.CONFIGURED
+    assert configuration.equipment_group.relationship is (
+        EquipmentRelationship.SHARED_ZONED
+    )
+    assert len(configuration.equipment_group.thermostats) == 2
+    assert len(configuration.zones) == 2
+    assert set(entry.runtime_data.thermostat_dependency_index) == {
+        THERMOSTAT,
+        SECOND_THERMOSTAT,
+    }
+    assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_native_zone_removal_normalizes_parent_graph_before_reload(
+    hass: HomeAssistant,
+) -> None:
+    _set_valid_states(hass)
+    hass.states.async_set(SECOND_THERMOSTAT, "cool")
+    entry = _shared_entry()
+    entry.add_to_hass(hass)
+    assert hass.config_entries.async_remove_subentry(entry, "zone-subentry-2")
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+
+    group = decode_equipment_group_document(entry.data).equipment_group
+    assert group.relationship is EquipmentRelationship.SINGLE_SYSTEM
+    assert [item.entity_id for item in group.thermostats] == [THERMOSTAT]
+    assert group.shared_policy is None
+    assert len(entry.runtime_data.configuration.zones) == 1
+    assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_valid_parent_without_zone_awaits_first_zone(
     hass: HomeAssistant,
 ) -> None:
-    """A committed parent is a valid inert lifecycle state until its zone exists."""
+    """A zone-less parent stays inert and raises the actionable required Repair."""
     _set_valid_states(hass)
     entry = _entry()
 
@@ -279,6 +387,23 @@ async def test_valid_parent_without_zone_awaits_first_zone(
     assert configuration.awaiting_first_zone is True
     assert configuration.transitional_empty_skeleton is False
     assert configuration.zones == ()
+
+    with patch.object(
+        hass.config_entries,
+        "async_forward_entry_setups",
+        new_callable=AsyncMock,
+    ):
+        assert await async_setup_entry(hass, entry)
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN,
+        issue_id(entry.entry_id, IssueCode.NO_ZONES_CONFIGURED),
+    )
+    assert issue is not None
+    assert issue.data == {"issue_code": "no_zones_configured"}
+    assert entry.runtime_data.configuration.state is (
+        RuntimeConfigurationState.AWAITING_FIRST_ZONE
+    )
+    assert await async_unload_entry(hass, entry)
 
     with patch.object(
         hass.config_entries,

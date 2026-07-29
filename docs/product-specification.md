@@ -53,7 +53,9 @@ Implement:
 * Config-entry unloading and reloading.
 * Device and entity registry support.
 * Stable unique IDs.
-* Translations through `strings.json` and translation files.
+* Translations through `translations/*.json`, as required for a custom
+  integration. Do not ship `strings.json`; that source file is reserved for
+  integrations developed inside Home Assistant Core.
 * Diagnostics with sensitive data redaction.
 * Home Assistant Repairs issues when user intervention is required.
 * Appropriate entity categories.
