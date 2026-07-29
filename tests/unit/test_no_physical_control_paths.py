@@ -105,19 +105,21 @@ def test_zone_flow_has_no_control_or_platform_forwarding_path() -> None:
     assert "Store(" not in source
 
 
-def test_integration_forwards_only_task_14_platforms() -> None:
-    """Test setup forwards exactly climate, activity Event, and Latest Activity."""
+def test_integration_forwards_only_phase_1_platforms() -> None:
+    """Test setup forwards exactly the approved observation-only platforms."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
     constants_source = (INTEGRATION_DIR / "const.py").read_text()
 
     assert setup_source.count("async_forward_entry_setups(entry, PLATFORMS)") == 1
     assert setup_source.count("async_unload_platforms(entry, PLATFORMS)") == 1
-    assert (
-        "PLATFORMS = (Platform.CLIMATE, Platform.EVENT, Platform.SENSOR)"
-        in constants_source
-    )
-    assert "Platform.BINARY_SENSOR" not in constants_source
-    assert "Platform.SWITCH" not in constants_source
+    for platform in (
+        "Platform.BINARY_SENSOR",
+        "Platform.CLIMATE",
+        "Platform.EVENT",
+        "Platform.SENSOR",
+        "Platform.SWITCH",
+    ):
+        assert constants_source.count(platform) == 1
 
 
 def test_tasks_5_and_6_add_no_runtime_or_registry_mutation_paths() -> None:
@@ -186,14 +188,14 @@ def test_task_6_capability_discovery_is_a_pure_read_only_boundary() -> None:
     assert offenders == []
 
 
-def test_task_6_has_no_setup_wiring_or_new_entity_platform_module() -> None:
-    """Test capability discovery is not subscribed, stored, or platform-forwarded."""
+def test_task_6_has_no_direct_capability_control_path() -> None:
+    """Capability discovery and later entity surfaces remain observation-only."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_platforms = {"binary_sensor.py", "switch.py"}
 
     assert "discover_thermostat_capabilities" not in setup_source
-    assert prohibited_platforms.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
+    assert not any(
+        _find_prohibited_service_call_paths((INTEGRATION_DIR / module).read_text())
+        for module in ("binary_sensor.py", "switch.py")
     )
 
 
@@ -230,15 +232,15 @@ def test_task_7_observation_is_a_pure_unwired_boundary() -> None:
     assert offenders == []
 
 
-def test_task_7_has_no_setup_wiring_or_out_of_scope_modules() -> None:
-    """Test observation is not imported or invoked by setup and adds no surfaces."""
+def test_task_7_has_no_setup_shortcut_or_control_entity_path() -> None:
+    """Observation helpers and entity platforms have no control shortcut."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "observe_temperature_source" not in setup_source
     assert "observe_humidity_source" not in setup_source
-    assert prohibited_modules.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
+    assert not any(
+        _find_prohibited_service_call_paths((INTEGRATION_DIR / module).read_text())
+        for module in ("binary_sensor.py", "switch.py")
     )
 
 
@@ -279,15 +281,15 @@ def test_task_8_health_is_a_pure_unwired_boundary() -> None:
     assert offenders == []
 
 
-def test_task_8_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
-    """Test Task 10 wiring and later entity/support surfaces remain absent."""
+def test_task_8_has_no_setup_shortcut_or_control_surface() -> None:
+    """Health helpers and health entities remain observation-only."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "evaluate_temperature_health" not in setup_source
     assert "evaluate_humidity_health" not in setup_source
-    assert prohibited_modules.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
+    assert not any(
+        _find_prohibited_service_call_paths((INTEGRATION_DIR / module).read_text())
+        for module in ("binary_sensor.py", "switch.py")
     )
 
 
@@ -330,15 +332,15 @@ def test_task_9_aggregation_is_a_pure_unwired_boundary() -> None:
     assert offenders == []
 
 
-def test_task_9_has_no_setup_wiring_or_out_of_scope_surfaces() -> None:
-    """Test Task 10 runtime wiring and later support surfaces remain absent."""
+def test_task_9_has_no_setup_shortcut_or_control_surface() -> None:
+    """Aggregation helpers and later entity surfaces remain observation-only."""
     setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
-    prohibited_modules = {"binary_sensor.py", "switch.py"}
 
     assert "aggregate_temperature_sources" not in setup_source
     assert "aggregate_humidity_sources" not in setup_source
-    assert prohibited_modules.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
+    assert not any(
+        _find_prohibited_service_call_paths((INTEGRATION_DIR / module).read_text())
+        for module in ("binary_sensor.py", "switch.py")
     )
 
 
@@ -511,18 +513,19 @@ def test_task_11_entity_properties_do_not_read_home_assistant_states() -> None:
     assert offenders == []
 
 
-def test_task_14_adds_only_approved_entity_and_support_modules() -> None:
-    """Test Task 14 adds Event, Latest Activity, history, and Store only."""
-    excluded_modules = {"binary_sensor.py", "switch.py"}
-
+def test_phase_1_entity_and_support_modules_are_observation_only() -> None:
+    """All approved entity, activity, diagnostic, and Store modules exist."""
     assert (INTEGRATION_DIR / "diagnostics.py").is_file()
     assert (INTEGRATION_DIR / "repairs.py").is_file()
     assert (INTEGRATION_DIR / "event.py").is_file()
     assert (INTEGRATION_DIR / "sensor.py").is_file()
     assert (INTEGRATION_DIR / "history.py").is_file()
     assert (INTEGRATION_DIR / "storage.py").is_file()
-    assert excluded_modules.isdisjoint(
-        path.name for path in INTEGRATION_DIR.iterdir() if path.is_file()
+    assert (INTEGRATION_DIR / "binary_sensor.py").is_file()
+    assert (INTEGRATION_DIR / "switch.py").is_file()
+    assert not any(
+        _find_prohibited_service_call_paths((INTEGRATION_DIR / module).read_text())
+        for module in ("binary_sensor.py", "switch.py")
     )
 
 
@@ -606,9 +609,14 @@ def test_task_15_migration_and_recovery_change_no_control_surface() -> None:
     assert "STORE_VERSION = 1" in storage
     assert "STORE_MINOR_VERSION = 2" in storage
     assert "RUNTIME_STORE_SCHEMA_VERSION = 1" in schema
-    assert (
-        "PLATFORMS = (Platform.CLIMATE, Platform.EVENT, Platform.SENSOR)" in constants
-    )
+    for platform in (
+        "Platform.BINARY_SENSOR",
+        "Platform.CLIMATE",
+        "Platform.EVENT",
+        "Platform.SENSOR",
+        "Platform.SWITCH",
+    ):
+        assert constants.count(platform) == 1
     assert "async_migrate_entry" in setup
     assert "restored_source_baselines" in setup
     assert "hass.services" not in combined
