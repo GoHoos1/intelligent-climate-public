@@ -31,6 +31,7 @@ class EntityValidationCode(StrEnum):
     WRONG_DOMAIN = "wrong_domain"
     WRONG_DEVICE_CLASS = "wrong_device_class"
     DUPLICATE_THERMOSTAT_OWNER = "duplicate_thermostat_owner"
+    DUPLICATE_THERMOSTAT_SELECTION = "duplicate_thermostat_selection"
     DUPLICATE_TEMPERATURE_SOURCE = "duplicate_temperature_source"
     NO_TEMPERATURE_SOURCES = "no_temperature_sources"
     INVALID_PARENT_THERMOSTAT = "invalid_parent_thermostat"
@@ -72,6 +73,20 @@ def parent_thermostat_entity_id(entry: config_entries.ConfigEntry) -> str:
     return group.thermostats[0].entity_id
 
 
+def parent_thermostat_entity_ids(
+    entry: config_entries.ConfigEntry,
+) -> tuple[str, ...]:
+    """Decode every supported parent thermostat in configured order."""
+    group = decode_equipment_group_document(
+        entry.data,
+        version=entry.version,
+        minor_version=entry.minor_version,
+    ).equipment_group
+    if not group.thermostats:
+        raise EntityValidationError(EntityValidationCode.INVALID_PARENT_THERMOSTAT)
+    return tuple(binding.entity_id for binding in group.thermostats)
+
+
 def validate_live_thermostat_selection(
     hass: HomeAssistant,
     value: object,
@@ -90,6 +105,32 @@ def validate_live_thermostat_selection(
         exclude_entry_id=exclude_entry_id,
     )
     return entity_id
+
+
+def validate_live_thermostat_selections(
+    hass: HomeAssistant,
+    value: object,
+    *,
+    exclude_entry_id: str | None = None,
+) -> tuple[str, ...]:
+    """Validate one or more unique current climate selections."""
+    if not isinstance(value, list) or not value:
+        raise EntityValidationError(EntityValidationCode.INVALID_ENTITY_SELECTION)
+    selected: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        entity_id = validate_live_thermostat_selection(
+            hass,
+            item,
+            exclude_entry_id=exclude_entry_id,
+        )
+        if entity_id in seen:
+            raise EntityValidationError(
+                EntityValidationCode.DUPLICATE_THERMOSTAT_SELECTION
+            )
+        seen.add(entity_id)
+        selected.append(entity_id)
+    return tuple(selected)
 
 
 def validate_persisted_thermostat_reference(
