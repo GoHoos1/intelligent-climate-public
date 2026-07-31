@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import replace
 from typing import TYPE_CHECKING
@@ -11,6 +12,8 @@ from .models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
     DEFAULT_OPTIONS,
+    PHASE2_CONFIG_MAJOR_VERSION,
+    PHASE2_CONFIG_MINOR_VERSION,
     EntryRuntimeConfiguration,
     EquipmentGroupDocument,
     EquipmentRelationship,
@@ -23,12 +26,14 @@ from .models import (
     ThermostatRole,
     ZoneConfig,
     decode_configuration_graph,
-    decode_equipment_group_document,
-    decode_options,
-    decode_zone_config,
     encode_equipment_group_document,
-    encode_options,
     encode_zone_config,
+)
+from .schema_compat import (
+    decode_active_equipment_group,
+    decode_active_observation_options,
+    decode_active_zone,
+    encode_active_equipment_group,
 )
 from .type_aliases import IntelligentClimateConfigEntry
 
@@ -36,6 +41,16 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup(hass: HomeAssistant, _config: dict[str, object]) -> bool:
+    """Register entry-independent Phase 2 backend API contracts once."""
+    from .frontend import async_setup_frontend
+    from .websocket import async_register_websocket_api
+
+    async_register_websocket_api(hass)
+    await async_setup_frontend(hass)
+    return True
 
 
 def _is_empty_zone_skeleton(zone: ZoneConfig) -> bool:
@@ -58,12 +73,11 @@ def _normalize_graph_after_zone_removal(
     entry: IntelligentClimateConfigEntry,
 ) -> None:
     """Keep parent membership and shared metadata aligned after zone removal."""
-    document = decode_equipment_group_document(
+    group = decode_active_equipment_group(
         entry.data,
         version=entry.version,
         minor_version=entry.minor_version,
     )
-    group = document.equipment_group
     if any(
         subentry.subentry_type != SUBENTRY_TYPE_ZONE
         for subentry in entry.subentries.values()
@@ -71,11 +85,11 @@ def _normalize_graph_after_zone_removal(
         return
 
     zone_ids = tuple(
-        decode_zone_config(subentry.data).zone_id
+        decode_active_zone(subentry.data).zone_id
         for subentry in entry.subentries.values()
     )
     zones = tuple(
-        decode_zone_config(subentry.data) for subentry in entry.subentries.values()
+        decode_active_zone(subentry.data) for subentry in entry.subentries.values()
     )
     if zones and any(
         not zone.thermostat_entity_ids or not zone.temperature_sources for zone in zones
@@ -130,8 +144,12 @@ def _normalize_graph_after_zone_removal(
 
     hass.config_entries.async_update_entry(
         entry,
-        data=dict(
-            encode_equipment_group_document(EquipmentGroupDocument(updated_group))
+        data=encode_active_equipment_group(
+            updated_group,
+            version=entry.version,
+            minor_version=entry.minor_version,
+            current_data=entry.data,
+            time_zone=hass.config.time_zone,
         ),
     )
     _LOGGER.info(
@@ -151,11 +169,11 @@ def _decode_runtime_configuration(
         validate_persisted_thermostat_reference,
     )
 
-    equipment_group = decode_equipment_group_document(
+    equipment_group = decode_active_equipment_group(
         entry.data,
         version=entry.version,
         minor_version=entry.minor_version,
-    ).equipment_group
+    )
     zone_ids: set[str] = set()
     normalized_names: set[str] = set()
     source_ids: set[ObservationSourceId] = set()
@@ -166,7 +184,7 @@ def _decode_runtime_configuration(
                 "subentry_type",
                 "unsupported config subentry type",
             )
-        zone = decode_zone_config(subentry.data)
+        zone = decode_active_zone(subentry.data)
         zone_id = str(zone.zone_id)
         if subentry.unique_id != zone_id or subentry.data.get("zone_id") != zone_id:
             raise SchemaValidationError(
@@ -188,7 +206,7 @@ def _decode_runtime_configuration(
         zones.append(zone)
 
     options = (
-        decode_options(
+        decode_active_observation_options(
             entry.options,
             version=entry.version,
             minor_version=entry.minor_version,
@@ -285,53 +303,70 @@ async def async_migrate_entry(
     hass: HomeAssistant,
     entry: IntelligentClimateConfigEntry,
 ) -> bool:
-    """Transactionally migrate one validated config-entry graph to 1.1."""
+    """Crash-safely migrate one validated config-entry graph to Phase 2."""
+    from .migration import Phase2MigrationError, async_migrate_phase1_entry
     from .repairs import MigrationFailureCategory, RepairsManager
     from .validation import EntityValidationError
 
     issue_manager = RepairsManager(hass, entry.entry_id)
-    if (
-        entry.version != CONFIG_ENTRY_MAJOR_VERSION
-        or entry.minor_version > CONFIG_ENTRY_MINOR_VERSION
+    if (entry.version, entry.minor_version) == (
+        PHASE2_CONFIG_MAJOR_VERSION,
+        PHASE2_CONFIG_MINOR_VERSION,
+    ):
+        return True
+    if entry.version != CONFIG_ENTRY_MAJOR_VERSION or not (
+        0 <= entry.minor_version <= CONFIG_ENTRY_MINOR_VERSION
     ):
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.SCHEMA_MIGRATION
         )
         return False
-    if entry.minor_version == CONFIG_ENTRY_MINOR_VERSION:
-        return True
 
     try:
         configuration = _decode_runtime_configuration(hass, entry)
-        data = encode_equipment_group_document(
-            EquipmentGroupDocument(configuration.equipment_group)
+        state = await async_migrate_phase1_entry(
+            hass,
+            entry,
+            configuration,
+            repairs=issue_manager,
         )
-        options = encode_options(configuration.options)
     except EntityValidationError:
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.ENTITY_VALIDATION
         )
         return False
+    except Phase2MigrationError as err:
+        _LOGGER.error(
+            "Phase 2 migration failed: config_entry_id=%s "
+            "failure_category=%s reason_code=phase2_migration_failed detail=%s",
+            entry.entry_id,
+            err.category.value,
+            err,
+        )
+        issue_manager.async_report_migration_failure(err.category)
+        return False
+    except asyncio.CancelledError:
+        raise
     except (
         KeyError,
         SchemaMigrationError,
         SchemaValidationError,
         TypeError,
         ValueError,
-    ):
+    ) as err:
+        _LOGGER.error(
+            "Phase 2 migration candidate validation failed: "
+            "config_entry_id=%s reason_code=phase2_schema_validation_failed %s",
+            entry.entry_id,
+            err,
+        )
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.SCHEMA_VALIDATION
         )
         return False
 
-    hass.config_entries.async_update_entry(
-        entry,
-        data=data,
-        options=options,
-        version=CONFIG_ENTRY_MAJOR_VERSION,
-        minor_version=CONFIG_ENTRY_MINOR_VERSION,
-    )
-    issue_manager.async_clear_migration_failure()
+    if not state.runtime_quarantine_present:
+        issue_manager.async_clear_migration_failure()
     return True
 
 
@@ -344,15 +379,38 @@ async def async_setup_entry(
 
     from .activity import ActivityPublisher
     from .coordinator import IntelligentClimateCoordinator
+    from .frontend import async_register_frontend_entry
     from .history import ActivityHistory
+    from .migration import (
+        Phase2MigrationError,
+        PresentationTraceInitializationStatus,
+        async_initialize_presentation_trace,
+        async_reconcile_phase2_migration,
+    )
+    from .presentation_trace import PresentationTraceRuntime
     from .repairs import MigrationFailureCategory, RepairsManager
+    from .runtime import Phase2CoordinatorRuntime, build_schedule_validation_context
+    from .schedule_storage import ScheduleStore
     from .storage import RuntimeStore, StoreLoadStatus
     from .validation import EntityValidationError
 
     issue_manager = RepairsManager(hass, entry.entry_id)
+    phase2_state = None
     try:
+        if (entry.version, entry.minor_version) == (
+            PHASE2_CONFIG_MAJOR_VERSION,
+            PHASE2_CONFIG_MINOR_VERSION,
+        ):
+            phase2_state = await async_reconcile_phase2_migration(
+                hass,
+                entry,
+                repairs=issue_manager,
+            )
         _normalize_graph_after_zone_removal(hass, entry)
         configuration = _decode_runtime_configuration(hass, entry)
+    except Phase2MigrationError as err:
+        issue_manager.async_report_migration_failure(err.category)
+        raise ConfigEntryError("Invalid Intelligent Climate configuration") from err
     except EntityValidationError as err:
         issue_manager.async_report_migration_failure(
             MigrationFailureCategory.ENTITY_VALIDATION
@@ -403,6 +461,7 @@ async def async_setup_entry(
         configuration=configuration,
         history=history,
         repairs=issue_manager,
+        phase2_runtime=None if phase2_state is None else phase2_state.runtime,
     )
     await runtime_store.async_load()
     activity = ActivityPublisher(
@@ -419,7 +478,43 @@ async def async_setup_entry(
     if (failure_category := runtime_store.migration_failure_category) is not None:
         issue_manager.async_report_migration_failure(failure_category)
     coordinator: IntelligentClimateCoordinator | None = None
+    phase2_runtime: Phase2CoordinatorRuntime | None = None
     try:
+        if phase2_state is not None:
+            presentation_status = await async_initialize_presentation_trace(
+                hass,
+                entry_id=entry.entry_id,
+                runtime=phase2_state.runtime,
+            )
+            if presentation_status in {
+                PresentationTraceInitializationStatus.FAILED,
+                PresentationTraceInitializationStatus.UNSUPPORTED,
+            }:
+                issue_manager.async_report_migration_failure(
+                    MigrationFailureCategory.STORE_LOAD
+                )
+            schedule_store = ScheduleStore(
+                hass,
+                entry_id=entry.entry_id,
+                validation_context=build_schedule_validation_context(phase2_state),
+            )
+            await schedule_store.async_load()
+            if configuration.zones:
+                presentation_trace = PresentationTraceRuntime(
+                    hass,
+                    entry_id=entry.entry_id,
+                    equipment_group_id=(
+                        configuration.equipment_group.equipment_group_id
+                    ),
+                    zone_ids=tuple(zone.zone_id for zone in configuration.zones),
+                )
+                await presentation_trace.async_load()
+                phase2_runtime = Phase2CoordinatorRuntime(
+                    migration=phase2_state,
+                    schedule_store=schedule_store,
+                    presentation_trace=presentation_trace,
+                    started_at_utc=phase2_state.runtime.saved_at,
+                )
         coordinator = IntelligentClimateCoordinator(
             hass,
             entry,
@@ -428,6 +523,7 @@ async def async_setup_entry(
             history=history,
             activity=activity,
             runtime_store=runtime_store,
+            phase2_runtime=phase2_runtime,
             restored_source_baselines=runtime_store.restored_source_baselines,
         )
         runtime_store.attach_runtime(coordinator, activity)
@@ -471,6 +567,19 @@ async def async_setup_entry(
         raise ConfigEntryError(
             "Unable to set up the Intelligent Climate entity platforms"
         ) from err
+    try:
+        await async_register_frontend_entry(
+            hass,
+            entry_id=entry.entry_id,
+            title=entry.title,
+        )
+    except Exception as err:
+        await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        await coordinator.async_shutdown()
+        object.__delattr__(entry, "runtime_data")
+        raise ConfigEntryError(
+            "Unable to set up the Intelligent Climate frontend"
+        ) from err
     coordinator.async_add_core_shutdown_job()
     coordinator.async_record_setup_complete()
     return True
@@ -486,9 +595,12 @@ async def async_unload_entry(
         return True
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
+    from .frontend import async_unregister_frontend_entry
+
     coordinator.async_unregister_core_shutdown_job()
     coordinator.async_record_unload()
     if coordinator.runtime_store is not None:
         await coordinator.runtime_store.async_final_save()
     await coordinator.async_shutdown()
+    await async_unregister_frontend_entry(hass, entry_id=entry.entry_id)
     return True

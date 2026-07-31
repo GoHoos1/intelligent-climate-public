@@ -32,7 +32,8 @@ from .const import (
     SUBENTRY_TYPE_ZONE,
 )
 from .models import (
-    EquipmentGroupDocument,
+    PHASE2_CONFIG_MAJOR_VERSION,
+    PHASE2_ZONE_DATA_VERSION,
     EquipmentRelationship,
     ObservationSourceId,
     SchemaValidationError,
@@ -40,10 +41,14 @@ from .models import (
     TemperatureSource,
     ZoneConfig,
     ZoneId,
-    decode_equipment_group_document,
     decode_zone_config,
-    encode_equipment_group_document,
     encode_zone_config,
+)
+from .schema_compat import (
+    decode_active_equipment_group,
+    decode_active_zone,
+    encode_active_equipment_group,
+    encode_active_zone,
 )
 from .validation import (
     CLIMATE_DOMAIN,
@@ -124,7 +129,11 @@ _SOURCE_SCHEMA = vol.Schema(
 
 def decode_zone_subentry(subentry: config_entries.ConfigSubentry) -> ZoneConfig:
     """Decode a zone subentry and verify its persisted stable identity."""
-    zone = decode_zone_config(subentry.data)
+    zone = (
+        decode_active_zone(subentry.data)
+        if subentry.data.get("data_version") == PHASE2_ZONE_DATA_VERSION
+        else decode_zone_config(subentry.data)
+    )
     zone_id = str(zone.zone_id)
     if subentry.unique_id != zone_id or subentry.data.get("zone_id") != zone_id:
         raise SchemaValidationError(
@@ -281,12 +290,11 @@ async def _async_reload_after_zone_commit(
     )
     if len(matching) != 1:
         return
-    document = decode_equipment_group_document(
+    group = decode_active_equipment_group(
         entry.data,
         version=entry.version,
         minor_version=entry.minor_version,
     )
-    group = document.equipment_group
     if group.relationship is EquipmentRelationship.SHARED_ZONED:
         zone_ids = tuple(
             decode_zone_subentry(subentry).zone_id
@@ -308,8 +316,12 @@ async def _async_reload_after_zone_commit(
         )
         hass.config_entries.async_update_entry(
             entry,
-            data=dict(
-                encode_equipment_group_document(EquipmentGroupDocument(updated_group))
+            data=encode_active_equipment_group(
+                updated_group,
+                version=entry.version,
+                minor_version=entry.minor_version,
+                current_data=entry.data,
+                time_zone=hass.config.time_zone,
             ),
         )
     if (
@@ -575,15 +587,31 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
 
     def _finish_pending_zone(self) -> config_entries.SubentryFlowResult:
         try:
-            encoded = dict(encode_zone_config(self._pending_zone))
-            if decode_zone_config(encoded) != self._pending_zone:
-                raise SchemaValidationError("zone", "must round-trip")
             entry = self._get_entry()
-            group = decode_equipment_group_document(
+            current_data: object | None = None
+            if self._pending_action != "add":
+                current_data = self._get_reconfigure_subentry().data
+            encoded = encode_active_zone(
+                self._pending_zone,
+                target_data_version=(
+                    PHASE2_ZONE_DATA_VERSION
+                    if entry.version == PHASE2_CONFIG_MAJOR_VERSION
+                    else 1
+                ),
+                current_data=current_data,
+            )
+            decoded = (
+                decode_active_zone(encoded)
+                if encoded.get("data_version") == PHASE2_ZONE_DATA_VERSION
+                else decode_zone_config(encoded)
+            )
+            if decoded != self._pending_zone:
+                raise SchemaValidationError("zone", "must round-trip")
+            group = decode_active_equipment_group(
                 entry.data,
                 version=entry.version,
                 minor_version=entry.minor_version,
-            ).equipment_group
+            )
         except config_entries.ConfigError, KeyError, SchemaValidationError:
             return self.async_abort(reason="invalid_zone_data")
 

@@ -1,0 +1,21 @@
+A user can configure it entirely through the Home Assistant interface.
+It can control multiple independent or related thermostats.
+Manual thermostat changes are respected.
+Override expiration is predictable and visible.
+Bad or stale sensors cannot cause extreme control actions.
+Open windows are handled with configurable protection behavior.
+Scheduled control works before thermal learning is complete.
+Predictive control is used only when confidence is sufficient.
+Every predictive action is explainable.
+Failure of weather data does not stop ordinary climate control.
+Restarting Home Assistant does not cause unsafe commands.
+Loss of the integration leaves the physical thermostat usable.
+Heat-pump auxiliary-heat behavior is configurable.
+Missing HVAC-stage data is handled honestly.
+Fan circulation can be disabled based on humidity or dew point.
+Simulation mode cannot control real equipment.
+Shadow mode clearly shows proposed actions without executing them.
+Model values include confidence and supporting information.
+Estimated values are distinguished from measurements.
+Diagnostics redact sensitive information.
+The implementation includes comprehensive documentation and tests.

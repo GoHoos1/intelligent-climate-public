@@ -419,7 +419,7 @@ async def test_migration_failure_is_bounded_then_clean_setup_clears(
     assert issue is not None
     assert issue.data == {
         "issue_code": "migration_failed",
-        "failure_category": "schema_migration",
+        "failure_category": "schema_validation",
     }
     assert "do-not-copy" not in json.dumps(issue.to_json())
     assert not hasattr(failed, "runtime_data")

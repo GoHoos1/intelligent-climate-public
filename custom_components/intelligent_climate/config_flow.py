@@ -35,9 +35,10 @@ from .const import (
     SUBENTRY_TYPE_ZONE,
 )
 from .models import (
-    CONFIG_ENTRY_MAJOR_VERSION,
-    CONFIG_ENTRY_MINOR_VERSION,
     DEFAULT_OPTIONS,
+    PHASE2_CONFIG_MAJOR_VERSION,
+    PHASE2_CONFIG_MINOR_VERSION,
+    PHASE2_ZONE_DATA_VERSION,
     AggregationStrategy,
     EquipmentGroupConfig,
     EquipmentGroupDocument,
@@ -55,11 +56,16 @@ from .models import (
     ZoneConfig,
     ZoneId,
     decode_configuration_graph,
-    decode_equipment_group_document,
-    decode_options,
     encode_equipment_group_document,
     encode_options,
     encode_zone_config,
+)
+from .schema_compat import (
+    decode_active_equipment_group,
+    decode_active_observation_options,
+    encode_active_equipment_group,
+    encode_active_observation_options,
+    encode_active_zone,
 )
 from .validation import (
     CLIMATE_DOMAIN,
@@ -213,8 +219,8 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
 ):
     """Create and reconfigure a complete observation-only equipment graph."""
 
-    VERSION = CONFIG_ENTRY_MAJOR_VERSION
-    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
+    VERSION = PHASE2_CONFIG_MAJOR_VERSION
+    MINOR_VERSION = PHASE2_CONFIG_MINOR_VERSION
 
     _pending_name: str
     _pending_equipment_type: EquipmentType
@@ -431,17 +437,35 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
             stage_entity_ids=(),
             fan_entity_ids=(),
         )
-        data = dict(encode_equipment_group_document(EquipmentGroupDocument(group)))
-        zone_data = dict(encode_zone_config(zone))
+        data = encode_active_equipment_group(
+            group,
+            version=self.VERSION,
+            minor_version=self.MINOR_VERSION,
+            current_data=None,
+            time_zone=self.hass.config.time_zone,
+        )
+        zone_data = encode_active_zone(
+            zone,
+            target_data_version=PHASE2_ZONE_DATA_VERSION,
+            current_data=None,
+        )
         try:
-            decode_configuration_graph(data, [zone_data])
+            decode_configuration_graph(
+                dict(encode_equipment_group_document(EquipmentGroupDocument(group))),
+                [dict(encode_zone_config(zone))],
+            )
         except SchemaValidationError:
             return self.async_abort(reason="invalid_input")
         await self.async_set_unique_id(str(group_id))
         return self.async_create_entry(
             title=self._pending_name,
             data=data,
-            options=encode_options(DEFAULT_OPTIONS),
+            options=encode_active_observation_options(
+                DEFAULT_OPTIONS,
+                version=self.VERSION,
+                minor_version=self.MINOR_VERSION,
+                current_data=None,
+            ),
             subentries=[
                 config_entries.ConfigSubentryData(
                     data=zone_data,
@@ -459,11 +483,11 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
         """Change parent equipment metadata and thermostat membership."""
         entry = self._get_reconfigure_entry()
         try:
-            group = decode_equipment_group_document(
+            group = decode_active_equipment_group(
                 entry.data,
                 version=entry.version,
                 minor_version=entry.minor_version,
-            ).equipment_group
+            )
             zones = tuple(
                 decode_zone_subentry(subentry)
                 for subentry in entry.subentries.values()
@@ -559,11 +583,11 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
     ) -> config_entries.ConfigFlowResult:
         """Assign selected parent thermostats to each existing zone."""
         entry = self._get_reconfigure_entry()
-        group = decode_equipment_group_document(
+        group = decode_active_equipment_group(
             entry.data,
             version=entry.version,
             minor_version=entry.minor_version,
-        ).equipment_group
+        )
         zone = self._pending_reconfigure_zones[self._pending_zone_index]
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -661,19 +685,41 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
             thermostats=_thermostat_bindings(self._pending_thermostats),
             shared_policy=shared_policy,
         )
-        data = dict(encode_equipment_group_document(EquipmentGroupDocument(group)))
-        zone_data = [dict(encode_zone_config(zone)) for zone in zones]
-        try:
-            if zones:
-                decode_configuration_graph(data, zone_data)
-        except SchemaValidationError:
-            return self.async_abort(reason="invalid_input")
-
+        data = encode_active_equipment_group(
+            group,
+            version=entry.version,
+            minor_version=entry.minor_version,
+            current_data=entry.data,
+            time_zone=self.hass.config.time_zone,
+        )
         subentries_by_zone = {
             decode_zone_subentry(subentry).zone_id: subentry
             for subentry in entry.subentries.values()
             if subentry.subentry_type == SUBENTRY_TYPE_ZONE
         }
+        zone_data = [
+            encode_active_zone(
+                zone,
+                target_data_version=(
+                    PHASE2_ZONE_DATA_VERSION
+                    if entry.version == PHASE2_CONFIG_MAJOR_VERSION
+                    else 1
+                ),
+                current_data=subentries_by_zone[zone.zone_id].data,
+            )
+            for zone in zones
+        ]
+        try:
+            if zones:
+                decode_configuration_graph(
+                    dict(
+                        encode_equipment_group_document(EquipmentGroupDocument(group))
+                    ),
+                    [dict(encode_zone_config(zone)) for zone in zones],
+                )
+        except SchemaValidationError:
+            return self.async_abort(reason="invalid_input")
+
         for zone, encoded in zip(zones, zone_data, strict=True):
             self.hass.config_entries.async_update_subentry(
                 entry,
@@ -697,7 +743,7 @@ class IntelligentClimateOptionsFlow(config_entries.OptionsFlowWithReload):
     ) -> config_entries.ConfigFlowResult:
         """Validate and save one complete options document."""
         current = (
-            decode_options(
+            decode_active_observation_options(
                 self.config_entry.options,
                 version=self.config_entry.version,
                 minor_version=self.config_entry.minor_version,
@@ -740,8 +786,13 @@ class IntelligentClimateOptionsFlow(config_entries.OptionsFlowWithReload):
                     ),
                     log_level_detail=LogLevelDetail(user_input["log_level_detail"]),
                 )
-                encoded = dict(encode_options(options))
-                decode_options(
+                encoded = encode_active_observation_options(
+                    options,
+                    version=self.config_entry.version,
+                    minor_version=self.config_entry.minor_version,
+                    current_data=self.config_entry.options,
+                )
+                decode_active_observation_options(
                     encoded,
                     version=self.config_entry.version,
                     minor_version=self.config_entry.minor_version,

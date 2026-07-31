@@ -1388,3 +1388,4 @@ Phase 1 leaves deliberate extension points without implementing control:
 ## 20. Implementation start gate
 
 Implementation may begin when this design is approved. The first code increment should contain only package scaffolding, typed configuration models, config flow, and validation tests. The command sink invariant and its failing sentinel test should be added before the coordinator or virtual climate entity so later Phase 1 work cannot accidentally acquire a physical-control path.
+

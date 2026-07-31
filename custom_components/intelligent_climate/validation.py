@@ -16,8 +16,8 @@ from .models import (
     SchemaValidationError,
     TemperatureSource,
     ThermostatRole,
-    decode_equipment_group_document,
 )
+from .schema_compat import decode_active_equipment_group
 
 CLIMATE_DOMAIN = "climate"
 SENSOR_DOMAIN = "sensor"
@@ -58,11 +58,11 @@ class TemperatureBinding:
 
 def parent_thermostat_entity_id(entry: config_entries.ConfigEntry) -> str:
     """Decode and return the one supported Task 5 parent thermostat."""
-    group = decode_equipment_group_document(
+    group = decode_active_equipment_group(
         entry.data,
         version=entry.version,
         minor_version=entry.minor_version,
-    ).equipment_group
+    )
     if (
         group.relationship is not EquipmentRelationship.SINGLE_SYSTEM
         or group.shared_policy is not None
@@ -77,11 +77,11 @@ def parent_thermostat_entity_ids(
     entry: config_entries.ConfigEntry,
 ) -> tuple[str, ...]:
     """Decode every supported parent thermostat in configured order."""
-    group = decode_equipment_group_document(
+    group = decode_active_equipment_group(
         entry.data,
         version=entry.version,
         minor_version=entry.minor_version,
-    ).equipment_group
+    )
     if not group.thermostats:
         raise EntityValidationError(EntityValidationCode.INVALID_PARENT_THERMOSTAT)
     return tuple(binding.entity_id for binding in group.thermostats)
@@ -162,11 +162,11 @@ def _validate_thermostat_ownership(
         if entry.entry_id == exclude_entry_id:
             continue
         try:
-            group = decode_equipment_group_document(
+            group = decode_active_equipment_group(
                 entry.data,
                 version=entry.version,
                 minor_version=entry.minor_version,
-            ).equipment_group
+            )
         except (KeyError, SchemaValidationError) as err:
             raise EntityValidationError(
                 EntityValidationCode.INVALID_EXISTING_CONFIGURATION

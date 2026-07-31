@@ -47,6 +47,8 @@ from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
     DEFAULT_OPTIONS,
+    PHASE2_CONFIG_MAJOR_VERSION,
+    PHASE2_CONFIG_MINOR_VERSION,
     AggregationStrategy,
     EquipmentGroupId,
     EquipmentRelationship,
@@ -54,9 +56,9 @@ from custom_components.intelligent_climate.models import (
     LogLevelDetail,
     SchemaValidationError,
     ThermostatRole,
-    decode_equipment_group_document,
-    decode_options,
-    decode_zone_config,
+    decode_phase2_equipment_group_document,
+    decode_phase2_options,
+    decode_phase2_zone_config,
     encode_options,
 )
 
@@ -315,20 +317,24 @@ async def test_single_system_creation_is_atomic_and_schema_valid(
     result = await _create_entry(hass, equipment_type=equipment_type)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     entry = result["result"]
-    assert entry.version == CONFIG_ENTRY_MAJOR_VERSION
-    assert entry.minor_version == CONFIG_ENTRY_MINOR_VERSION
-    assert entry.options == encode_options(DEFAULT_OPTIONS)
+    assert entry.version == PHASE2_CONFIG_MAJOR_VERSION
+    assert entry.minor_version == PHASE2_CONFIG_MINOR_VERSION
+    phase2_options = decode_phase2_options(entry.options)
+    assert phase2_options.observation == DEFAULT_OPTIONS
     assert len(entry.subentries) == 1
 
     assert entry.unique_id is not None
     group_id = EquipmentGroupId.parse(entry.unique_id)
-    group = decode_equipment_group_document(entry.data).equipment_group
-    zone = decode_zone_config(next(iter(entry.subentries.values())).data)
+    group_document = decode_phase2_equipment_group_document(entry.data)
+    group = group_document.equipment_group
+    zone = decode_phase2_zone_config(next(iter(entry.subentries.values())).data).zone
     assert group.equipment_group_id == group_id
     assert group.equipment_type is equipment_type
     assert group.relationship is EquipmentRelationship.SINGLE_SYSTEM
     assert group.shared_policy is None
     assert group.thermostats[0].role is ThermostatRole.PRIMARY
+    assert group_document.automation_enabled is False
+    assert group_document.authority_review_required is False
     assert zone.thermostat_entity_ids == (THERMOSTAT,)
     assert zone.temperature_sources[0].entity_id == SENSOR
     _assert_json_compatible(entry.data)
@@ -368,8 +374,8 @@ async def test_shared_multi_thermostat_graph_requires_explicit_relationship(
         user_input={},
     )
     entry = result["result"]
-    group = decode_equipment_group_document(entry.data).equipment_group
-    zone = decode_zone_config(next(iter(entry.subentries.values())).data)
+    group = decode_phase2_equipment_group_document(entry.data).equipment_group
+    zone = decode_phase2_zone_config(next(iter(entry.subentries.values())).data).zone
     assert group.relationship is EquipmentRelationship.SHARED_ZONED
     assert group.shared_policy is not None
     assert group.shared_policy.zone_priority_order == (zone.zone_id,)
@@ -468,8 +474,10 @@ async def test_options_flow_exposes_and_saves_every_phase_1_option(
         user_input=options,
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert decode_options(result["data"]).observation_enabled is False
-    assert result["data"] == options
+    assert (
+        decode_phase2_options(result["data"]).observation.observation_enabled is False
+    )
+    assert result["data"]["observation"] == options
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -493,9 +501,9 @@ async def test_parent_reconfigure_preserves_group_and_zone_ids(
     hass: HomeAssistant,
 ) -> None:
     entry = (await _create_entry(hass))["result"]
-    group_before = decode_equipment_group_document(entry.data).equipment_group
+    group_before = decode_phase2_equipment_group_document(entry.data).equipment_group
     subentry_before = next(iter(entry.subentries.values()))
-    zone_before = decode_zone_config(subentry_before.data)
+    zone_before = decode_phase2_zone_config(subentry_before.data).zone
     hass.states.async_set(SECOND_THERMOSTAT, "cool")
 
     result = await hass.config_entries.flow.async_init(
@@ -522,8 +530,8 @@ async def test_parent_reconfigure_preserves_group_and_zone_ids(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
 
-    group_after = decode_equipment_group_document(entry.data).equipment_group
-    zone_after = decode_zone_config(subentry_before.data)
+    group_after = decode_phase2_equipment_group_document(entry.data).equipment_group
+    zone_after = decode_phase2_zone_config(subentry_before.data).zone
     assert group_after.equipment_group_id == group_before.equipment_group_id
     assert zone_after.zone_id == zone_before.zone_id
     assert entry.title == "Renamed HVAC"

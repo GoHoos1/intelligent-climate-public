@@ -32,6 +32,7 @@ from custom_components.intelligent_climate.models import (
     EquipmentType,
     ObservationSourceId,
     RuntimeConfigurationState,
+    RuntimeStoreDocument,
     SourceBaseline,
     TemperatureSource,
     ZoneConfig,
@@ -58,6 +59,12 @@ NOW = datetime(2026, 7, 27, 12, tzinfo=UTC)
 GROUP_ID = EquipmentGroupId.parse("b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3")
 ZONE_ID = ZoneId.parse("99246285-6f02-4e8a-94ed-bdfd4a5e62c4")
 SOURCE_ID = ObservationSourceId.parse("f15f73b1-ea59-4b28-819f-7b99acf065bf")
+
+
+def _encode_legacy_document(document: object) -> dict[str, Any]:
+    """Encode a document from a RuntimeStore explicitly configured as v1."""
+    assert isinstance(document, RuntimeStoreDocument)
+    return dict(encode_runtime_store_document(document))
 
 
 def _configuration(*, with_zone: bool = False) -> EntryRuntimeConfiguration:
@@ -244,7 +251,7 @@ async def test_store_envelope_1_1_migrates_to_1_2_without_inner_schema_bump(
         saved_at=NOW,
         last_clean_shutdown=True,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     store = _RuntimeDataStore(hass, "intelligent_climate.migration-test")
 
     migrated = await store._async_migrate_func(1, 1, raw)
@@ -480,7 +487,7 @@ async def test_invalid_and_failed_store_loads_are_empty_and_nonauthoritative(
         saved_at=NOW,
         last_clean_shutdown=False,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     raw["entry_id"] = "different-entry"
     invalid_fake.async_load.return_value = raw
 
@@ -521,7 +528,7 @@ async def test_quarantine_is_verified_before_invalid_primary_is_removed(
         saved_at=NOW,
         last_clean_shutdown=False,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     raw["entry_id"] = "different-entry"
     primary.async_load.return_value = raw
     quarantine = cast(Any, runtime)._quarantine_store
@@ -550,7 +557,7 @@ async def test_existing_quarantine_keeps_repair_until_verified_cleanup(
         saved_at=NOW,
         last_clean_shutdown=True,
     )
-    primary.async_load.return_value = dict(encode_runtime_store_document(document))
+    primary.async_load.return_value = _encode_legacy_document(document)
     quarantine = cast(Any, runtime)._quarantine_store
     quarantine.async_load.return_value = {"data": {"invalid": True}}
 
@@ -590,7 +597,7 @@ async def test_unreadable_quarantine_does_not_block_valid_primary_recovery(
         saved_at=NOW,
         last_clean_shutdown=True,
     )
-    primary.async_load.return_value = dict(encode_runtime_store_document(document))
+    primary.async_load.return_value = _encode_legacy_document(document)
     quarantine = cast(Any, runtime)._quarantine_store
     quarantine.async_load.side_effect = OSError("private quarantine path")
 
@@ -618,7 +625,7 @@ async def test_valid_store_restores_only_configured_comparison_baselines(
         saved_at=NOW,
         last_clean_shutdown=False,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     raw["source_baselines"] = {
         str(SOURCE_ID): {
             "last_accepted_value": 19.5,
@@ -698,7 +705,7 @@ async def test_untrusted_store_identity_or_future_baseline_is_quarantined(
         saved_at=NOW,
         last_clean_shutdown=True,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     raw[field] = value
     fake.async_load.return_value = raw
 
@@ -725,7 +732,7 @@ async def test_store_activity_with_foreign_group_identity_is_quarantined(
         saved_at=NOW,
         last_clean_shutdown=True,
     )
-    raw = dict(encode_runtime_store_document(document))
+    raw = _encode_legacy_document(document)
     raw["decisions"][0]["equipment_group_id"] = "379faccc-2bbb-456d-a8b9-00610f83ab9f"
     fake.async_load.return_value = raw
 

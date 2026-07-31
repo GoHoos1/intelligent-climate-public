@@ -6,6 +6,7 @@ import logging
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from functools import partial
+from typing import TYPE_CHECKING
 
 from homeassistant.core import (
     CALLBACK_TYPE,
@@ -64,6 +65,9 @@ from .repairs import RepairsManager
 from .storage import RuntimeStore
 from .type_aliases import IntelligentClimateConfigEntry
 
+if TYPE_CHECKING:
+    from .runtime import Phase2CoordinatorRuntime
+
 _LOGGER = logging.getLogger(__name__)
 _STALE_BOUNDARY_INCREMENT = timedelta(microseconds=1)
 _RECOVERY_CONFIRMATION_INTERVAL = timedelta(seconds=30)
@@ -86,6 +90,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         history: ActivityHistory | None = None,
         activity: ActivityPublisher | None = None,
         runtime_store: RuntimeStore | None = None,
+        phase2_runtime: Phase2CoordinatorRuntime | None = None,
         restored_source_baselines: Mapping[ObservationSourceId, SourceBaseline]
         | None = None,
     ) -> None:
@@ -114,6 +119,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         )
         self.issue_manager.set_activity_reporter(self.activity)
         self.runtime_store = runtime_store
+        self.phase2_runtime = phase2_runtime
         self.command_sink = ObserveOnlyCommandSink(self.issue_manager)
 
         self._zones_by_id = {zone.zone_id: zone for zone in configuration.zones}
@@ -142,6 +148,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         self._cancel_debounce: CALLBACK_TYPE | None = None
         self._cancel_reconciliation: CALLBACK_TYPE | None = None
         self._cancel_watchdog: CALLBACK_TYPE | None = None
+        self._cancel_policy_deadline: CALLBACK_TYPE | None = None
         self._cancel_state_change_subscription: CALLBACK_TYPE | None = None
         self._cancel_state_report_subscription: CALLBACK_TYPE | None = None
         self._cancel_core_shutdown_job: CALLBACK_TYPE | None = None
@@ -310,18 +317,22 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         """Build the first snapshot through the supported first-refresh path."""
         calculated_at = self._now()
         if self.configuration.transitional_empty_skeleton:
-            return self._new_snapshot(
-                thermostats=(),
-                zones=(),
-                reconciling=False,
-                calculated_at=calculated_at,
+            return await self._async_finalize_snapshot(
+                self._new_snapshot(
+                    thermostats=(),
+                    zones=(),
+                    reconciling=False,
+                    calculated_at=calculated_at,
+                )
             )
         if self.configuration.awaiting_first_zone:
-            return self._new_snapshot(
-                thermostats=(),
-                zones=(),
-                reconciling=False,
-                calculated_at=calculated_at,
+            return await self._async_finalize_snapshot(
+                self._new_snapshot(
+                    thermostats=(),
+                    zones=(),
+                    reconciling=False,
+                    calculated_at=calculated_at,
+                )
             )
         if not self.configuration.options.observation_enabled:
             thermostats = self._unavailable_thermostats(calculated_at)
@@ -330,11 +341,13 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
                 self._disabled_zone(zone, calculated_at)
                 for zone in self.configuration.zones
             )
-            return self._new_snapshot(
-                thermostats=thermostats,
-                zones=zones,
-                reconciling=False,
-                calculated_at=calculated_at,
+            return await self._async_finalize_snapshot(
+                self._new_snapshot(
+                    thermostats=thermostats,
+                    zones=zones,
+                    reconciling=False,
+                    calculated_at=calculated_at,
+                )
             )
 
         self._reconciling = True
@@ -353,7 +366,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=calculated_at,
         )
         self._record_snapshot_activity(previous=None, current=snapshot)
-        return snapshot
+        return await self._async_finalize_snapshot(snapshot)
 
     @property
     def _configured_thermostat_entity_ids(self) -> tuple[str, ...]:
@@ -481,7 +494,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         if not zone_ids and not thermostat_ids:
             return
         self._refresh_thermostats(thermostat_ids, fire_time)
-        self._publish_targeted(zone_ids, fire_time)
+        await self._async_publish_targeted(zone_ids, fire_time)
 
     def _refresh_thermostats(
         self,
@@ -707,7 +720,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=calculated_at,
         )
 
-    def _publish_targeted(
+    async def _async_publish_targeted(
         self,
         affected_zone_ids: set[ZoneId],
         calculated_at: datetime,
@@ -732,10 +745,80 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=calculated_at,
         )
         self._record_snapshot_activity(previous=self.data, current=snapshot)
+        await self._async_finalize_snapshot(snapshot)
         self.async_set_updated_data(snapshot)
         if not self._reconciling:
             self.issue_manager.async_sync_entity_conditions(self.configuration)
         self._schedule_watchdog(calculated_at)
+
+    def _publish_targeted(
+        self,
+        affected_zone_ids: set[ZoneId],
+        calculated_at: datetime,
+    ) -> None:
+        """Retain the synchronous Phase 1 test seam outside runtime callbacks."""
+        if self._shutdown or not affected_zone_ids:
+            return
+        zones = tuple(
+            (
+                self._evaluate_zone(self._zones_by_id[item.zone_id], calculated_at)
+                if item.zone_id in affected_zone_ids
+                else item
+            )
+            for item in self.data.zones
+        )
+        snapshot = self._new_snapshot(
+            thermostats=tuple(
+                self._thermostat_snapshots[entity_id]
+                for entity_id in self._configured_thermostat_entity_ids
+            ),
+            zones=zones,
+            reconciling=self._reconciling,
+            calculated_at=calculated_at,
+        )
+        self._record_snapshot_activity(previous=self.data, current=snapshot)
+        self.async_set_updated_data(snapshot)
+        if not self._reconciling:
+            self.issue_manager.async_sync_entity_conditions(self.configuration)
+        self._schedule_watchdog(calculated_at)
+
+    async def _async_finalize_snapshot(
+        self,
+        snapshot: EntryObservationSnapshot,
+    ) -> EntryObservationSnapshot:
+        """Run the suppressed Phase 2 path before publishing one revision."""
+        if self.phase2_runtime is None or not snapshot.zones:
+            return snapshot
+        previous_policy = self.phase2_runtime.snapshot
+        previous_control_state = (
+            None if previous_policy is None else previous_policy.control_state
+        )
+        previous_qualification = self.phase2_runtime.qualification
+        policy = await self.phase2_runtime.async_process_snapshot(snapshot)
+        self._schedule_policy_deadline(policy.next_evaluation_at_utc)
+        if self.runtime_store is not None and (
+            policy.control_state is not previous_control_state
+            or self.phase2_runtime.qualification != previous_qualification
+        ):
+            self.runtime_store.async_mark_phase2_dirty()
+        return snapshot
+
+    def _schedule_policy_deadline(self, deadline: datetime | None) -> None:
+        _cancel(self._cancel_policy_deadline)
+        self._cancel_policy_deadline = None
+        if deadline is None or self._shutdown:
+            return
+        self._cancel_policy_deadline = async_track_point_in_utc_time(
+            self.hass,
+            self._async_policy_deadline,
+            deadline,
+        )
+
+    async def _async_policy_deadline(self, fire_time: datetime) -> None:
+        self._cancel_policy_deadline = None
+        if self._shutdown:
+            return
+        await self._async_publish_targeted(set(self._zones_by_id), fire_time)
 
     def _new_snapshot(
         self,
@@ -823,6 +906,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
             calculated_at=fire_time,
         )
         self._record_snapshot_activity(previous=self.data, current=snapshot)
+        await self._async_finalize_snapshot(snapshot)
         self.async_set_updated_data(snapshot)
         _LOGGER.info(
             "Startup reconciliation completed: config_entry_id=%s "
@@ -901,7 +985,7 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         if not affected_zone_ids:
             self._schedule_watchdog(fire_time)
             return
-        self._publish_targeted(affected_zone_ids, fire_time)
+        await self._async_publish_targeted(affected_zone_ids, fire_time)
 
     def _record_snapshot_activity(
         self,
@@ -1134,15 +1218,19 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
         _cancel(self._cancel_debounce)
         _cancel(self._cancel_reconciliation)
         _cancel(self._cancel_watchdog)
+        _cancel(self._cancel_policy_deadline)
         self._cancel_state_change_subscription = None
         self._cancel_state_report_subscription = None
         self._cancel_debounce = None
         self._cancel_reconciliation = None
         self._cancel_watchdog = None
+        self._cancel_policy_deadline = None
         self._pending_zone_ids.clear()
         self._pending_thermostat_entity_ids.clear()
         if self.runtime_store is not None:
             await self.runtime_store.async_shutdown()
+        if self.phase2_runtime is not None:
+            await self.phase2_runtime.async_shutdown()
         self.activity.close()
         await super().async_shutdown()
 

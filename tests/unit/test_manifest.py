@@ -51,7 +51,7 @@ def test_manifest_matches_foundation_scope() -> None:
     assert manifest["version"] == INTEGRATION_VERSION
     assert manifest["codeowners"] == ["@GoHoos1"]
     assert manifest["config_flow"] is True
-    assert manifest["dependencies"] == []
+    assert manifest["dependencies"] == ["frontend", "http", "panel_custom"]
     assert manifest["documentation"] == (
         "https://github.com/GoHoos1/intelligent-climate-public"
     )
@@ -65,11 +65,11 @@ def test_manifest_matches_foundation_scope() -> None:
 
 
 def test_manifest_and_package_versions_match_diagnostics_release() -> None:
-    """Test both release metadata files identify version 0.0.8."""
+    """Test both release metadata files identify version 0.0.9."""
     manifest = json.loads((INTEGRATION_DIR / "manifest.json").read_text())
     package = tomllib.loads((ROOT / "pyproject.toml").read_text())
 
-    assert manifest["version"] == INTEGRATION_VERSION == "0.0.8"
+    assert manifest["version"] == INTEGRATION_VERSION == "0.0.9"
     assert package["project"]["version"] == INTEGRATION_VERSION
 
 

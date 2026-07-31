@@ -136,3 +136,4 @@ environment is available.
   fixtures, hassfest internals, or compiled dependencies.
 - Do not work around dependency problems by lowering the documented Home
   Assistant Python requirement.
+

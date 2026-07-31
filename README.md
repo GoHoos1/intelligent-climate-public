@@ -6,25 +6,31 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Intelligent Climate is observation-only in Phase 1.** It does not change a
-> thermostat, fan, switch, humidifier, dehumidifier, ventilation system, water
-> heater, or other physical equipment. The integration makes no
-> climate-related service call. Continue using your original thermostat entity
-> for every control action.
+> **Release 0.0.9 is a read-only Phase 2 preview.** It can evaluate schedules
+> and record suppressed Shadow decisions, but it does not change a thermostat,
+> fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
+> other physical equipment. The integration makes no climate-related service
+> call. Continue using your original thermostat entity for every control action.
 
 ## Current release and maturity
 
-The current release is **0.0.8**. Intelligent Climate is pre-alpha software
-intended for careful evaluation on a current Home Assistant installation. Its
-observation pipeline, read-only zone climate entities, startup recovery, and
-redacted integration diagnostics, Repairs notifications, and bounded activity
-history are implemented and tested. Release 0.0.8 is the Phase 1 acceptance
-release. All 35 Phase 1 acceptance criteria passed automated validation and the
-documented Home Assistant UI walkthrough on 2026-07-29. Later phases remain
-under active design and development.
+The current release is **0.0.9**. Intelligent Climate is pre-alpha software
+intended for careful evaluation on a current Home Assistant installation.
+Release 0.0.9 preserves the accepted Phase 1 observation behavior and adds the
+first visible Phase 2 checkpoint: a read-only Intelligent Climate sidebar,
+versioned backend data, Today timeline, factual operating explanation, and
+suppressed Shadow readiness/activity. Physical HVAC control remains absent.
 
 ## Recent changes
 
+- **0.0.9**
+  - Added the Intelligent Climate sidebar with Overview, Sensors, Activity, and
+    Settings views.
+  - Added a DST-correct Today timeline, live observation status, factual
+    explanations, Shadow readiness, and suppressed “would have commanded”
+    activity.
+  - Added strict schedule/runtime migration and safety boundaries while keeping
+    Observe Only and Scheduled Shadow physically inert.
 - **0.0.8**
   - Completed atomic UI setup, parent/zone reconfiguration, safe options, and
     multi-thermostat independent/shared equipment graphs.
@@ -105,21 +111,27 @@ Intelligent Climate currently provides:
 - A privacy-bounded `intelligent_climate_activity` event for automations.
 - Debounced, atomic persistence of nonauthoritative activity history and current
   restart baselines.
+- A read-only Intelligent Climate sidebar with Overview, Sensors, Activity, and
+  Settings views.
+- A DST-correct Today timeline, current operating explanation, observation
+  status, Shadow readiness, and suppressed “would have commanded” history.
+- Strictly validated schedule, arbitration, safety, and Shadow-planning data
+  that remains unable to call Home Assistant equipment services.
 
 The original thermostat remains independently available and is the only
 supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Phase 1 does not provide:
+Release 0.0.9 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
-- Schedules, manual overrides, occupancy control, or window suspension.
+- A user-facing schedule editor, manual control page, active occupancy control,
+  or active window suspension.
 - Predictive control, adaptive start or stop, thermal models, or simulation.
 - Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
 - Predictive, model, schedule, override, fan-control, or simulation entities.
-- A custom frontend or activity panel beyond the Home Assistant entity,
-  Logbook, event-bus, and diagnostics surfaces.
+- Dashboard cards or a complete Phase 2 control interface.
 - Automatic repair actions or a configuration-changing Repairs flow.
 
 Unavailable or questionable observations are excluded instead of being
@@ -443,6 +455,8 @@ approved sequence and explicit exclusions.
 - [Product specification](docs/product-specification.md)
 - [Phase 1 technical design](docs/phase-1-technical-design.md)
 - [Phase 1 acceptance record](docs/phase-1-acceptance.md)
+- [Phase 2 requirements and technical design](docs/phase-2-requirements-and-technical-design.md)
+- [Phase 2 governing documents](docs/governance/)
 - [Implementation backlog](docs/implementation-backlog.md)
 - [Phase 1 non-goals](docs/non-goals-phase-1.md)
 - [Development guide](docs/development.md)
@@ -527,8 +541,7 @@ python -m mypy custom_components/intelligent_climate tests
 git diff --check
 ```
 
-GitHub Actions run Quality and Hassfest automatically. HACS validation remains
-manual-only through `workflow_dispatch`. See the
+GitHub Actions also run Quality, Hassfest, and HACS validation. See the
 [development guide](docs/development.md) for environment details.
 
 ## License
