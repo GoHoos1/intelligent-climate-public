@@ -57,10 +57,15 @@ export class IntelligentClimateClient {
     return this.request("intelligent_climate/snapshot/get", validateSnapshot);
   }
 
-  public activity(offset = 0, limit = 100): Promise<ActivityResponse> {
+  public activity(
+    offset = 0,
+    limit = 100,
+    order: "newest" | "oldest" = "newest",
+  ): Promise<ActivityResponse> {
     return this.request("intelligent_climate/activity/list", validateActivity, {
       offset,
       limit,
+      order,
     });
   }
 

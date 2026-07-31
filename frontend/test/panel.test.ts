@@ -63,7 +63,7 @@ function mount(): {
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.8-g1",
+      frontend_version: "0.0.10",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };
@@ -74,6 +74,7 @@ function mount(): {
 afterEach(() => {
   document.body.replaceChildren();
   window.history.replaceState(null, "", "/");
+  window.localStorage.clear();
 });
 
 describe("Intelligent Climate sidebar", () => {
@@ -85,6 +86,8 @@ describe("Intelligent Climate sidebar", () => {
     expect(root?.textContent).toContain("Automation is off");
     expect(root?.textContent).toContain("Dining Room");
     expect(root?.textContent).toContain("74.7°F");
+    expect(root?.querySelector(".narrative")?.textContent).toContain("74.7°F");
+    expect(root?.querySelector(".narrative")?.textContent).not.toContain("°C");
     expect(root?.querySelector("ic-today-timeline")).not.toBeNull();
     expect(root?.textContent).toContain("Shadow readiness");
   });
@@ -101,19 +104,55 @@ describe("Intelligent Climate sidebar", () => {
     (buttons[1] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
-    expect(panel.shadowRoot?.textContent).toContain("Observation health");
+    expect(panel.shadowRoot?.textContent).toContain(
+      "Current readings and configured sources",
+    );
     (buttons[2] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
-    expect(panel.shadowRoot?.textContent).toContain(
-      "Bounded and chronological",
-    );
+    expect(panel.shadowRoot?.textContent).toContain("Newest activity first");
+    expect(
+      panel.shadowRoot?.querySelector(".activity-title strong")?.textContent,
+    ).toBe("Observation");
+    expect(panel.shadowRoot?.textContent).toContain("Historical record");
     (buttons[3] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
-    expect(panel.shadowRoot?.textContent).toContain(
-      "Safe interim test candidate",
+    expect(panel.shadowRoot?.textContent).toContain("Read-only preview");
+  });
+
+  it("lets the user override Home Assistant temperature units consistently", async () => {
+    const { panel } = mount();
+    await settle(panel);
+    const settings = panel.shadowRoot?.querySelectorAll(
+      ".primary-nav button",
+    )[3] as HTMLButtonElement;
+    settings.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    const select = panel.shadowRoot?.querySelector<HTMLSelectElement>(
+      ".setting-select select",
     );
+    expect(select).toBeDefined();
+    if (select === undefined || select === null) {
+      throw new Error("temperature preference selector was not rendered");
+    }
+    select.value = "celsius";
+    select.dispatchEvent(new Event("change"));
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    const overview = panel.shadowRoot?.querySelectorAll(
+      ".primary-nav button",
+    )[0] as HTMLButtonElement;
+    overview.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(
+      panel.shadowRoot?.querySelector(".narrative")?.textContent,
+    ).toContain("23.7°C");
+    expect(
+      window.localStorage.getItem("intelligent-climate.temperature-unit"),
+    ).toBe("celsius");
   });
 
   it("passes an automated accessibility scan", async () => {

@@ -20,13 +20,17 @@ export const configuration: ConfigurationResponse = {
     {
       zone_id: ZONE_ID,
       name: "Dining Room",
-      temperature_sources: [{ entity_id: "sensor.dining_room_temperature" }],
+      temperature_sources: [
+        { entity_id: "sensor.dining_room_temperature", enabled: true },
+      ],
       humidity_sources: [],
       window_door_entity_ids: [],
       occupancy_entity_ids: [],
+      stage_entity_ids: [],
       fan_entity_ids: [],
     },
   ],
+  active_repairs: [],
 };
 
 export const snapshot: SnapshotResponse = {
@@ -49,8 +53,9 @@ export const snapshot: SnapshotResponse = {
 
 export const activity: ActivityResponse = {
   api_version: 1,
-  total: 1,
+  total: 2,
   offset: 0,
+  order: "newest",
   records: [
     {
       record_id: "record-1",
@@ -60,6 +65,15 @@ export const activity: ActivityResponse = {
       reason_code: "observation_updated",
       severity: "info",
       explanation: "A new valid observation was recorded.",
+    },
+    {
+      record_id: "record-older-repair",
+      zone_id: null,
+      timestamp_utc: "2026-07-30T18:00:00+00:00",
+      activity_type: "repair_issue_created",
+      reason_code: "migration_failed",
+      severity: "error",
+      explanation: "A migration repair was created during an earlier setup.",
     },
   ],
 };

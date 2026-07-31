@@ -90,6 +90,9 @@ async def websocket_config_get(
             "api_version": API_VERSION,
             "config": dict(encode_phase2_equipment_group_document(migration.config)),
             "options": dict(encode_phase2_options(migration.options)),
+            "active_repairs": [
+                item.value for item in coordinator.issue_manager.active_issue_codes
+            ],
             "zones": [
                 dict(encode_phase2_zone_config(item)) for item in migration.zones
             ],
@@ -322,6 +325,7 @@ async def websocket_schedule_preview(
         _ENTRY: str,
         vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
         vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=200)),
+        vol.Optional("order", default="newest"): vol.In(["newest", "oldest"]),
     }
 )
 @websocket_api.async_response
@@ -330,11 +334,13 @@ async def websocket_activity_list(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Return one bounded page of chronological privacy-safe activity."""
+    """Return one bounded page of privacy-safe activity in requested order."""
     coordinator = _coordinator(hass, msg, connection)
     if coordinator is None:
         return
     records = coordinator.history.records
+    if msg["order"] == "newest":
+        records = tuple(reversed(records))
     offset = msg["offset"]
     selected = records[offset : offset + msg["limit"]]
     connection.send_result(
@@ -343,6 +349,7 @@ async def websocket_activity_list(
             "api_version": API_VERSION,
             "total": len(records),
             "offset": offset,
+            "order": msg["order"],
             "records": [
                 {
                     "record_id": str(item.record_id),
@@ -427,8 +434,8 @@ async def websocket_observation_status(
             "presentation_history_hours": 48,
             "model_ready_history_available": False,
             "history_boundary": (
-                "Presentation history is nonauthoritative; model-ready observation "
-                "storage begins in Phase 3."
+                "Recent climate history is available for the current-day view. "
+                "Long-term learning history is not collected by this release."
             ),
         },
     )

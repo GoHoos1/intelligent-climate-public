@@ -1,13 +1,25 @@
 export const API_VERSION = 1 as const;
 
+export interface ConfiguredSource {
+  entity_id: string;
+  enabled: boolean;
+}
+
+export interface ReviewedBinding {
+  entity_id: string;
+  enabled: boolean;
+  reviewed: boolean;
+}
+
 export interface ZoneConfiguration {
   zone_id: string;
   name: string;
-  temperature_sources: unknown[];
-  humidity_sources: unknown[];
-  window_door_entity_ids: unknown[];
-  occupancy_entity_ids: unknown[];
-  fan_entity_ids: unknown[];
+  temperature_sources: ConfiguredSource[];
+  humidity_sources: ConfiguredSource[];
+  window_door_entity_ids: ReviewedBinding[];
+  occupancy_entity_ids: ReviewedBinding[];
+  stage_entity_ids: string[];
+  fan_entity_ids: ReviewedBinding[];
   [key: string]: unknown;
 }
 
@@ -15,6 +27,7 @@ export interface ConfigurationResponse {
   api_version: typeof API_VERSION;
   config: Record<string, unknown>;
   options: Record<string, unknown>;
+  active_repairs: string[];
   zones: ZoneConfiguration[];
 }
 
@@ -50,6 +63,7 @@ export interface ActivityResponse {
   api_version: typeof API_VERSION;
   total: number;
   offset: number;
+  order: "newest" | "oldest";
   records: ActivityRecord[];
 }
 

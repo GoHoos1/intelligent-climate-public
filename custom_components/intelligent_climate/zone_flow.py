@@ -8,6 +8,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import (
@@ -22,11 +23,17 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_FAN_ENTITY_IDS,
+    CONF_HUMIDITY_SOURCES,
+    CONF_OCCUPANCY_ENTITY_IDS,
     CONF_SOURCE_ENABLED,
     CONF_SOURCE_OFFSET_C,
+    CONF_SOURCE_OFFSET_PCT,
     CONF_SOURCE_PRIORITY,
     CONF_SOURCE_WEIGHT,
+    CONF_STAGE_ENTITY_IDS,
     CONF_TEMPERATURE_SOURCES,
+    CONF_WINDOW_DOOR_ENTITY_IDS,
     CONF_ZONE_NAME,
     CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     SUBENTRY_TYPE_ZONE,
@@ -35,6 +42,7 @@ from .models import (
     PHASE2_CONFIG_MAJOR_VERSION,
     PHASE2_ZONE_DATA_VERSION,
     EquipmentRelationship,
+    HumiditySource,
     ObservationSourceId,
     SchemaValidationError,
     SharedEquipmentPolicy,
@@ -48,20 +56,33 @@ from .schema_compat import (
     decode_active_equipment_group,
     decode_active_zone,
     encode_active_equipment_group,
-    encode_active_zone,
+    encode_reviewed_active_zone,
 )
 from .validation import (
     CLIMATE_DOMAIN,
     SENSOR_DOMAIN,
     EntityValidationCode,
     EntityValidationError,
+    HumidityBinding,
     TemperatureBinding,
     parent_thermostat_entity_ids,
+    validate_live_auxiliary_selection,
+    validate_live_humidity_selection,
     validate_live_temperature_selection,
     validate_live_thermostat_selections,
 )
 
 _ZONE_FIELDS = {
+    CONF_ZONE_NAME,
+    CONF_ZONE_THERMOSTAT_ENTITY_IDS,
+    CONF_TEMPERATURE_SOURCES,
+    CONF_HUMIDITY_SOURCES,
+    CONF_WINDOW_DOOR_ENTITY_IDS,
+    CONF_OCCUPANCY_ENTITY_IDS,
+    CONF_STAGE_ENTITY_IDS,
+    CONF_FAN_ENTITY_IDS,
+}
+_REQUIRED_ZONE_FIELDS = {
     CONF_ZONE_NAME,
     CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     CONF_TEMPERATURE_SOURCES,
@@ -72,7 +93,28 @@ _SOURCE_FIELDS = {
     CONF_SOURCE_PRIORITY,
     CONF_SOURCE_ENABLED,
 }
+_HUMIDITY_SOURCE_FIELDS = {
+    CONF_SOURCE_OFFSET_PCT,
+    CONF_SOURCE_WEIGHT,
+    CONF_SOURCE_PRIORITY,
+    CONF_SOURCE_ENABLED,
+}
 _PERSISTED_ZONE_ERRORS = (KeyError, SchemaValidationError)
+
+_CONTACT_DOMAINS = frozenset({"binary_sensor"})
+_OCCUPANCY_DOMAINS = frozenset(
+    {
+        "alarm_control_panel",
+        "binary_sensor",
+        "device_tracker",
+        "input_boolean",
+        "input_select",
+        "person",
+        "select",
+    }
+)
+_STAGE_DOMAINS = frozenset({"binary_sensor", "sensor"})
+_FAN_DOMAINS = frozenset({"climate", "fan"})
 
 _ZONE_SCHEMA = vol.Schema(
     {
@@ -93,6 +135,50 @@ _ZONE_SCHEMA = vol.Schema(
                         device_class=SensorDeviceClass.TEMPERATURE,
                     ),
                 ],
+            )
+        ),
+        vol.Optional(CONF_HUMIDITY_SOURCES): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=[
+                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityFilterSelectorConfig(
+                        domain=SENSOR_DOMAIN,
+                        device_class=SensorDeviceClass.HUMIDITY,
+                    ),
+                ],
+            )
+        ),
+        vol.Optional(CONF_WINDOW_DOOR_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(
+                    domain="binary_sensor",
+                    device_class=[
+                        BinarySensorDeviceClass.DOOR,
+                        BinarySensorDeviceClass.GARAGE_DOOR,
+                        BinarySensorDeviceClass.OPENING,
+                        BinarySensorDeviceClass.WINDOW,
+                    ],
+                ),
+            )
+        ),
+        vol.Optional(CONF_OCCUPANCY_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(domain=sorted(_OCCUPANCY_DOMAINS)),
+            )
+        ),
+        vol.Optional(CONF_STAGE_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(domain=sorted(_STAGE_DOMAINS)),
+            )
+        ),
+        vol.Optional(CONF_FAN_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(domain=sorted(_FAN_DOMAINS)),
             )
         ),
     }
@@ -121,6 +207,26 @@ _SOURCE_SCHEMA = vol.Schema(
                 step=1,
                 mode=NumberSelectorMode.BOX,
             )
+        ),
+        vol.Required(CONF_SOURCE_ENABLED): BooleanSelector(),
+    }
+)
+
+_HUMIDITY_SOURCE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_SOURCE_OFFSET_PCT): NumberSelector(
+            NumberSelectorConfig(
+                min=-100,
+                max=100,
+                step=0.1,
+                mode=NumberSelectorMode.BOX,
+            )
+        ),
+        vol.Required(CONF_SOURCE_WEIGHT): NumberSelector(
+            NumberSelectorConfig(min=0.1, step=0.1, mode=NumberSelectorMode.BOX)
+        ),
+        vol.Required(CONF_SOURCE_PRIORITY): NumberSelector(
+            NumberSelectorConfig(min=0, step=1, mode=NumberSelectorMode.BOX)
         ),
         vol.Required(CONF_SOURCE_ENABLED): BooleanSelector(),
     }
@@ -221,21 +327,43 @@ def _new_temperature_source(binding: TemperatureBinding) -> TemperatureSource:
     )
 
 
+def _new_humidity_source(binding: HumidityBinding) -> HumiditySource:
+    """Create one humidity source after live selection validation."""
+    return HumiditySource(
+        source_id=ObservationSourceId.new(),
+        entity_id=binding.entity_id,
+        attribute=binding.attribute,
+        offset_pct=0.0,
+        weight=1.0,
+        priority=0,
+        enabled=True,
+    )
+
+
 def _new_zone(
     name: str,
     thermostat_entity_ids: tuple[str, ...],
-    bindings: tuple[TemperatureBinding, ...],
+    temperature_bindings: tuple[TemperatureBinding, ...],
+    humidity_bindings: tuple[HumidityBinding, ...],
+    window_door_entity_ids: tuple[str, ...],
+    occupancy_entity_ids: tuple[str, ...],
+    stage_entity_ids: tuple[str, ...],
+    fan_entity_ids: tuple[str, ...],
 ) -> tuple[ZoneConfig, dict[str, Any]]:
     zone = ZoneConfig(
         zone_id=ZoneId.new(),
         name=name,
         thermostat_entity_ids=thermostat_entity_ids,
-        temperature_sources=tuple(_new_temperature_source(item) for item in bindings),
-        humidity_sources=(),
-        window_door_entity_ids=(),
-        occupancy_entity_ids=(),
-        stage_entity_ids=(),
-        fan_entity_ids=(),
+        temperature_sources=tuple(
+            _new_temperature_source(item) for item in temperature_bindings
+        ),
+        humidity_sources=tuple(
+            _new_humidity_source(item) for item in humidity_bindings
+        ),
+        window_door_entity_ids=window_door_entity_ids,
+        occupancy_entity_ids=occupancy_entity_ids,
+        stage_entity_ids=stage_entity_ids,
+        fan_entity_ids=fan_entity_ids,
     )
     data = dict(encode_zone_config(zone))
     return decode_zone_config(data), data
@@ -261,6 +389,97 @@ def _updated_temperature_sources(
         if (binding.entity_id, binding.attribute) not in existing_keys
     )
     return (*retained, *added)
+
+
+def _updated_humidity_sources(
+    existing: tuple[HumiditySource, ...],
+    selected: tuple[HumidityBinding, ...],
+) -> tuple[HumiditySource, ...]:
+    """Keep retained humidity identity/metadata and append new bindings."""
+    selected_keys = {(item.entity_id, item.attribute) for item in selected}
+    retained = tuple(
+        source
+        for source in existing
+        if (source.entity_id, source.attribute) in selected_keys
+    )
+    existing_keys = {(source.entity_id, source.attribute) for source in retained}
+    added = tuple(
+        _new_humidity_source(binding)
+        for binding in selected
+        if (binding.entity_id, binding.attribute) not in existing_keys
+    )
+    return (*retained, *added)
+
+
+def _optional_zone_selections(
+    hass: HomeAssistant,
+    user_input: dict[str, Any],
+    errors: dict[str, str],
+    *,
+    existing: ZoneConfig | None,
+) -> tuple[
+    tuple[HumidityBinding, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+    tuple[str, ...],
+]:
+    """Validate all optional zone source groups and map errors to their fields."""
+    humidity = (
+        ()
+        if existing is None
+        else tuple(
+            HumidityBinding(source.entity_id, source.attribute)
+            for source in existing.humidity_sources
+        )
+    )
+    contacts: tuple[str, ...] = ()
+    occupancy: tuple[str, ...] = ()
+    stages: tuple[str, ...] = ()
+    fans: tuple[str, ...] = ()
+    if CONF_HUMIDITY_SOURCES in user_input:
+        try:
+            humidity = validate_live_humidity_selection(
+                hass,
+                user_input[CONF_HUMIDITY_SOURCES],
+            )
+        except EntityValidationError as err:
+            errors[CONF_HUMIDITY_SOURCES] = err.code.value
+    for field, domains in (
+        (CONF_WINDOW_DOOR_ENTITY_IDS, _CONTACT_DOMAINS),
+        (CONF_OCCUPANCY_ENTITY_IDS, _OCCUPANCY_DOMAINS),
+        (CONF_STAGE_ENTITY_IDS, _STAGE_DOMAINS),
+        (CONF_FAN_ENTITY_IDS, _FAN_DOMAINS),
+    ):
+        selected = (
+            ()
+            if existing is None
+            else {
+                CONF_WINDOW_DOOR_ENTITY_IDS: existing.window_door_entity_ids,
+                CONF_OCCUPANCY_ENTITY_IDS: existing.occupancy_entity_ids,
+                CONF_STAGE_ENTITY_IDS: existing.stage_entity_ids,
+                CONF_FAN_ENTITY_IDS: existing.fan_entity_ids,
+            }[field]
+        )
+        if field in user_input:
+            try:
+                selected = validate_live_auxiliary_selection(
+                    hass,
+                    user_input[field],
+                    allowed_domains=domains,
+                )
+            except EntityValidationError as err:
+                errors[field] = err.code.value
+                continue
+        if field == CONF_WINDOW_DOOR_ENTITY_IDS:
+            contacts = selected
+        elif field == CONF_OCCUPANCY_ENTITY_IDS:
+            occupancy = selected
+        elif field == CONF_STAGE_ENTITY_IDS:
+            stages = selected
+        else:
+            fans = selected
+    return humidity, contacts, occupancy, stages, fans
 
 
 def _set_parent_error(errors: dict[str, str], err: Exception) -> None:
@@ -344,6 +563,9 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
     _pending_zone: ZoneConfig
     _pending_sources: list[TemperatureSource]
     _pending_source_index: int
+    _pending_humidity_sources: list[HumiditySource]
+    _pending_humidity_source_index: int
+    _pending_reviewed_binding_fields: frozenset[str]
 
     async def async_step_user(
         self,
@@ -363,7 +585,10 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
             _set_parent_error(errors, err)
 
         if user_input is not None and entry is not None and not errors:
-            if set(user_input) != _ZONE_FIELDS:
+            if (
+                not set(user_input) >= _REQUIRED_ZONE_FIELDS
+                or not set(user_input) <= _ZONE_FIELDS
+            ):
                 errors["base"] = "invalid_input"
             try:
                 name = _normalized_name(user_input.get(CONF_ZONE_NAME))
@@ -379,12 +604,19 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
             except EntityValidationError as err:
                 errors[CONF_ZONE_THERMOSTAT_ENTITY_IDS] = err.code.value
             try:
-                bindings = validate_live_temperature_selection(
+                temperature_bindings = validate_live_temperature_selection(
                     self.hass,
                     user_input.get(CONF_TEMPERATURE_SOURCES),
                 )
             except EntityValidationError as err:
                 errors[CONF_TEMPERATURE_SOURCES] = err.code.value
+            (
+                humidity_bindings,
+                contact_entity_ids,
+                occupancy_entity_ids,
+                stage_entity_ids,
+                fan_entity_ids,
+            ) = _optional_zone_selections(self.hass, user_input, errors, existing=None)
             if not errors:
                 try:
                     if _has_duplicate_name(entry, name):
@@ -393,11 +625,29 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                     errors["base"] = "invalid_zone_data"
             if not errors:
                 try:
-                    zone, _data = _new_zone(name, zone_thermostats, bindings)
+                    zone, _data = _new_zone(
+                        name,
+                        zone_thermostats,
+                        temperature_bindings,
+                        humidity_bindings,
+                        contact_entity_ids,
+                        occupancy_entity_ids,
+                        stage_entity_ids,
+                        fan_entity_ids,
+                    )
                 except SchemaValidationError:
                     errors["base"] = "invalid_zone_data"
                 else:
-                    self._begin_source_configuration("add", zone)
+                    self._begin_source_configuration(
+                        "add",
+                        zone,
+                        reviewed_fields=frozenset(user_input)
+                        & {
+                            CONF_WINDOW_DOOR_ENTITY_IDS,
+                            CONF_OCCUPANCY_ENTITY_IDS,
+                            CONF_FAN_ENTITY_IDS,
+                        },
+                    )
                     return await self.async_step_source()
 
         return self.async_show_form(
@@ -433,7 +683,10 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
 
         errors: dict[str, str] = {}
         if user_input is not None:
-            if set(user_input) != _ZONE_FIELDS:
+            if (
+                not set(user_input) >= _REQUIRED_ZONE_FIELDS
+                or not set(user_input) <= _ZONE_FIELDS
+            ):
                 errors["base"] = "invalid_input"
             try:
                 name = _normalized_name(user_input.get(CONF_ZONE_NAME))
@@ -449,12 +702,19 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
             except EntityValidationError as err:
                 errors[CONF_ZONE_THERMOSTAT_ENTITY_IDS] = err.code.value
             try:
-                bindings = validate_live_temperature_selection(
+                temperature_bindings = validate_live_temperature_selection(
                     self.hass,
                     user_input.get(CONF_TEMPERATURE_SOURCES),
                 )
             except EntityValidationError as err:
                 errors[CONF_TEMPERATURE_SOURCES] = err.code.value
+            (
+                humidity_bindings,
+                contact_entity_ids,
+                occupancy_entity_ids,
+                stage_entity_ids,
+                fan_entity_ids,
+            ) = _optional_zone_selections(self.hass, user_input, errors, existing=zone)
             if not errors:
                 try:
                     if _has_duplicate_name(
@@ -472,8 +732,16 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                     thermostat_entity_ids=zone_thermostats,
                     temperature_sources=_updated_temperature_sources(
                         zone.temperature_sources,
-                        bindings,
+                        temperature_bindings,
                     ),
+                    humidity_sources=_updated_humidity_sources(
+                        zone.humidity_sources,
+                        humidity_bindings,
+                    ),
+                    window_door_entity_ids=contact_entity_ids,
+                    occupancy_entity_ids=occupancy_entity_ids,
+                    stage_entity_ids=stage_entity_ids,
+                    fan_entity_ids=fan_entity_ids,
                 )
                 if not self._all_parent_thermostats_assigned(
                     entry,
@@ -482,7 +750,16 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                 ):
                     errors[CONF_ZONE_THERMOSTAT_ENTITY_IDS] = "unassigned_thermostat"
                 else:
-                    self._begin_source_configuration("reconfigure", updated_zone)
+                    self._begin_source_configuration(
+                        "reconfigure",
+                        updated_zone,
+                        reviewed_fields=frozenset(user_input)
+                        & {
+                            CONF_WINDOW_DOOR_ENTITY_IDS,
+                            CONF_OCCUPANCY_ENTITY_IDS,
+                            CONF_FAN_ENTITY_IDS,
+                        },
+                    )
                     return await self.async_step_source()
 
         return self.async_show_form(
@@ -537,6 +814,8 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                     self._pending_zone,
                     temperature_sources=tuple(self._pending_sources),
                 )
+                if self._pending_humidity_sources:
+                    return await self.async_step_humidity_source()
                 return self._finish_pending_zone()
 
         schema = self.add_suggested_values_to_schema(
@@ -559,6 +838,75 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
             },
         )
 
+    async def async_step_humidity_source(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.SubentryFlowResult:
+        """Edit one configured humidity source without raw-file changes."""
+        source = self._pending_humidity_sources[self._pending_humidity_source_index]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if set(user_input) != _HUMIDITY_SOURCE_FIELDS:
+                errors["base"] = "invalid_input"
+            try:
+                offset = _finite_number(user_input.get(CONF_SOURCE_OFFSET_PCT))
+            except ValueError:
+                errors[CONF_SOURCE_OFFSET_PCT] = "invalid_source_offset"
+            try:
+                weight = _finite_number(user_input.get(CONF_SOURCE_WEIGHT))
+                if weight <= 0:
+                    raise ValueError
+            except ValueError:
+                errors[CONF_SOURCE_WEIGHT] = "invalid_source_weight"
+            try:
+                priority = _nonnegative_integer(user_input.get(CONF_SOURCE_PRIORITY))
+            except ValueError:
+                errors[CONF_SOURCE_PRIORITY] = "invalid_source_priority"
+            enabled_value = user_input.get(CONF_SOURCE_ENABLED)
+            if not isinstance(enabled_value, bool):
+                errors[CONF_SOURCE_ENABLED] = "invalid_source_enabled"
+            if not errors:
+                assert isinstance(enabled_value, bool)
+                self._pending_humidity_sources[self._pending_humidity_source_index] = (
+                    replace(
+                        source,
+                        offset_pct=offset,
+                        weight=weight,
+                        priority=priority,
+                        enabled=enabled_value,
+                    )
+                )
+                self._pending_humidity_source_index += 1
+                if self._pending_humidity_source_index < len(
+                    self._pending_humidity_sources
+                ):
+                    return await self.async_step_humidity_source()
+                self._pending_zone = replace(
+                    self._pending_zone,
+                    humidity_sources=tuple(self._pending_humidity_sources),
+                )
+                return self._finish_pending_zone()
+
+        schema = self.add_suggested_values_to_schema(
+            _HUMIDITY_SOURCE_SCHEMA,
+            {
+                CONF_SOURCE_OFFSET_PCT: source.offset_pct,
+                CONF_SOURCE_WEIGHT: source.weight,
+                CONF_SOURCE_PRIORITY: source.priority,
+                CONF_SOURCE_ENABLED: source.enabled,
+            },
+        )
+        return self.async_show_form(
+            step_id="humidity_source",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "source": source.entity_id,
+                "position": str(self._pending_humidity_source_index + 1),
+                "count": str(len(self._pending_humidity_sources)),
+            },
+        )
+
     def _zone_schema(
         self,
         *,
@@ -570,20 +918,41 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                 list(parent_thermostats)
                 if zone is None
                 else list(zone.thermostat_entity_ids)
-            )
+            ),
+            CONF_HUMIDITY_SOURCES: [],
+            CONF_WINDOW_DOOR_ENTITY_IDS: [],
+            CONF_OCCUPANCY_ENTITY_IDS: [],
+            CONF_STAGE_ENTITY_IDS: [],
+            CONF_FAN_ENTITY_IDS: [],
         }
         if zone is not None:
             values[CONF_ZONE_NAME] = zone.name
             values[CONF_TEMPERATURE_SOURCES] = [
                 source.entity_id for source in zone.temperature_sources
             ]
+            values[CONF_HUMIDITY_SOURCES] = [
+                source.entity_id for source in zone.humidity_sources
+            ]
+            values[CONF_WINDOW_DOOR_ENTITY_IDS] = list(zone.window_door_entity_ids)
+            values[CONF_OCCUPANCY_ENTITY_IDS] = list(zone.occupancy_entity_ids)
+            values[CONF_STAGE_ENTITY_IDS] = list(zone.stage_entity_ids)
+            values[CONF_FAN_ENTITY_IDS] = list(zone.fan_entity_ids)
         return self.add_suggested_values_to_schema(_ZONE_SCHEMA, values)
 
-    def _begin_source_configuration(self, action: str, zone: ZoneConfig) -> None:
+    def _begin_source_configuration(
+        self,
+        action: str,
+        zone: ZoneConfig,
+        *,
+        reviewed_fields: frozenset[str] = frozenset(),
+    ) -> None:
         self._pending_action = action
         self._pending_zone = zone
         self._pending_sources = list(zone.temperature_sources)
         self._pending_source_index = 0
+        self._pending_humidity_sources = list(zone.humidity_sources)
+        self._pending_humidity_source_index = 0
+        self._pending_reviewed_binding_fields = reviewed_fields
 
     def _finish_pending_zone(self) -> config_entries.SubentryFlowResult:
         try:
@@ -591,7 +960,7 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
             current_data: object | None = None
             if self._pending_action != "add":
                 current_data = self._get_reconfigure_subentry().data
-            encoded = encode_active_zone(
+            encoded = encode_reviewed_active_zone(
                 self._pending_zone,
                 target_data_version=(
                     PHASE2_ZONE_DATA_VERSION
@@ -599,6 +968,7 @@ class ZoneSubentryFlowHandler(config_entries.ConfigSubentryFlow):
                     else 1
                 ),
                 current_data=current_data,
+                reviewed_fields=self._pending_reviewed_binding_fields,
             )
             decoded = (
                 decode_active_zone(encoded)

@@ -7,6 +7,30 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.10 - 2026-07-31
+
+### Changed
+
+- Added zone reconfiguration selectors for humidity, window/door contacts,
+  occupancy, HVAC stages, and fans. Thermostat `current_humidity` is supported
+  as a humidity source, and explicitly selected optional sources become
+  reviewed and enabled without changing stable source or zone identities.
+- Added a sidebar display preference that follows Home Assistant by default or
+  can force Fahrenheit or Celsius consistently across values, explanations,
+  and the Today timeline.
+- Changed Activity to newest-first by default with bounded older-page loading,
+  while preserving canonical chronological storage.
+- Distinguished active Repairs from retained historical activity and replaced
+  sparse Today charts with a compact collecting-history state.
+- Reworked preview-oriented descriptions into user-focused status and settings
+  language. Existing migrated configuration entries remain valid.
+
+### Security
+
+- The stabilization remains read-only and adds no physical adapter, Home
+  Assistant service call, writable climate behavior, or Scheduled Control
+  authority.
+
 ## 0.0.9 - 2026-07-31
 
 ### Phase 2 development

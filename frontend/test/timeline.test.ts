@@ -30,4 +30,22 @@ describe("accessible Today timeline", () => {
     expect(element.shadowRoot?.querySelector("svg")).toBeNull();
     element.remove();
   });
+
+  it("uses a compact collecting state until two observations exist", async () => {
+    const element = document.createElement("ic-today-timeline");
+    element.timeline = {
+      ...timeline,
+      series: timeline.series.map((series) => ({
+        ...series,
+        samples: series.samples.slice(0, 1),
+      })),
+    };
+    document.body.append(element);
+    await element.updateComplete;
+    expect(element.shadowRoot?.textContent).toContain(
+      "Collecting climate history",
+    );
+    expect(element.shadowRoot?.querySelector("svg")).toBeNull();
+    element.remove();
+  });
 });

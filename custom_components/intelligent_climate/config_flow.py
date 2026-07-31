@@ -8,6 +8,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -27,8 +28,13 @@ from .const import (
     CONF_EQUIPMENT_GROUP_NAME,
     CONF_EQUIPMENT_RELATIONSHIP,
     CONF_EQUIPMENT_TYPE,
+    CONF_FAN_ENTITY_IDS,
+    CONF_HUMIDITY_SOURCES,
+    CONF_OCCUPANCY_ENTITY_IDS,
+    CONF_STAGE_ENTITY_IDS,
     CONF_TEMPERATURE_SOURCES,
     CONF_THERMOSTAT_ENTITY_IDS,
+    CONF_WINDOW_DOOR_ENTITY_IDS,
     CONF_ZONE_NAME,
     CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     DOMAIN,
@@ -45,6 +51,7 @@ from .models import (
     EquipmentGroupId,
     EquipmentRelationship,
     EquipmentType,
+    HumiditySource,
     IntegrationOptions,
     LogLevelDetail,
     ObservationSourceId,
@@ -66,12 +73,16 @@ from .schema_compat import (
     encode_active_equipment_group,
     encode_active_observation_options,
     encode_active_zone,
+    encode_reviewed_active_zone,
 )
 from .validation import (
     CLIMATE_DOMAIN,
     EntityValidationCode,
     EntityValidationError,
+    HumidityBinding,
     TemperatureBinding,
+    validate_live_auxiliary_selection,
+    validate_live_humidity_selection,
     validate_live_temperature_selection,
     validate_live_thermostat_selections,
 )
@@ -81,6 +92,16 @@ _USER_FIELDS = {CONF_EQUIPMENT_GROUP_NAME, CONF_EQUIPMENT_TYPE}
 _THERMOSTAT_FIELDS = {CONF_THERMOSTAT_ENTITY_IDS}
 _RELATIONSHIP_FIELDS = {CONF_EQUIPMENT_RELATIONSHIP}
 _FIRST_ZONE_FIELDS = {
+    CONF_ZONE_NAME,
+    CONF_ZONE_THERMOSTAT_ENTITY_IDS,
+    CONF_TEMPERATURE_SOURCES,
+    CONF_HUMIDITY_SOURCES,
+    CONF_WINDOW_DOOR_ENTITY_IDS,
+    CONF_OCCUPANCY_ENTITY_IDS,
+    CONF_STAGE_ENTITY_IDS,
+    CONF_FAN_ENTITY_IDS,
+}
+_REQUIRED_FIRST_ZONE_FIELDS = {
     CONF_ZONE_NAME,
     CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     CONF_TEMPERATURE_SOURCES,
@@ -153,6 +174,60 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
                 ],
             )
         ),
+        vol.Optional(CONF_HUMIDITY_SOURCES): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=[
+                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityFilterSelectorConfig(
+                        domain="sensor",
+                        device_class="humidity",
+                    ),
+                ],
+            )
+        ),
+        vol.Optional(CONF_WINDOW_DOOR_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(
+                    domain="binary_sensor",
+                    device_class=[
+                        BinarySensorDeviceClass.DOOR,
+                        BinarySensorDeviceClass.GARAGE_DOOR,
+                        BinarySensorDeviceClass.OPENING,
+                        BinarySensorDeviceClass.WINDOW,
+                    ],
+                ),
+            )
+        ),
+        vol.Optional(CONF_OCCUPANCY_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(
+                    domain=[
+                        "alarm_control_panel",
+                        "binary_sensor",
+                        "device_tracker",
+                        "input_boolean",
+                        "input_select",
+                        "person",
+                        "select",
+                    ]
+                ),
+            )
+        ),
+        vol.Optional(CONF_STAGE_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(domain=["binary_sensor", "sensor"]),
+            )
+        ),
+        vol.Optional(CONF_FAN_ENTITY_IDS): EntitySelector(
+            EntitySelectorConfig(
+                multiple=True,
+                filter=EntityFilterSelectorConfig(domain=["climate", "fan"]),
+            )
+        ),
     }
 )
 
@@ -213,6 +288,23 @@ def _temperature_sources(
     )
 
 
+def _humidity_sources(
+    bindings: tuple[HumidityBinding, ...],
+) -> tuple[HumiditySource, ...]:
+    return tuple(
+        HumiditySource(
+            source_id=ObservationSourceId.new(),
+            entity_id=binding.entity_id,
+            attribute=binding.attribute,
+            offset_pct=0.0,
+            weight=1.0,
+            priority=0,
+            enabled=True,
+        )
+        for binding in bindings
+    )
+
+
 class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
     config_entries.ConfigFlow,
     domain=DOMAIN,
@@ -229,6 +321,12 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
     _pending_zone_name: str
     _pending_zone_thermostats: tuple[str, ...]
     _pending_temperature_bindings: tuple[TemperatureBinding, ...]
+    _pending_humidity_bindings: tuple[HumidityBinding, ...]
+    _pending_window_door_entity_ids: tuple[str, ...]
+    _pending_occupancy_entity_ids: tuple[str, ...]
+    _pending_stage_entity_ids: tuple[str, ...]
+    _pending_fan_entity_ids: tuple[str, ...]
+    _pending_reviewed_binding_fields: frozenset[str]
     _pending_reconfigure_zones: tuple[ZoneConfig, ...]
     _pending_zone_memberships: dict[ZoneId, tuple[str, ...]]
     _pending_zone_index: int
@@ -343,7 +441,10 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
         """Collect the first complete zone before creating the parent entry."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            if set(user_input) != _FIRST_ZONE_FIELDS:
+            if (
+                not set(user_input) >= _REQUIRED_FIRST_ZONE_FIELDS
+                or not set(user_input) <= _FIRST_ZONE_FIELDS
+            ):
                 errors["base"] = "invalid_input"
             try:
                 zone_name = _name(user_input.get(CONF_ZONE_NAME))
@@ -368,14 +469,70 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
                 )
             except EntityValidationError as err:
                 errors[CONF_TEMPERATURE_SOURCES] = err.code.value
+            try:
+                humidity_bindings = validate_live_humidity_selection(
+                    self.hass,
+                    user_input.get(CONF_HUMIDITY_SOURCES, []),
+                )
+            except EntityValidationError as err:
+                errors[CONF_HUMIDITY_SOURCES] = err.code.value
+            auxiliary: dict[str, tuple[str, ...]] = {}
+            for field, domains in (
+                (CONF_WINDOW_DOOR_ENTITY_IDS, frozenset({"binary_sensor"})),
+                (
+                    CONF_OCCUPANCY_ENTITY_IDS,
+                    frozenset(
+                        {
+                            "alarm_control_panel",
+                            "binary_sensor",
+                            "device_tracker",
+                            "input_boolean",
+                            "input_select",
+                            "person",
+                            "select",
+                        }
+                    ),
+                ),
+                (CONF_STAGE_ENTITY_IDS, frozenset({"binary_sensor", "sensor"})),
+                (CONF_FAN_ENTITY_IDS, frozenset({"climate", "fan"})),
+            ):
+                try:
+                    auxiliary[field] = validate_live_auxiliary_selection(
+                        self.hass,
+                        user_input.get(field, []),
+                        allowed_domains=domains,
+                    )
+                except EntityValidationError as err:
+                    errors[field] = err.code.value
             if not errors:
                 self._pending_zone_name = zone_name
                 self._pending_zone_thermostats = zone_thermostats
                 self._pending_temperature_bindings = temperature_bindings
+                self._pending_humidity_bindings = humidity_bindings
+                self._pending_window_door_entity_ids = auxiliary[
+                    CONF_WINDOW_DOOR_ENTITY_IDS
+                ]
+                self._pending_occupancy_entity_ids = auxiliary[
+                    CONF_OCCUPANCY_ENTITY_IDS
+                ]
+                self._pending_stage_entity_ids = auxiliary[CONF_STAGE_ENTITY_IDS]
+                self._pending_fan_entity_ids = auxiliary[CONF_FAN_ENTITY_IDS]
+                self._pending_reviewed_binding_fields = frozenset(user_input) & {
+                    CONF_WINDOW_DOOR_ENTITY_IDS,
+                    CONF_OCCUPANCY_ENTITY_IDS,
+                    CONF_FAN_ENTITY_IDS,
+                }
                 return await self.async_step_confirm()
         suggested = self.add_suggested_values_to_schema(
             _FIRST_ZONE_SCHEMA,
-            {CONF_ZONE_THERMOSTAT_ENTITY_IDS: list(self._pending_thermostats)},
+            {
+                CONF_ZONE_THERMOSTAT_ENTITY_IDS: list(self._pending_thermostats),
+                CONF_HUMIDITY_SOURCES: [],
+                CONF_WINDOW_DOOR_ENTITY_IDS: [],
+                CONF_OCCUPANCY_ENTITY_IDS: [],
+                CONF_STAGE_ENTITY_IDS: [],
+                CONF_FAN_ENTITY_IDS: [],
+            },
         )
         return self.async_show_form(
             step_id="first_zone",
@@ -431,11 +588,11 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
             temperature_sources=_temperature_sources(
                 self._pending_temperature_bindings
             ),
-            humidity_sources=(),
-            window_door_entity_ids=(),
-            occupancy_entity_ids=(),
-            stage_entity_ids=(),
-            fan_entity_ids=(),
+            humidity_sources=_humidity_sources(self._pending_humidity_bindings),
+            window_door_entity_ids=self._pending_window_door_entity_ids,
+            occupancy_entity_ids=self._pending_occupancy_entity_ids,
+            stage_entity_ids=self._pending_stage_entity_ids,
+            fan_entity_ids=self._pending_fan_entity_ids,
         )
         data = encode_active_equipment_group(
             group,
@@ -444,10 +601,11 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
             current_data=None,
             time_zone=self.hass.config.time_zone,
         )
-        zone_data = encode_active_zone(
+        zone_data = encode_reviewed_active_zone(
             zone,
             target_data_version=PHASE2_ZONE_DATA_VERSION,
             current_data=None,
+            reviewed_fields=self._pending_reviewed_binding_fields,
         )
         try:
             decode_configuration_graph(

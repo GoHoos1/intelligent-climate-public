@@ -190,6 +190,58 @@ def encode_active_zone(
     return dict(encode_zone_config(zone))
 
 
+def encode_reviewed_active_zone(
+    zone: ZoneConfig,
+    *,
+    target_data_version: int,
+    current_data: object | None,
+    reviewed_fields: frozenset[str],
+) -> dict[str, object]:
+    """Encode an interactively reviewed zone and enable selected candidates."""
+    if target_data_version != PHASE2_ZONE_DATA_VERSION:
+        return encode_active_zone(
+            zone,
+            target_data_version=target_data_version,
+            current_data=current_data,
+        )
+    document = (
+        _migrate_zone(zone)
+        if current_data is None
+        or not (
+            isinstance(current_data, Mapping)
+            and current_data.get("data_version") == PHASE2_ZONE_DATA_VERSION
+        )
+        else replace(decode_phase2_zone_config(current_data), zone=zone)
+    )
+
+    def reviewed(entity_ids: tuple[str, ...]) -> tuple[Phase2BindingCandidate, ...]:
+        return tuple(
+            Phase2BindingCandidate(entity_id=item, enabled=True, reviewed=True)
+            for item in entity_ids
+        )
+
+    document = replace(
+        document,
+        zone=zone,
+        contact_bindings=(
+            reviewed(zone.window_door_entity_ids)
+            if "window_door_entity_ids" in reviewed_fields
+            else document.contact_bindings
+        ),
+        occupancy_bindings=(
+            reviewed(zone.occupancy_entity_ids)
+            if "occupancy_entity_ids" in reviewed_fields
+            else document.occupancy_bindings
+        ),
+        fan_bindings=(
+            reviewed(zone.fan_entity_ids)
+            if "fan_entity_ids" in reviewed_fields
+            else document.fan_bindings
+        ),
+    )
+    return dict(encode_phase2_zone_config(document))
+
+
 def migrate_zone_document(value: object) -> Phase2ZoneConfig:
     """Return one strict Phase 2 zone, accepting a Phase 1 source document."""
     if (

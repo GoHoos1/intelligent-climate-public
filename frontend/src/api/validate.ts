@@ -112,27 +112,50 @@ function strings(value: unknown, path: string): string[] {
 
 function zoneConfiguration(value: unknown, path: string): ZoneConfiguration {
   const root = object(value, path);
+  const sources = (value: unknown, sourcePath: string) =>
+    array(value, sourcePath).map((item, index) => {
+      const itemPath = `${sourcePath}[${String(index)}]`;
+      const source = object(item, itemPath);
+      return {
+        entity_id: string(source["entity_id"], `${itemPath}.entity_id`),
+        enabled: boolean(source["enabled"], `${itemPath}.enabled`),
+      };
+    });
+  const bindings = (value: unknown, bindingPath: string) =>
+    array(value, bindingPath).map((item, index) => {
+      const itemPath = `${bindingPath}[${String(index)}]`;
+      const binding = object(item, itemPath);
+      return {
+        entity_id: string(binding["entity_id"], `${itemPath}.entity_id`),
+        enabled: boolean(binding["enabled"], `${itemPath}.enabled`),
+        reviewed: boolean(binding["reviewed"], `${itemPath}.reviewed`),
+      };
+    });
   return {
     ...root,
     zone_id: string(root["zone_id"], `${path}.zone_id`),
     name: string(root["name"], `${path}.name`),
-    temperature_sources: array(
+    temperature_sources: sources(
       root["temperature_sources"],
       `${path}.temperature_sources`,
     ),
-    humidity_sources: array(
+    humidity_sources: sources(
       root["humidity_sources"],
       `${path}.humidity_sources`,
     ),
-    window_door_entity_ids: array(
+    window_door_entity_ids: bindings(
       root["window_door_entity_ids"],
       `${path}.window_door_entity_ids`,
     ),
-    occupancy_entity_ids: array(
+    occupancy_entity_ids: bindings(
       root["occupancy_entity_ids"],
       `${path}.occupancy_entity_ids`,
     ),
-    fan_entity_ids: array(root["fan_entity_ids"], `${path}.fan_entity_ids`),
+    stage_entity_ids: strings(
+      root["stage_entity_ids"],
+      `${path}.stage_entity_ids`,
+    ),
+    fan_entity_ids: bindings(root["fan_entity_ids"], `${path}.fan_entity_ids`),
   };
 }
 
@@ -143,6 +166,7 @@ export function validateConfiguration(value: unknown): ConfigurationResponse {
     api_version: API_VERSION,
     config: object(root["config"], "config.config"),
     options: object(root["options"], "config.options"),
+    active_repairs: strings(root["active_repairs"], "config.active_repairs"),
     zones: array(root["zones"], "config.zones").map((item, index) =>
       zoneConfiguration(item, `config.zones[${String(index)}]`),
     ),
@@ -210,10 +234,18 @@ function activityRecord(value: unknown, path: string): ActivityRecord {
 export function validateActivity(value: unknown): ActivityResponse {
   const root = object(value, "activity");
   version(root, "activity");
+  const order = string(root["order"], "activity.order");
+  if (order !== "newest" && order !== "oldest") {
+    throw new FrontendContractError(
+      "activity.order",
+      "expected newest or oldest",
+    );
+  }
   return {
     api_version: API_VERSION,
     total: nonNegativeInteger(root["total"], "activity.total"),
     offset: nonNegativeInteger(root["offset"], "activity.offset"),
+    order,
     records: array(root["records"], "activity.records").map((item, index) =>
       activityRecord(item, `activity.records[${String(index)}]`),
     ),

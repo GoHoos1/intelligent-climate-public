@@ -41,6 +41,9 @@ from custom_components.intelligent_climate.models import (
     encode_phase2_runtime_store_document,
     encode_phase2_zone_config,
 )
+from custom_components.intelligent_climate.schema_compat import (
+    encode_reviewed_active_zone,
+)
 
 ROOT = Path(__file__).parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "phase_1_0_0_8_baseline.json"
@@ -171,6 +174,29 @@ def test_dry_run_preserves_legacy_binding_ids_but_disables_every_behavior() -> N
             "reviewed": False,
         }
     ]
+
+
+def test_explicit_zone_review_enables_only_submitted_binding_groups() -> None:
+    """Saving one selector cannot silently review a different migrated group."""
+    baseline = _baseline()
+    zone_data = baseline["zone_subentry"]
+    zone_data["window_door_entity_ids"] = ["binary_sensor.window"]
+    zone_data["occupancy_entity_ids"] = ["person.household"]
+    migrated = _dry_run(baseline=baseline).zones[0]
+    current = dict(encode_phase2_zone_config(migrated))
+
+    encoded = encode_reviewed_active_zone(
+        migrated.zone,
+        target_data_version=PHASE2_ZONE_DATA_VERSION,
+        current_data=current,
+        reviewed_fields=frozenset({"window_door_entity_ids"}),
+    )
+    decoded = decode_phase2_zone_config(encoded)
+
+    assert decoded.contact_bindings[0].reviewed is True
+    assert decoded.contact_bindings[0].enabled is True
+    assert decoded.occupancy_bindings[0].reviewed is False
+    assert decoded.occupancy_bindings[0].enabled is False
 
 
 def test_dry_run_does_not_mutate_any_caller_document() -> None:
