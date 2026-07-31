@@ -132,12 +132,22 @@
         "data": {
           "zone_name": "Zone name",
           "zone_thermostat_entity_ids": "Zone thermostats",
-          "temperature_sources": "Temperature sources"
+          "temperature_sources": "Temperature sources",
+          "humidity_sources": "Humidity sources (optional)",
+          "window_door_entity_ids": "Windows and exterior doors (optional)",
+          "occupancy_entity_ids": "Occupancy sources (optional)",
+          "stage_entity_ids": "HVAC stage sensors (optional)",
+          "fan_entity_ids": "Circulation fans (optional)"
         },
         "data_description": {
           "zone_name": "A recognizable display name for this climate zone.",
           "zone_thermostat_entity_ids": "During initial setup, assign every selected thermostat to the first zone. Membership can be redistributed through parent reconfiguration after more zones are added.",
-          "temperature_sources": "Existing climate entities or temperature sensor entities."
+          "temperature_sources": "Existing climate entities or temperature sensor entities.",
+          "humidity_sources": "Humidity sensor entities or thermostats that report current humidity.",
+          "window_door_entity_ids": "Binary sensors that report an exterior door or window as open or closed.",
+          "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers that indicate occupancy.",
+          "stage_entity_ids": "Sensors that report heating, cooling, auxiliary heat, or equipment stage.",
+          "fan_entity_ids": "Separate fan entities or thermostats with supported fan modes."
         }
       },
       "confirm": {
@@ -167,7 +177,11 @@
       "invalid_equipment_type": "Select a supported equipment type.",
       "invalid_input": "The submitted equipment group data is invalid.",
       "missing_entity": "The selected entity does not exist in Home Assistant.",
-      "wrong_domain": "Select a climate entity.",
+      "wrong_domain": "One or more selected entities use an unsupported domain for this field.",
+      "wrong_device_class": "A selected sensor or thermostat does not expose the required temperature or humidity value.",
+      "duplicate_temperature_source": "A temperature source cannot be selected more than once in one zone.",
+      "duplicate_humidity_source": "A humidity source cannot be selected more than once in one zone.",
+      "duplicate_auxiliary_entity": "Select each optional source only once in its field.",
       "duplicate_thermostat_owner": "This thermostat already belongs to another Intelligent Climate equipment group.",
       "duplicate_thermostat_selection": "Select each thermostat only once.",
       "invalid_relationship": "Use Single system for one thermostat, or explicitly choose Independent or Shared/zoned for multiple thermostats.",
@@ -219,30 +233,50 @@
       "step": {
         "user": {
           "title": "Add zone",
-          "description": "Create a named climate zone using the equipment group's thermostat and one or more temperature sources.",
+          "description": "Create a climate zone and choose the sources Intelligent Climate may observe. Optional behavior sources are reviewed and enabled only when you select them here.",
           "data": {
             "zone_name": "Zone name",
             "zone_thermostat_entity_ids": "Zone thermostats",
-            "temperature_sources": "Temperature sources"
+            "temperature_sources": "Temperature sources",
+            "humidity_sources": "Humidity sources (optional)",
+            "window_door_entity_ids": "Windows and exterior doors (optional)",
+            "occupancy_entity_ids": "Occupancy sources (optional)",
+            "stage_entity_ids": "HVAC stage sensors (optional)",
+            "fan_entity_ids": "Circulation fans (optional)"
           },
           "data_description": {
             "zone_name": "A recognizable display name for this climate zone.",
             "zone_thermostat_entity_ids": "One or more thermostats from the parent equipment group.",
-            "temperature_sources": "Existing climate entities or sensor entities with the temperature device class."
+            "temperature_sources": "Existing climate entities or sensor entities with the temperature device class.",
+            "humidity_sources": "Humidity sensors or thermostats that expose current humidity.",
+            "window_door_entity_ids": "Binary sensors for windows or exterior doors.",
+            "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers.",
+            "stage_entity_ids": "Sensors that report equipment or auxiliary-heat stages.",
+            "fan_entity_ids": "Separate fan entities or thermostats with fan modes."
           }
         },
         "reconfigure": {
           "title": "Reconfigure zone",
-          "description": "Change the zone display name or temperature sources without changing stable zone or retained source identities.",
+          "description": "Change zone membership and observation sources without changing the stable zone identity. Selecting optional behavior sources explicitly reviews and enables them.",
           "data": {
             "zone_name": "Zone name",
             "zone_thermostat_entity_ids": "Zone thermostats",
-            "temperature_sources": "Temperature sources"
+            "temperature_sources": "Temperature sources",
+            "humidity_sources": "Humidity sources (optional)",
+            "window_door_entity_ids": "Windows and exterior doors (optional)",
+            "occupancy_entity_ids": "Occupancy sources (optional)",
+            "stage_entity_ids": "HVAC stage sensors (optional)",
+            "fan_entity_ids": "Circulation fans (optional)"
           },
           "data_description": {
             "zone_name": "The new display name for this climate zone.",
             "zone_thermostat_entity_ids": "One or more thermostats from the parent equipment group.",
-            "temperature_sources": "Existing climate entities or sensor entities with the temperature device class."
+            "temperature_sources": "Existing climate entities or sensor entities with the temperature device class.",
+            "humidity_sources": "Humidity sensors or thermostats that expose current humidity.",
+            "window_door_entity_ids": "Binary sensors for windows or exterior doors.",
+            "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers.",
+            "stage_entity_ids": "Sensors that report equipment or auxiliary-heat stages.",
+            "fan_entity_ids": "Separate fan entities or thermostats with fan modes."
           }
         },
         "source": {
@@ -250,6 +284,16 @@
           "description": "Set calibration and aggregation metadata for {source}. Values are stored with the stable source identity.",
           "data": {
             "source_offset_c": "Calibration offset (°C)",
+            "source_weight": "Weight",
+            "source_priority": "Priority",
+            "source_enabled": "Enabled"
+          }
+        },
+        "humidity_source": {
+          "title": "Configure humidity source {position} of {count}",
+          "description": "Set calibration and aggregation metadata for {source}. Relative-humidity offsets are percentage points.",
+          "data": {
+            "source_offset_pct": "Calibration offset (percentage points)",
             "source_weight": "Weight",
             "source_priority": "Priority",
             "source_enabled": "Enabled"
@@ -262,14 +306,16 @@
         "invalid_input": "The submitted zone data is invalid.",
         "invalid_zone_data": "The stored zone data is invalid and cannot be updated.",
         "missing_entity": "A selected entity does not exist in Home Assistant.",
-        "wrong_domain": "Select only climate entities or temperature sensor entities.",
-        "wrong_device_class": "Every selected sensor must use the temperature device class.",
+        "wrong_domain": "One or more selected entities use an unsupported domain for this field.",
+        "wrong_device_class": "A selected sensor or thermostat does not expose the required temperature or humidity value.",
         "duplicate_temperature_source": "A temperature source cannot be selected more than once in one zone.",
+        "duplicate_humidity_source": "A humidity source cannot be selected more than once in one zone.",
+        "duplicate_auxiliary_entity": "Select each optional source only once in its field.",
         "no_temperature_sources": "Select at least one temperature source.",
         "invalid_parent_thermostat": "The owning equipment group must contain one or more valid thermostats.",
         "duplicate_thermostat_selection": "Select each thermostat only once.",
         "unassigned_thermostat": "Every parent thermostat must remain assigned to at least one zone.",
-        "invalid_source_offset": "Enter a finite calibration offset between -20°C and 20°C.",
+        "invalid_source_offset": "Enter a finite calibration offset within the displayed range.",
         "invalid_source_weight": "Enter a finite source weight greater than zero.",
         "invalid_source_priority": "Enter a whole-number priority of zero or greater.",
         "invalid_source_enabled": "Choose whether this source is enabled.",
@@ -305,4 +351,3 @@
     }
   }
 }
-

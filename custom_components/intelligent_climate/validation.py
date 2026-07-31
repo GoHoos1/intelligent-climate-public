@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, split_entity_id, valid_entity_id
 from .const import DOMAIN
 from .models import (
     EquipmentRelationship,
+    HumiditySource,
     SchemaValidationError,
     TemperatureSource,
     ThermostatRole,
@@ -22,6 +23,7 @@ from .schema_compat import decode_active_equipment_group
 CLIMATE_DOMAIN = "climate"
 SENSOR_DOMAIN = "sensor"
 CURRENT_TEMPERATURE_ATTRIBUTE = "current_temperature"
+CURRENT_HUMIDITY_ATTRIBUTE = "current_humidity"
 
 
 class EntityValidationCode(StrEnum):
@@ -33,6 +35,8 @@ class EntityValidationCode(StrEnum):
     DUPLICATE_THERMOSTAT_OWNER = "duplicate_thermostat_owner"
     DUPLICATE_THERMOSTAT_SELECTION = "duplicate_thermostat_selection"
     DUPLICATE_TEMPERATURE_SOURCE = "duplicate_temperature_source"
+    DUPLICATE_HUMIDITY_SOURCE = "duplicate_humidity_source"
+    DUPLICATE_AUXILIARY_ENTITY = "duplicate_auxiliary_entity"
     NO_TEMPERATURE_SOURCES = "no_temperature_sources"
     INVALID_PARENT_THERMOSTAT = "invalid_parent_thermostat"
     INVALID_EXISTING_CONFIGURATION = "invalid_existing_configuration"
@@ -51,6 +55,14 @@ class EntityValidationError(ValueError):
 @dataclass(frozen=True, slots=True)
 class TemperatureBinding:
     """A validated temperature entity and its authoritative attribute."""
+
+    entity_id: str
+    attribute: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class HumidityBinding:
+    """A validated humidity entity and its authoritative attribute."""
 
     entity_id: str
     attribute: str | None
@@ -212,6 +224,65 @@ def validate_live_temperature_selection(
     return tuple(bindings)
 
 
+def validate_live_humidity_selection(
+    hass: HomeAssistant,
+    value: object,
+) -> tuple[HumidityBinding, ...]:
+    """Validate optional thermostat or sensor humidity-source entities."""
+    if not isinstance(value, list):
+        raise EntityValidationError(EntityValidationCode.INVALID_ENTITY_SELECTION)
+
+    bindings: list[HumidityBinding] = []
+    seen: set[tuple[str, str | None]] = set()
+    for raw_entity_id in value:
+        entity_id = _entity_id(raw_entity_id)
+        domain = split_entity_id(entity_id)[0]
+        state = hass.states.get(entity_id)
+        if state is None:
+            raise EntityValidationError(EntityValidationCode.MISSING_ENTITY)
+        if domain == CLIMATE_DOMAIN:
+            if state.attributes.get(CURRENT_HUMIDITY_ATTRIBUTE) is None:
+                raise EntityValidationError(EntityValidationCode.WRONG_DEVICE_CLASS)
+            attribute = CURRENT_HUMIDITY_ATTRIBUTE
+        elif domain == SENSOR_DOMAIN:
+            if state.attributes.get(ATTR_DEVICE_CLASS) != SensorDeviceClass.HUMIDITY:
+                raise EntityValidationError(EntityValidationCode.WRONG_DEVICE_CLASS)
+            attribute = None
+        else:
+            raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
+
+        key = (entity_id, attribute)
+        if key in seen:
+            raise EntityValidationError(EntityValidationCode.DUPLICATE_HUMIDITY_SOURCE)
+        seen.add(key)
+        bindings.append(HumidityBinding(entity_id, attribute))
+    return tuple(bindings)
+
+
+def validate_live_auxiliary_selection(
+    hass: HomeAssistant,
+    value: object,
+    *,
+    allowed_domains: frozenset[str],
+) -> tuple[str, ...]:
+    """Validate an optional, unique, configured-order auxiliary selection."""
+    if not isinstance(value, list):
+        raise EntityValidationError(EntityValidationCode.INVALID_ENTITY_SELECTION)
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw_entity_id in value:
+        entity_id = _entity_id(raw_entity_id)
+        if split_entity_id(entity_id)[0] not in allowed_domains:
+            raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
+        if hass.states.get(entity_id) is None:
+            raise EntityValidationError(EntityValidationCode.MISSING_ENTITY)
+        if entity_id in seen:
+            raise EntityValidationError(EntityValidationCode.DUPLICATE_AUXILIARY_ENTITY)
+        seen.add(entity_id)
+        selected.append(entity_id)
+    return tuple(selected)
+
+
 def validate_persisted_temperature_sources(
     sources: tuple[TemperatureSource, ...],
 ) -> None:
@@ -241,6 +312,32 @@ def validate_persisted_temperature_sources(
             raise EntityValidationError(
                 EntityValidationCode.DUPLICATE_TEMPERATURE_SOURCE
             )
+        seen.add(key)
+
+
+def validate_persisted_humidity_sources(
+    sources: tuple[HumiditySource, ...],
+) -> None:
+    """Validate persisted humidity bindings without requiring live states."""
+    seen: set[tuple[str, str | None]] = set()
+    for source in sources:
+        entity_id = _entity_id(source.entity_id)
+        domain = split_entity_id(entity_id)[0]
+        if domain == CLIMATE_DOMAIN:
+            if source.attribute != CURRENT_HUMIDITY_ATTRIBUTE:
+                raise EntityValidationError(
+                    EntityValidationCode.INVALID_ENTITY_SELECTION
+                )
+        elif domain == SENSOR_DOMAIN:
+            if source.attribute is not None:
+                raise EntityValidationError(
+                    EntityValidationCode.INVALID_ENTITY_SELECTION
+                )
+        else:
+            raise EntityValidationError(EntityValidationCode.WRONG_DOMAIN)
+        key = (entity_id, source.attribute)
+        if key in seen:
+            raise EntityValidationError(EntityValidationCode.DUPLICATE_HUMIDITY_SOURCE)
         seen.add(key)
 
 

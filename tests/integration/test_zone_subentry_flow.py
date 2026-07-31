@@ -28,11 +28,17 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.intelligent_climate import zone_flow as zone_flow_module
 from custom_components.intelligent_climate.const import (
+    CONF_FAN_ENTITY_IDS,
+    CONF_HUMIDITY_SOURCES,
+    CONF_OCCUPANCY_ENTITY_IDS,
     CONF_SOURCE_ENABLED,
     CONF_SOURCE_OFFSET_C,
+    CONF_SOURCE_OFFSET_PCT,
     CONF_SOURCE_PRIORITY,
     CONF_SOURCE_WEIGHT,
+    CONF_STAGE_ENTITY_IDS,
     CONF_TEMPERATURE_SOURCES,
+    CONF_WINDOW_DOOR_ENTITY_IDS,
     CONF_ZONE_NAME,
     CONF_ZONE_THERMOSTAT_ENTITY_IDS,
     DOMAIN,
@@ -42,6 +48,7 @@ from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
     EquipmentType,
+    HumiditySource,
     ObservationSourceId,
     RuntimeConfigurationState,
     SchemaValidationError,
@@ -51,7 +58,10 @@ from custom_components.intelligent_climate.models import (
 from custom_components.intelligent_climate.validation import (
     EntityValidationCode,
     EntityValidationError,
+    validate_live_auxiliary_selection,
+    validate_live_humidity_selection,
     validate_live_temperature_selection,
+    validate_persisted_humidity_sources,
     validate_persisted_temperature_sources,
 )
 from custom_components.intelligent_climate.zone_flow import ZoneSubentryFlowHandler
@@ -215,21 +225,30 @@ async def _submit_add(
     sources: object = None,
     zone_thermostats: object = None,
     source_values: list[dict[str, object]] | None = None,
+    extra_fields: dict[str, object] | None = None,
+    humidity_source_values: list[dict[str, object]] | None = None,
 ) -> config_entries.SubentryFlowResult:
     initial = await _start_add(hass, entry)
     if sources is None:
         sources = [SENSOR]
     if zone_thermostats is None:
         zone_thermostats = [THERMOSTAT]
+    user_input: dict[str, object] = {
+        CONF_ZONE_NAME: name,
+        CONF_ZONE_THERMOSTAT_ENTITY_IDS: zone_thermostats,
+        CONF_TEMPERATURE_SOURCES: sources,
+    }
+    user_input.update(extra_fields or {})
     result = await hass.config_entries.subentries.async_configure(
         initial["flow_id"],
-        user_input={
-            CONF_ZONE_NAME: name,
-            CONF_ZONE_THERMOSTAT_ENTITY_IDS: zone_thermostats,
-            CONF_TEMPERATURE_SOURCES: sources,
-        },
+        user_input=user_input,
     )
-    return await _complete_source_forms(hass, result, source_values=source_values)
+    return await _complete_source_forms(
+        hass,
+        result,
+        source_values=source_values,
+        humidity_source_values=humidity_source_values,
+    )
 
 
 async def _start_reconfigure(
@@ -254,18 +273,27 @@ async def _submit_reconfigure(
     sources: list[str] | None = None,
     zone_thermostats: list[str] | None = None,
     source_values: list[dict[str, object]] | None = None,
+    extra_fields: dict[str, object] | None = None,
+    humidity_source_values: list[dict[str, object]] | None = None,
 ) -> config_entries.SubentryFlowResult:
+    user_input: dict[str, object] = {
+        CONF_ZONE_NAME: name,
+        CONF_ZONE_THERMOSTAT_ENTITY_IDS: (
+            [THERMOSTAT] if zone_thermostats is None else zone_thermostats
+        ),
+        CONF_TEMPERATURE_SOURCES: [SENSOR] if sources is None else sources,
+    }
+    user_input.update(extra_fields or {})
     result = await hass.config_entries.subentries.async_configure(
         initial["flow_id"],
-        user_input={
-            CONF_ZONE_NAME: name,
-            CONF_ZONE_THERMOSTAT_ENTITY_IDS: (
-                [THERMOSTAT] if zone_thermostats is None else zone_thermostats
-            ),
-            CONF_TEMPERATURE_SOURCES: [SENSOR] if sources is None else sources,
-        },
+        user_input=user_input,
     )
-    return await _complete_source_forms(hass, result, source_values=source_values)
+    return await _complete_source_forms(
+        hass,
+        result,
+        source_values=source_values,
+        humidity_source_values=humidity_source_values,
+    )
 
 
 async def _complete_source_forms(
@@ -273,22 +301,34 @@ async def _complete_source_forms(
     result: config_entries.SubentryFlowResult,
     *,
     source_values: list[dict[str, object]] | None = None,
+    humidity_source_values: list[dict[str, object]] | None = None,
 ) -> config_entries.SubentryFlowResult:
-    index = 0
-    while result["type"] is FlowResultType.FORM and result["step_id"] == "source":
+    source_index = 0
+    humidity_index = 0
+    while result["type"] is FlowResultType.FORM and result["step_id"] in {
+        "source",
+        "humidity_source",
+    }:
         schema = result["data_schema"]
         assert isinstance(schema, vol.Schema)
         values = {
             marker.schema: marker.description["suggested_value"]
             for marker in schema.schema
         }
-        if source_values is not None and index < len(source_values):
-            values.update(source_values[index])
+        if result["step_id"] == "source":
+            if source_values is not None and source_index < len(source_values):
+                values.update(source_values[source_index])
+            source_index += 1
+        else:
+            if humidity_source_values is not None and humidity_index < len(
+                humidity_source_values
+            ):
+                values.update(humidity_source_values[humidity_index])
+            humidity_index += 1
         result = await hass.config_entries.subentries.async_configure(
             result["flow_id"],
             user_input=values,
         )
-        index += 1
     return result
 
 
@@ -313,6 +353,11 @@ async def test_add_form_has_name_and_multiple_filtered_entity_selector(
         CONF_ZONE_NAME,
         CONF_ZONE_THERMOSTAT_ENTITY_IDS,
         CONF_TEMPERATURE_SOURCES,
+        CONF_HUMIDITY_SOURCES,
+        CONF_WINDOW_DOOR_ENTITY_IDS,
+        CONF_OCCUPANCY_ENTITY_IDS,
+        CONF_STAGE_ENTITY_IDS,
+        CONF_FAN_ENTITY_IDS,
     }
     assert isinstance(selectors[CONF_ZONE_NAME], TextSelector)
     entity_selector = selectors[CONF_TEMPERATURE_SOURCES]
@@ -795,12 +840,76 @@ async def test_reconfigure_suggests_current_name_and_sources(
     suggested = {
         marker.schema: marker.description["suggested_value"] for marker in schema.schema
     }
-
     assert suggested == {
         CONF_ZONE_NAME: "Dining Room",
         CONF_ZONE_THERMOSTAT_ENTITY_IDS: [THERMOSTAT],
         CONF_TEMPERATURE_SOURCES: [SENSOR],
+        CONF_HUMIDITY_SOURCES: [],
+        CONF_WINDOW_DOOR_ENTITY_IDS: [],
+        CONF_OCCUPANCY_ENTITY_IDS: [],
+        CONF_STAGE_ENTITY_IDS: [],
+        CONF_FAN_ENTITY_IDS: [],
     }
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_reconfigure_adds_humidity_and_optional_zone_sources(
+    hass: HomeAssistant,
+) -> None:
+    """Every requested source type is selectable through the zone UI."""
+    _set_temperature_sensor(hass)
+    humidity_sensor = "sensor.dining_room_humidity"
+    hass.states.async_set(
+        humidity_sensor,
+        "48",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY},
+    )
+    entry = _make_parent(hass, subentries=[_subentry_data()])
+    hass.states.async_set(THERMOSTAT, "heat", {"current_humidity": 47})
+    contact = "binary_sensor.dining_room_window"
+    occupancy = "person.michael"
+    stage = "binary_sensor.aux_heat"
+    fan = "fan.hvac_circulation"
+    for entity_id, state in (
+        (contact, "off"),
+        (occupancy, "home"),
+        (stage, "off"),
+        (fan, "off"),
+    ):
+        hass.states.async_set(entity_id, state)
+
+    with patch.object(hass.config_entries, "async_schedule_reload"):
+        result = await _submit_reconfigure(
+            hass,
+            await _start_reconfigure(hass, entry),
+            extra_fields={
+                CONF_HUMIDITY_SOURCES: [THERMOSTAT, humidity_sensor],
+                CONF_WINDOW_DOOR_ENTITY_IDS: [contact],
+                CONF_OCCUPANCY_ENTITY_IDS: [occupancy],
+                CONF_STAGE_ENTITY_IDS: [stage],
+                CONF_FAN_ENTITY_IDS: [fan],
+            },
+            humidity_source_values=[
+                {CONF_SOURCE_OFFSET_PCT: -1.0},
+                {CONF_SOURCE_OFFSET_PCT: 0.5},
+            ],
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    zone = decode_zone_config(entry.subentries["zone-subentry-1"].data)
+    assert [item.entity_id for item in zone.humidity_sources] == [
+        THERMOSTAT,
+        humidity_sensor,
+    ]
+    assert [item.attribute for item in zone.humidity_sources] == [
+        "current_humidity",
+        None,
+    ]
+    assert [item.offset_pct for item in zone.humidity_sources] == [-1.0, 0.5]
+    assert zone.window_door_entity_ids == (contact,)
+    assert zone.occupancy_entity_ids == (occupancy,)
+    assert zone.stage_entity_ids == (stage,)
+    assert zone.fan_entity_ids == (fan,)
 
 
 def _metadata_zone_data() -> dict[str, object]:
@@ -1251,6 +1360,113 @@ async def test_validation_helpers_reject_nonlist_and_duplicate_persisted_sources
     )
     with pytest.raises(EntityValidationError, match="duplicate_temperature_source"):
         validate_persisted_temperature_sources((source, duplicate))
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_humidity_and_auxiliary_validation_is_strict(
+    hass: HomeAssistant,
+) -> None:
+    """Optional selectors accept only live, compatible, unique entities."""
+    thermostat = "climate.humidity_capable"
+    humidity = "sensor.humidity"
+    contact = "binary_sensor.window"
+    hass.states.async_set(thermostat, "heat", {"current_humidity": 46})
+    hass.states.async_set(
+        humidity,
+        "47",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.HUMIDITY},
+    )
+    hass.states.async_set(contact, "off")
+
+    assert validate_live_humidity_selection(hass, [thermostat, humidity]) == (
+        zone_flow_module.HumidityBinding(thermostat, "current_humidity"),
+        zone_flow_module.HumidityBinding(humidity, None),
+    )
+    assert validate_live_auxiliary_selection(
+        hass,
+        [contact],
+        allowed_domains=frozenset({"binary_sensor"}),
+    ) == (contact,)
+
+    for value, expected in (
+        (humidity, "invalid_entity_selection"),
+        (["sensor.missing"], "missing_entity"),
+        ([contact], "wrong_domain"),
+        ([humidity, humidity], "duplicate_humidity_source"),
+    ):
+        with pytest.raises(EntityValidationError, match=expected):
+            validate_live_humidity_selection(hass, value)
+
+    hass.states.async_set("climate.no_humidity", "heat")
+    hass.states.async_set(
+        "sensor.temperature_only",
+        "20",
+        {ATTR_DEVICE_CLASS: SensorDeviceClass.TEMPERATURE},
+    )
+    for entity_id in ("climate.no_humidity", "sensor.temperature_only"):
+        with pytest.raises(EntityValidationError, match="wrong_device_class"):
+            validate_live_humidity_selection(hass, [entity_id])
+
+    for value, expected in (
+        (contact, "invalid_entity_selection"),
+        (["sensor.humidity"], "wrong_domain"),
+        (["binary_sensor.missing"], "missing_entity"),
+        ([contact, contact], "duplicate_auxiliary_entity"),
+    ):
+        with pytest.raises(EntityValidationError, match=expected):
+            validate_live_auxiliary_selection(
+                hass,
+                value,
+                allowed_domains=frozenset({"binary_sensor"}),
+            )
+
+
+def test_persisted_humidity_validation_is_strict() -> None:
+    """Persisted humidity bindings validate structure without live states."""
+
+    def source(
+        entity_id: str,
+        attribute: str | None,
+        source_id: str,
+    ) -> HumiditySource:
+        return HumiditySource(
+            source_id=ObservationSourceId.parse(source_id),
+            entity_id=entity_id,
+            attribute=attribute,
+            offset_pct=0.0,
+            weight=1.0,
+            priority=0,
+            enabled=True,
+        )
+
+    sensor = source("sensor.humidity", None, SOURCE_ID)
+    thermostat = source(
+        "climate.main_floor",
+        "current_humidity",
+        "ce30dafc-fadd-4cc4-b261-8a896d5a6d12",
+    )
+    validate_persisted_humidity_sources((sensor, thermostat))
+
+    invalid = (
+        (replace(thermostat, attribute=None), "invalid_entity_selection"),
+        (replace(sensor, attribute="state"), "invalid_entity_selection"),
+        (replace(sensor, entity_id="binary_sensor.window"), "wrong_domain"),
+    )
+    for binding, expected in invalid:
+        with pytest.raises(EntityValidationError, match=expected):
+            validate_persisted_humidity_sources((binding,))
+    with pytest.raises(EntityValidationError, match="duplicate_humidity_source"):
+        validate_persisted_humidity_sources(
+            (
+                sensor,
+                replace(
+                    sensor,
+                    source_id=ObservationSourceId.parse(
+                        "4f778a6a-3323-4bbb-838e-24ab66f61b9e"
+                    ),
+                ),
+            )
+        )
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

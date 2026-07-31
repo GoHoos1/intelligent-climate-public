@@ -50,12 +50,19 @@ Verify the following without changing thermostat state:
    capability instead of inventing data.
 5. **Sensors** identifies unavailable or excluded sources without exposing
    sensitive raw payloads.
-6. **Activity** filters records without changing their chronological order.
-7. **Settings** states that this checkpoint is read-only and directs
-   configuration changes to supported Home Assistant surfaces.
-8. Reload the integration, restart Home Assistant, refresh the browser, and
+6. **Activity** lists the newest records first, filters them without changing
+   the retained backend history, and loads older records on request.
+7. **Settings** can follow Home Assistant's temperature unit or consistently
+   display Fahrenheit/Celsius throughout this browser.
+8. Open **Settings → Integration configuration**, reconfigure an existing zone,
+   and confirm humidity, contact, occupancy, HVAC-stage, and fan sources are
+   selectable. Thermostats appear as humidity choices only when they report
+   `current_humidity`.
+9. Confirm historical Repair activity is labeled as history while any currently
+   active Repair is called out separately in Settings.
+10. Reload the integration, restart Home Assistant, refresh the browser, and
    switch light/dark themes. The panel should recover without duplicates.
-9. At desktop, tablet, and narrow phone widths, route controls remain reachable
+11. At desktop, tablet, and narrow phone widths, route controls remain reachable
    and keyboard focus remains visible.
 
 Capture the Home Assistant Core version, browser/device, screenshots, and any
@@ -71,4 +78,5 @@ console or integration log errors with the exact Package G commit.
    Package G sidebar should no longer be registered.
 
 Do not delete Intelligent Climate config entries or `.storage` files during
-rollback.
+installation, reconfiguration, or rollback. Existing migrated entries preserve
+stable equipment/zone identities and are the supported upgrade path.

@@ -97,6 +97,9 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     const timeline = this.timeline;
     const rendered = this.renderedSeries(timeline);
+    const hasChartHistory = timeline.series.some(
+      (series) => series.unit !== "%" && numericSamples(series).length >= 2,
+    );
     const stateSeries = timeline.series.filter((series) =>
       ["hvac_action", "fan_action"].includes(series.kind),
     );
@@ -120,65 +123,77 @@ export class IntelligentClimateTodayTimeline extends LitElement {
           ? html`<div class="empty" role="status">
               No numeric observations yet.
             </div>`
-          : html`<div class="chart-wrap">
-              <svg
-                viewBox="0 0 1000 300"
-                role="img"
-                aria-labelledby="timeline-title timeline-description"
-              >
-                <title id="timeline-title">
-                  Today climate observations and targets
-                </title>
-                <desc id="timeline-description">
-                  Solid lines are measured. Dashed lines are configured. Dotted
-                  lines are calculated. Exact values follow in the accessible
-                  table.
-                </desc>
-                <g class="grid" aria-hidden="true">
-                  ${[40, 95, 150, 205, 260].map(
-                    (y) => html`<line x1="55" x2="970" y1=${y} y2=${y}></line>`,
-                  )}
-                  ${[55, 284, 513, 742, 970].map(
-                    (x) => html`<line x1=${x} x2=${x} y1="40" y2="260"></line>`,
-                  )}
-                </g>
-                ${rendered.map(
-                  (series) =>
-                    html`<path
-                      class="series ${series.className}"
-                      d=${series.path}
-                      vector-effect="non-scaling-stroke"
-                    ></path>`,
-                )}
-                ${
-                  cursor === null
-                    ? nothing
-                    : html`<line
-                        class="now"
-                        x1=${cursor}
-                        x2=${cursor}
-                        y1="35"
-                        y2="265"
+          : !hasChartHistory
+            ? html`<div class="empty collecting" role="status">
+                <div>
+                  <strong>Collecting climate history</strong>
+                  <p>
+                    The first useful chart will appear after at least two
+                    observations. Current readings are already available above.
+                  </p>
+                </div>
+              </div>`
+            : html`<div class="chart-wrap">
+                <svg
+                  viewBox="0 0 1000 300"
+                  role="img"
+                  aria-labelledby="timeline-title timeline-description"
+                >
+                  <title id="timeline-title">
+                    Today climate observations and targets
+                  </title>
+                  <desc id="timeline-description">
+                    Solid lines are measured. Dashed lines are configured.
+                    Dotted lines are calculated. Exact values follow in the
+                    accessible table.
+                  </desc>
+                  <g class="grid" aria-hidden="true">
+                    ${[40, 95, 150, 205, 260].map(
+                      (y) =>
+                        html`<line x1="55" x2="970" y1=${y} y2=${y}></line>`,
+                    )}
+                    ${[55, 284, 513, 742, 970].map(
+                      (x) =>
+                        html`<line x1=${x} x2=${x} y1="40" y2="260"></line>`,
+                    )}
+                  </g>
+                  ${rendered.map(
+                    (series) =>
+                      html`<path
+                        class="series ${series.className}"
+                        d=${series.path}
                         vector-effect="non-scaling-stroke"
-                      ></line>`
-                }
-                ${timeline.annotations.map((annotation) => {
-                  const x = this.xPosition(
-                    Date.parse(annotation.timestamp_utc),
-                    timeline,
-                  );
-                  return html`<g class="annotation" aria-hidden="true">
-                    <circle cx=${x} cy="28" r="6"></circle>
-                    <line x1=${x} x2=${x} y1="34" y2="46"></line>
-                  </g>`;
-                })}
-                <g class="axis-labels" aria-hidden="true">
-                  <text x="55" y="288">12 AM</text>
-                  <text x="513" y="288" text-anchor="middle">12 PM</text>
-                  <text x="970" y="288" text-anchor="end">12 AM</text>
-                </g>
-              </svg>
-            </div>`
+                      ></path>`,
+                  )}
+                  ${
+                    cursor === null
+                      ? nothing
+                      : html`<line
+                          class="now"
+                          x1=${cursor}
+                          x2=${cursor}
+                          y1="35"
+                          y2="265"
+                          vector-effect="non-scaling-stroke"
+                        ></line>`
+                  }
+                  ${timeline.annotations.map((annotation) => {
+                    const x = this.xPosition(
+                      Date.parse(annotation.timestamp_utc),
+                      timeline,
+                    );
+                    return html`<g class="annotation" aria-hidden="true">
+                      <circle cx=${x} cy="28" r="6"></circle>
+                      <line x1=${x} x2=${x} y1="34" y2="46"></line>
+                    </g>`;
+                  })}
+                  <g class="axis-labels" aria-hidden="true">
+                    <text x="55" y="288">12 AM</text>
+                    <text x="513" y="288" text-anchor="middle">12 PM</text>
+                    <text x="970" y="288" text-anchor="end">12 AM</text>
+                  </g>
+                </svg>
+              </div>`
       }
       ${
         stateSeries.length === 0
@@ -440,6 +455,12 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       border-radius: 14px;
       text-align: center;
       padding: 24px;
+    }
+    .empty.collecting {
+      min-block-size: 96px;
+    }
+    .empty.collecting p {
+      margin: 6px 0 0;
     }
     summary {
       min-block-size: 44px;

@@ -87,6 +87,7 @@ describe("IntelligentClimateClient", () => {
         type: "intelligent_climate/activity/list",
         offset: 10,
         limit: 25,
+        order: "newest",
       }),
     );
   });

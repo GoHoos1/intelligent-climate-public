@@ -799,7 +799,12 @@ def test_flow_surfaces_and_translations_are_complete() -> None:
         encode_options(DEFAULT_OPTIONS)
     )
     zone = translations["config_subentries"][SUBENTRY_TYPE_ZONE]
-    assert set(zone["step"]) == {"user", "reconfigure", "source"}
+    assert set(zone["step"]) == {
+        "user",
+        "reconfigure",
+        "source",
+        "humidity_source",
+    }
     assert translations["exceptions"]["observation_only"]["message"] == (
         "Intelligent Climate is observation-only and cannot change HVAC equipment."
     )

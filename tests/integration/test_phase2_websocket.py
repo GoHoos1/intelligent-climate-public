@@ -100,3 +100,53 @@ async def test_websocket_api_rejects_unknown_frontend_version(
     response = await client.receive_json()
     assert not response["success"]
     assert response["error"]["code"] == "invalid_format"
+
+
+async def test_activity_defaults_newest_first_and_can_request_oldest(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Presentation order changes without mutating chronological storage."""
+    async_register_websocket_api(hass)
+    earlier = datetime(2026, 7, 31, 17, tzinfo=UTC)
+    later = datetime(2026, 7, 31, 18, tzinfo=UTC)
+
+    def record(record_id: str, timestamp: datetime) -> SimpleNamespace:
+        return SimpleNamespace(
+            record_id=record_id,
+            zone_id=None,
+            timestamp=timestamp,
+            activity_type=SimpleNamespace(value="observation"),
+            reason_code=SimpleNamespace(value="observation_updated"),
+            severity=SimpleNamespace(value="info"),
+            explanation=record_id,
+        )
+
+    stored = (record("earlier", earlier), record("later", later))
+    coordinator = SimpleNamespace(history=SimpleNamespace(records=stored))
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry-activity",
+        state=ConfigEntryState.LOADED,
+    )
+    entry.add_to_hass(hass)
+    entry.runtime_data = coordinator
+    client = await hass_ws_client(hass)
+
+    for order, expected in (
+        (None, ["later", "earlier"]),
+        ("oldest", ["earlier", "later"]),
+    ):
+        message: dict[str, object] = {
+            "type": "intelligent_climate/activity/list",
+            "api_version": API_VERSION,
+            "entry_id": entry.entry_id,
+        }
+        if order is not None:
+            message["order"] = order
+        await client.send_json_auto_id(message)
+        response = await client.receive_json()
+        assert response["success"]
+        assert [item["record_id"] for item in response["result"]["records"]] == expected
+
+    assert coordinator.history.records == stored

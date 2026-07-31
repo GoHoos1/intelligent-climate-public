@@ -10,18 +10,27 @@ import {
 import {
   formatTemperature,
   formatTimestamp,
+  humanizeCode,
   statusSemantics,
 } from "../accessibility/semantics";
 import { IntelligentClimateClient } from "../api/client";
 import { FrontendContractError } from "../api/validate";
 import "../components/today-timeline";
+import {
+  readTemperatureUnitPreference,
+  resolveTemperatureUnit,
+  type TemperatureUnitPreference,
+  writeTemperatureUnitPreference,
+} from "../preferences/temperature-unit";
 import { intelligentClimateTheme } from "../styles/theme";
 import type {
   ActivityRecord,
+  ConfiguredSource,
   EntryDashboardData,
   NarrativeResponse,
   SnapshotResponse,
   TodayTimelineResponse,
+  ReviewedBinding,
   ZoneConfiguration,
   ZoneSnapshot,
 } from "../types/contracts";
@@ -63,6 +72,8 @@ export class IntelligentClimatePanel extends LitElement {
     loading: { state: true },
     errorMessage: { state: true },
     activityFilter: { state: true },
+    temperatureUnitPreference: { state: true },
+    activityLoadingOlder: { state: true },
   };
 
   declare public hass: HomeAssistantLike;
@@ -79,6 +90,9 @@ export class IntelligentClimatePanel extends LitElement {
   protected loading = true;
   protected errorMessage = "";
   protected activityFilter = "all";
+  protected temperatureUnitPreference: TemperatureUnitPreference =
+    readTemperatureUnitPreference();
+  protected activityLoadingOlder = false;
 
   private client: IntelligentClimateClient | undefined;
   private unsubscribe: (() => void) | undefined;
@@ -216,7 +230,7 @@ export class IntelligentClimatePanel extends LitElement {
         aria-labelledby="status-title"
       >
         <div class="status-copy">
-          <span class="eyebrow">Current operating stage</span>
+          <span class="eyebrow">Current operating status</span>
           <h2 id="status-title">
             <span aria-hidden="true">${status.icon}</span> ${status.label}
           </h2>
@@ -224,14 +238,14 @@ export class IntelligentClimatePanel extends LitElement {
             ${
               status.automationOff
                 ? "Automation is off. Sensors, thermostat state, weather context, activity, and history remain available."
-                : "The full safety path is evaluating current conditions. No physical control is available in this test candidate."
+                : "The safety path is evaluating current conditions. This read-only preview does not control your equipment."
             }
           </p>
           <div class="status-meta">
             <span>Revision ${data.snapshot.observation_revision}</span>
             <span>Updated ${this.time(data.snapshot.calculated_at_utc)}</span>
             <span
-              >${data.snapshot.reason_code?.replaceAll("_", " ") ?? "No reason code"}</span
+              >${data.snapshot.reason_code === null ? "No current alert" : humanizeCode(data.snapshot.reason_code)}</span
             >
           </div>
         </div>
@@ -257,9 +271,14 @@ export class IntelligentClimatePanel extends LitElement {
         </article>
         <article class="metric-card">
           <span class="metric-icon humidity" aria-hidden="true">◇</span>
-          <div><span>Humidity</span><strong>Measured</strong></div>
+          <div>
+            <span>Humidity</span
+            ><strong
+              >${this.selectedZone()?.humidity_sources.some((source) => source.enabled) === true ? "Measured" : "Not configured"}</strong
+            >
+          </div>
           <b
-            >${this.humidity(this.selectedZoneSnapshot()?.effective_humidity_pct ?? null)}</b
+            >${this.humidity(this.selectedZoneSnapshot()?.effective_humidity_pct ?? null, this.selectedZone()?.humidity_sources.some((source) => source.enabled) === true)}</b
           >
         </article>
         <article class="metric-card">
@@ -275,7 +294,7 @@ export class IntelligentClimatePanel extends LitElement {
         <article class="metric-card">
           <span class="metric-icon history" aria-hidden="true">↺</span>
           <div>
-            <span>Local timeline</span><strong>Presentation history</strong>
+            <span>Local timeline</span><strong>Recent climate history</strong>
           </div>
           <b>${data.observation.presentation_history_hours}h</b>
         </article>
@@ -304,16 +323,7 @@ export class IntelligentClimatePanel extends LitElement {
               ? html`<p class="muted">
                   A current explanation is not available yet.
                 </p>`
-              : html`<p class="narrative">${this.narrative.rendered}</p>
-                  <div
-                    class="fact-chips"
-                    aria-label="Explanation fact categories"
-                  >
-                    ${this.narrative.included_categories.map(
-                      (category) =>
-                        html`<span>${category.replaceAll("_", " ")}</span>`,
-                    )}
-                  </div>`
+              : html`<p class="narrative">${this.renderNarrative()}</p>`
           }
         </section>
 
@@ -416,7 +426,7 @@ export class IntelligentClimatePanel extends LitElement {
       <section class="card activity-preview" aria-labelledby="recent-heading">
         <div class="card-heading">
           <div>
-            <span class="eyebrow">Material changes only</span>
+            <span class="eyebrow">Only meaningful changes are recorded</span>
             <h2 id="recent-heading">Recent activity</h2>
           </div>
           <button
@@ -463,12 +473,12 @@ export class IntelligentClimatePanel extends LitElement {
     return html`
       <section class="page-heading">
         <div>
-          <span class="eyebrow">Observation health</span>
+          <span class="eyebrow">Current readings and configured sources</span>
           <h2>Sensors</h2>
         </div>
         <p>
-          Included sources and current quality. Unavailable values are never
-          rendered as zero.
+          See which sources each zone uses and whether current readings are
+          available. Missing values are never shown as zero.
         </p>
       </section>
       <section class="sensor-summary">
@@ -509,41 +519,51 @@ export class IntelligentClimatePanel extends LitElement {
                 >${this.temperature(snapshot?.effective_temperature_c ?? null)}</strong
               >
               <span
-                >${this.humidity(snapshot?.effective_humidity_pct ?? null)}
+                >${this.humidity(
+                  snapshot?.effective_humidity_pct ?? null,
+                  zone.humidity_sources.some((source) => source.enabled),
+                )}
                 humidity</span
               >
             </div>
             <dl class="source-counts">
               <div>
                 <dt>Temperature</dt>
-                <dd>${zone.temperature_sources.length}</dd>
+                <dd>${this.enabledSourceCount(zone.temperature_sources)}</dd>
               </div>
               <div>
                 <dt>Humidity</dt>
-                <dd>${zone.humidity_sources.length}</dd>
+                <dd>${this.enabledSourceCount(zone.humidity_sources)}</dd>
               </div>
               <div>
                 <dt>Contacts</dt>
-                <dd>${zone.window_door_entity_ids.length}</dd>
+                <dd>
+                  ${this.enabledBindingCount(zone.window_door_entity_ids)}
+                </dd>
               </div>
               <div>
                 <dt>Occupancy</dt>
-                <dd>${zone.occupancy_entity_ids.length}</dd>
+                <dd>${this.enabledBindingCount(zone.occupancy_entity_ids)}</dd>
+              </div>
+              <div>
+                <dt>HVAC stage</dt>
+                <dd>${zone.stage_entity_ids.length}</dd>
               </div>
               <div>
                 <dt>Fan</dt>
-                <dd>${zone.fan_entity_ids.length}</dd>
+                <dd>${this.enabledBindingCount(zone.fan_entity_ids)}</dd>
               </div>
             </dl>
             ${snapshot?.sensor_data_degraded === true ? html`<p class="warning-copy">Temperature source data is degraded.</p>` : nothing}
             ${snapshot?.thermostat_data_degraded === true ? html`<p class="warning-copy">Thermostat observation data is degraded.</p>` : nothing}
+            ${this.enabledSourceCount(zone.humidity_sources) === 0 ? html`<p class="muted">Humidity is not configured for this zone. Reconfigure the zone to select a humidity sensor or thermostat.</p>` : nothing}
           </article>`;
         })}
       </div>
       <section class="boundary-note">
         <span aria-hidden="true">ⓘ</span>
         <div>
-          <strong>Observation history, honestly labeled</strong>
+          <strong>History availability</strong>
           <p>${data.observation.history_boundary}</p>
         </div>
       </section>
@@ -560,7 +580,7 @@ export class IntelligentClimatePanel extends LitElement {
     return html`
       <section class="page-heading with-action">
         <div>
-          <span class="eyebrow">Bounded and chronological</span>
+          <span class="eyebrow">Newest activity first</span>
           <h2>Activity</h2>
           <p>
             Decisions, observations, transitions, warnings, and lifecycle
@@ -582,6 +602,18 @@ export class IntelligentClimatePanel extends LitElement {
           Showing ${records.length} of ${data.activity.total} retained records
         </p>
         ${this.renderActivityRecords(records)}
+        ${
+          data.activity.records.length < data.activity.total
+            ? html`<button
+                type="button"
+                class="load-more"
+                ?disabled=${this.activityLoadingOlder}
+                @click=${this.loadOlderActivity}
+              >
+                ${this.activityLoadingOlder ? "Loading…" : "Load older activity"}
+              </button>`
+            : nothing
+        }
       </section>
     `;
   }
@@ -604,17 +636,15 @@ export class IntelligentClimatePanel extends LitElement {
           ></span>
           <div class="activity-body">
             <div class="activity-title">
-              <strong>${record.activity_type.replaceAll("_", " ")}</strong
+              <strong>${humanizeCode(record.activity_type)}</strong
               ><time datetime=${record.timestamp_utc}
                 >${this.time(record.timestamp_utc)}</time
               >
             </div>
             <p>${record.explanation}</p>
             <div class="activity-meta">
-              <span>${record.reason_code.replaceAll("_", " ")}</span
-              >${zone === undefined ? nothing : html`<span>${zone.name}</span>`}<span
-                >${record.severity}</span
-              >
+              <span>${humanizeCode(record.reason_code)}</span
+              >${zone === undefined ? nothing : html`<span>${zone.name}</span>`}<span>${record.severity}</span>${this.repairRecordStatus(record)}
             </div>
           </div>
         </li>`;
@@ -630,15 +660,36 @@ export class IntelligentClimatePanel extends LitElement {
     return html`
       <section class="page-heading">
         <div>
-          <span class="eyebrow">Status before configuration</span>
-          <h2>Settings & diagnostics</h2>
+          <span class="eyebrow">Configuration & system health</span>
+          <h2>Settings</h2>
         </div>
         <p>
-          Package G exposes the safe read-only shell. Schedule and control
-          editors arrive in the next frontend packages.
+          Manage how information is displayed, review system health, and open
+          Home Assistant’s source configuration.
         </p>
       </section>
       <div class="settings-grid">
+        <section class="card setting-card">
+          <span class="setting-icon" aria-hidden="true">°</span>
+          <div>
+            <h3>Temperature display</h3>
+            <label class="setting-select">
+              <span>Use temperatures in</span>
+              <select
+                .value=${this.temperatureUnitPreference}
+                @change=${this.temperatureUnitChanged}
+              >
+                <option value="home_assistant">Follow Home Assistant</option>
+                <option value="fahrenheit">Fahrenheit (°F)</option>
+                <option value="celsius">Celsius (°C)</option>
+              </select>
+            </label>
+            <p>
+              Applies to temperatures, targets, explanations, and the Today
+              timeline in this browser.
+            </p>
+          </div>
+        </section>
         <section class="card setting-card">
           <span class="setting-icon" aria-hidden="true">◉</span>
           <div>
@@ -679,13 +730,15 @@ export class IntelligentClimatePanel extends LitElement {
           </div>
         </section>
         <section class="card setting-card">
-          <span class="setting-icon" aria-hidden="true">◇</span>
+          <span class="setting-icon" aria-hidden="true">⚠</span>
           <div>
-            <h3>Frontend contract</h3>
-            <p class="setting-value">API v${this.panel.config.api_version}</p>
+            <h3>Repairs</h3>
+            <p class="setting-value">
+              ${data.configuration.active_repairs.length === 0 ? "No active repairs" : `${String(data.configuration.active_repairs.length)} need attention`}
+            </p>
             <p>
-              Panel ${this.panel.config.frontend_version}; malformed or
-              mismatched payloads fail closed.
+              Activity retains historical repair events. Only items currently
+              listed here are active now.
             </p>
           </div>
         </section>
@@ -697,7 +750,10 @@ export class IntelligentClimatePanel extends LitElement {
             ><span aria-hidden="true">⚙</span>
             <div>
               <strong>Integration configuration</strong
-              ><small>Manage equipment groups and zones</small>
+              ><small
+                >Select humidity, contact, occupancy, stage, fan, and
+                temperature sources by reconfiguring a zone</small
+              >
             </div>
             <span aria-hidden="true">→</span></a
           >
@@ -722,13 +778,21 @@ export class IntelligentClimatePanel extends LitElement {
       <section class="boundary-note">
         <span aria-hidden="true">🛡</span>
         <div>
-          <strong>Safe interim test candidate</strong>
+          <strong>Read-only preview</strong>
           <p>
-            This panel can read Observe Only and Shadow data. It contains no
-            active adapter, physical sink, or service-call path.
+            Observe Only and Shadow information is available here. This release
+            cannot send commands to your thermostat or fans.
           </p>
         </div>
       </section>
+      <details class="card diagnostics-details">
+        <summary>Technical diagnostics</summary>
+        <p>
+          Frontend ${this.panel.config.frontend_version}; API
+          v${this.panel.config.api_version}. Invalid or mismatched data is not
+          displayed.
+        </p>
+      </details>
     `;
   }
 
@@ -760,14 +824,20 @@ export class IntelligentClimatePanel extends LitElement {
   }
 
   private temperatureUnit(): "°C" | "°F" {
-    return this.hass.config.unit_system.temperature;
+    return resolveTemperatureUnit(
+      this.temperatureUnitPreference,
+      this.hass.config.unit_system.temperature,
+    );
   }
 
   private temperature(value: number | null): string {
     return formatTemperature(value, this.temperatureUnit(), this.locale());
   }
 
-  private humidity(value: number | null): string {
+  private humidity(value: number | null, configured = true): string {
+    if (!configured) {
+      return "Not configured";
+    }
     return value === null
       ? "Unavailable"
       : `${new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 1 }).format(value)}%`;
@@ -775,6 +845,75 @@ export class IntelligentClimatePanel extends LitElement {
 
   private time(value: string): string {
     return formatTimestamp(value, this.locale(), this.timeline?.time_zone);
+  }
+
+  private enabledSourceCount(sources: ConfiguredSource[]): number {
+    return sources.filter((source) => source.enabled).length;
+  }
+
+  private enabledBindingCount(bindings: ReviewedBinding[]): number {
+    return bindings.filter((binding) => binding.enabled && binding.reviewed)
+      .length;
+  }
+
+  private renderNarrative(): string {
+    const facts = this.narrative;
+    if (facts === undefined) {
+      return "A current explanation is not available yet.";
+    }
+    const control: Record<string, string> = {
+      observing: "Intelligent Climate is observing only.",
+      manual_idle: "Manual Control is selected and automation is off.",
+      shadow_qualifying:
+        "Scheduled Shadow is evaluating conditions without sending commands.",
+      shadow_ready:
+        "Scheduled Shadow is ready and is still not sending commands.",
+      safe_fallback: "Automatic control is suppressed by Safe Fallback.",
+      emergency_paused: "Control is paused.",
+      degraded: "Observation is continuing with degraded data.",
+      reconciling: "Live state is being checked after startup.",
+    };
+    const sentences = [
+      control[facts.control_state] ??
+        `Current status: ${humanizeCode(facts.control_state)}.`,
+    ];
+    const target = facts.effective_target_c ?? facts.scheduled_target_c;
+    if (target !== null) {
+      const transition =
+        facts.next_transition_utc === null
+          ? ""
+          : ` until ${this.time(facts.next_transition_utc)}`;
+      sentences.push(
+        `The current target is ${this.temperature(target)}${transition}.`,
+      );
+    }
+    if (facts.temperature_c !== null) {
+      const action =
+        facts.hvac_action === null
+          ? ""
+          : `, and the thermostat reports ${facts.hvac_action}`;
+      sentences.push(
+        `The zone is ${this.temperature(facts.temperature_c)}${action}.`,
+      );
+    }
+    if (facts.source_degraded) {
+      sentences.push("Some current sensor data needs attention.");
+    }
+    return sentences.join(" ");
+  }
+
+  private repairRecordStatus(
+    record: ActivityRecord,
+  ): TemplateResult | typeof nothing {
+    if (!record.activity_type.startsWith("repair_issue_")) {
+      return nothing;
+    }
+    const active =
+      this.data?.configuration.active_repairs.includes(record.reason_code) ===
+      true;
+    return html`<span class=${active ? "repair-active" : "repair-history"}
+      >${active ? "Active repair" : "Historical record"}</span
+    >`;
   }
 
   private async initialize(): Promise<void> {
@@ -887,6 +1026,61 @@ export class IntelligentClimatePanel extends LitElement {
     const target = event.currentTarget;
     if (target instanceof HTMLSelectElement) {
       this.activityFilter = target.value;
+    }
+  };
+
+  private temperatureUnitChanged = (event: Event): void => {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLSelectElement)) {
+      return;
+    }
+    const value = target.value;
+    if (
+      value !== "home_assistant" &&
+      value !== "fahrenheit" &&
+      value !== "celsius"
+    ) {
+      return;
+    }
+    this.temperatureUnitPreference = value;
+    writeTemperatureUnitPreference(value);
+  };
+
+  private loadOlderActivity = async (): Promise<void> => {
+    if (
+      this.client === undefined ||
+      this.data === undefined ||
+      this.activityLoadingOlder
+    ) {
+      return;
+    }
+    const currentData = this.data;
+    const generation = this.loadGeneration;
+    this.activityLoadingOlder = true;
+    try {
+      const page = await this.client.activity(
+        currentData.activity.records.length,
+        100,
+        "newest",
+      );
+      if (generation !== this.loadGeneration) {
+        return;
+      }
+      const existing = new Set(
+        currentData.activity.records.map((record) => record.record_id),
+      );
+      const records = [
+        ...currentData.activity.records,
+        ...page.records.filter((record) => !existing.has(record.record_id)),
+      ];
+      this.data = {
+        ...currentData,
+        activity: { ...page, offset: 0, records },
+      };
+    } catch (error: unknown) {
+      this.errorMessage = this.describeError(error);
+    } finally {
+      this.activityLoadingOlder = false;
     }
   };
 
@@ -1517,6 +1711,23 @@ export class IntelligentClimatePanel extends LitElement {
         margin: 0;
         padding: 0;
       }
+      .load-more {
+        min-block-size: 44px;
+        display: block;
+        margin: 18px auto 0;
+        padding-inline: 18px;
+        border: 1px solid var(--ic-border);
+        border-radius: 12px;
+        background: var(--ic-surface-muted);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-weight: 650;
+        cursor: pointer;
+      }
+      .load-more:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
       .activity-list li {
         display: grid;
         grid-template-columns: 16px 1fr;
@@ -1573,6 +1784,19 @@ export class IntelligentClimatePanel extends LitElement {
         flex-wrap: wrap;
         gap: 6px;
       }
+      .repair-active,
+      .repair-history {
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-weight: 650;
+      }
+      .repair-active {
+        background: color-mix(in srgb, var(--error-color) 14%, transparent);
+        color: var(--error-color);
+      }
+      .repair-history {
+        background: var(--ic-surface-muted);
+      }
       .empty-state {
         min-block-size: 180px;
         display: grid;
@@ -1607,6 +1831,23 @@ export class IntelligentClimatePanel extends LitElement {
       .setting-card .setting-value {
         color: var(--primary-text-color);
         font-weight: 700;
+      }
+      .setting-select {
+        display: grid;
+        gap: 6px;
+        margin-block: 8px;
+        color: var(--secondary-text-color);
+        font-size: 0.82rem;
+      }
+      .setting-select select {
+        inline-size: 100%;
+      }
+      .diagnostics-details {
+        margin-block-start: 18px;
+      }
+      .diagnostics-details p {
+        color: var(--secondary-text-color);
+        padding-block-start: 10px;
       }
       .links-card {
         margin-block-start: 18px;

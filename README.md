@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.9 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.10 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,15 +14,21 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.9**. Intelligent Climate is pre-alpha software
+The current release is **0.0.10**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.9 preserves the accepted Phase 1 observation behavior and adds the
-first visible Phase 2 checkpoint: a read-only Intelligent Climate sidebar,
-versioned backend data, Today timeline, factual operating explanation, and
-suppressed Shadow readiness/activity. Physical HVAC control remains absent.
+Release 0.0.10 preserves the accepted Phase 1 observation behavior and
+stabilizes the first visible Phase 2 checkpoint with configurable optional
+zone sources, consistent temperature units, and a clearer read-only sidebar.
+Physical HVAC control remains absent.
 
 ## Recent changes
 
+- **0.0.10**
+  - Added zone selectors for humidity, window/door, occupancy, HVAC-stage, and
+    fan sources, including thermostat `current_humidity` support.
+  - Added Follow Home Assistant, Fahrenheit, and Celsius display choices.
+  - Made Activity newest-first with paging, clarified current versus historical
+    Repairs, and improved sparse-history and user-facing descriptions.
 - **0.0.9**
   - Added the Intelligent Climate sidebar with Overview, Sensors, Activity, and
     Settings views.
@@ -95,6 +101,8 @@ Intelligent Climate currently provides:
 - Zone temperature calculated from one or more configured temperature sensors
   or a thermostat's public `current_temperature` attribute.
 - Optional humidity aggregation when humidity sources are configured.
+- Reconfiguration selectors for optional humidity, window/door, occupancy,
+  HVAC-stage, and fan sources while preserving stable zone/source identities.
 - Observed HVAC mode, action, and target information when the bound thermostat
   data is available and unambiguous.
 - Event-driven recovery when a configured thermostat or source loads after the
@@ -123,7 +131,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.9 does not provide:
+Release 0.0.10 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A user-facing schedule editor, manual control page, active occupancy control,
@@ -182,9 +190,11 @@ mode, target, preset, fan setting, or any other physical behavior.
 
 Open the Intelligent Climate entry under **Settings > Devices & services**.
 Use the entry's zone/subentry controls to add another zone. Use a zone's
-reconfigure action to change its name, thermostat membership, temperature
-sources, and each retained source's offset, weight, priority, and enabled
-state. Use the parent reconfigure action to change the equipment-group name,
+reconfigure action to change its name, thermostat membership, temperature and
+humidity sources, window/door contacts, occupancy sources, HVAC-stage sensors,
+fans, and each retained source's calibration and enabled state. A thermostat
+may provide humidity through its public `current_humidity` attribute. Use the
+parent reconfigure action to change the equipment-group name,
 equipment type, thermostat membership, or relationship.
 
 Zone and source identities are generated once and remain stable when display
@@ -343,7 +353,8 @@ explanation. It does not contain the internal detail projection, entity IDs,
 user-assigned names, source values, Home Assistant State objects, contexts,
 command payloads, exception text, URLs, or paths.
 
-Activity is retained oldest-to-newest for the configured age and count limits,
+Activity is stored chronologically for the configured age and count limits,
+while the sidebar displays the newest entries first and can load older pages.
 with an absolute maximum of 500 records. Store writes are debounced for 30
 seconds and forced within five minutes while dirty. A clean unload or Home
 Assistant core shutdown attempts a final save for at most five seconds;
