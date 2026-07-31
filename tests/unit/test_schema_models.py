@@ -300,12 +300,12 @@ def test_strings_with_surrounding_whitespace_are_rejected() -> None:
         decode_zone_config(document)
 
 
-def test_invalid_operating_mode_is_rejected_by_existing_model() -> None:
-    """Test future operating modes remain unavailable in Phase 1."""
+def test_out_of_phase_operating_mode_is_rejected_by_existing_model() -> None:
+    """Task 2 vocabulary does not admit later predictive-control intent."""
     from custom_components.intelligent_climate.models import parse_operating_mode
 
     with pytest.raises(ValueError):
-        parse_operating_mode("scheduled_control")
+        parse_operating_mode("predictive_control")
 
 
 def test_duplicate_equipment_group_ids_are_rejected() -> None:

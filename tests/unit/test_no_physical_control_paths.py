@@ -93,6 +93,360 @@ def test_integration_python_contains_no_home_assistant_service_call_path() -> No
     assert offenders == []
 
 
+def test_phase_2_task_9_control_policy_is_pure_and_unwired() -> None:
+    """Task 9 adds policy only, with no runtime, timer, Store, or command path."""
+    task_paths = (
+        INTEGRATION_DIR / "control" / "precedence.py",
+        INTEGRATION_DIR / "control" / "state_machine.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "ObservationIntent",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "resolve_control_precedence" not in setup_source
+    assert "resolve_control_precedence" not in coordinator_source
+    assert "transition_control_state" not in setup_source
+    assert "transition_control_state" not in coordinator_source
+    control_package_source = (INTEGRATION_DIR / "control" / "__init__.py").read_text()
+    assert "precedence" not in control_package_source
+    assert "state_machine" not in control_package_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+
+
+def test_phase_2_task_10_override_policy_is_pure_and_unwired() -> None:
+    """Task 10 adds pure records/calculators, never runtime command behavior."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "override.py",
+        INTEGRATION_DIR / "override" / "__init__.py",
+        INTEGRATION_DIR / "override" / "expiration.py",
+        INTEGRATION_DIR / "override" / "state_machine.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "command_adapter",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "ManualOverride" not in setup_source
+    assert "ManualOverride" not in coordinator_source
+    assert "calculate_override_expiration" not in setup_source
+    assert "calculate_override_expiration" not in coordinator_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+
+
+def test_phase_2_task_11_command_journal_is_pure_and_has_no_adapter() -> None:
+    """Task 11 adds records/correlation only and cannot dispatch anything."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "command.py",
+        INTEGRATION_DIR / "command" / "correlation.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "command_adapter",
+        "retry(",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "CommandJournalRecord" not in setup_source
+    assert "CommandJournalRecord" not in coordinator_source
+    assert "correlate_state_change" not in setup_source
+    assert "correlate_state_change" not in coordinator_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+    passive_sink = (INTEGRATION_DIR / "control" / "command_sink.py").read_text()
+    assert "ActiveCommandSink" not in passive_sink
+    assert "ShadowCommandSink" not in passive_sink
+    assert not (INTEGRATION_DIR / "command" / "adapter.py").exists()
+
+
+def test_phase_2_task_17_command_plan_and_observe_sink_are_inert() -> None:
+    """Task 17 adds typed suppressed plans but no active command authority."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "plan.py",
+        INTEGRATION_DIR / "command" / "dependencies.py",
+        INTEGRATION_DIR / "control" / "command_sink.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "command_adapter",
+        "ActiveCommandSink",
+        "physical_execution",
+        "set_temperature",
+        "set_hvac_mode",
+        "set_fan_mode",
+        "turn_on",
+        "turn_off",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "CommandPlan" not in setup_source
+    assert "CommandPlan" not in coordinator_source
+    assert "async_record_plan" not in setup_source
+    assert "async_record_plan" not in coordinator_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+    assert not (INTEGRATION_DIR / "command" / "adapter.py").exists()
+
+
+def test_phase_2_task_18_shadow_sink_and_readiness_are_inert_and_unwired() -> None:
+    """Task 18 records Shadow evidence but cannot dispatch or alter runtime."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "shadow.py",
+        INTEGRATION_DIR / "shadow" / "history.py",
+        INTEGRATION_DIR / "shadow" / "qualification.py",
+        INTEGRATION_DIR / "shadow" / "sink.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "command_adapter",
+        "ActiveCommandSink",
+        "physical_execution",
+        "set_temperature",
+        "set_hvac_mode",
+        "set_fan_mode",
+        "turn_on",
+        "turn_off",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+    sensor_source = (INTEGRATION_DIR / "sensor.py").read_text()
+    binary_sensor_source = (INTEGRATION_DIR / "binary_sensor.py").read_text()
+
+    assert offenders == []
+    for source in (
+        setup_source,
+        coordinator_source,
+        sensor_source,
+        binary_sensor_source,
+    ):
+        assert "ShadowCommandSink" not in source
+        assert "evaluate_shadow_readiness" not in source
+        assert "ShadowReadinessEntitySnapshot" not in source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+    assert not (INTEGRATION_DIR / "command" / "adapter.py").exists()
+    assert not (INTEGRATION_DIR / "command" / "sink.py").exists()
+
+
+def test_phase_2_task_14_shared_arbitration_is_pure_and_unwired() -> None:
+    """Task 14 selects inert demand only and cannot construct a control path."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "arbitration.py",
+        INTEGRATION_DIR / "arbitration" / "__init__.py",
+        INTEGRATION_DIR / "arbitration" / "resolver.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "command_adapter",
+        "set_temperature",
+        "set_hvac_mode",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "resolve_shared_equipment" not in setup_source
+    assert "resolve_shared_equipment" not in coordinator_source
+    assert "SharedArbitrationDecision" not in setup_source
+    assert "SharedArbitrationDecision" not in coordinator_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+
+
+def test_phase_2_task_15_fan_policy_is_pure_and_unwired() -> None:
+    """Task 15 emits fan-only policy evidence and cannot control equipment."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "fan.py",
+        INTEGRATION_DIR / "fan" / "__init__.py",
+        INTEGRATION_DIR / "fan" / "dew_point.py",
+        INTEGRATION_DIR / "fan" / "policy.py",
+        INTEGRATION_DIR / "fan" / "restore.py",
+        INTEGRATION_DIR / "fan" / "runtime_budget.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "command_adapter",
+        "turn_on",
+        "turn_off",
+        "set_fan_mode",
+        "set_temperature",
+        "set_hvac_mode",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+
+    assert offenders == []
+    assert "evaluate_fan_policy" not in setup_source
+    assert "evaluate_fan_policy" not in coordinator_source
+    assert "FanEvaluation" not in setup_source
+    assert "FanEvaluation" not in coordinator_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+
+
+def test_phase_2_task_16_safety_gate_is_pure_inert_and_unwired() -> None:
+    """Task 16 evaluates hard gates but grants no execution authority."""
+    task_paths = (
+        INTEGRATION_DIR / "models" / "safety.py",
+        INTEGRATION_DIR / "control" / "safety.py",
+    )
+    prohibited = {
+        "homeassistant",
+        "hass.",
+        "services",
+        "async_call",
+        "async_register",
+        "async_track",
+        "asyncio",
+        "Store(",
+        "datetime.now",
+        "datetime.utcnow",
+        "CommandPlan",
+        "CommandSink",
+        "command_adapter",
+        "physical_execution",
+        "set_temperature",
+        "set_hvac_mode",
+        "set_fan_mode",
+        "turn_on",
+        "turn_off",
+    }
+    offenders = [
+        f"{path.relative_to(ROOT)} contains {term}"
+        for path in task_paths
+        for term in prohibited
+        if term in path.read_text()
+    ]
+    setup_source = (INTEGRATION_DIR / "__init__.py").read_text()
+    coordinator_source = (INTEGRATION_DIR / "coordinator.py").read_text()
+    control_package_source = (INTEGRATION_DIR / "control" / "__init__.py").read_text()
+    models_package_source = (INTEGRATION_DIR / "models" / "__init__.py").read_text()
+
+    assert offenders == []
+    assert "evaluate_safety_gate" not in setup_source
+    assert "evaluate_safety_gate" not in coordinator_source
+    assert "safety" not in control_package_source
+    assert "from .safety" not in models_package_source
+    assert not (INTEGRATION_DIR / "control" / "command_adapter.py").exists()
+    assert not (INTEGRATION_DIR / "command" / "adapter.py").exists()
+
+
 def test_zone_flow_has_no_control_or_platform_forwarding_path() -> None:
     """Test Task 5 zone UI work remains configuration-only."""
     source = (INTEGRATION_DIR / "zone_flow.py").read_text()
@@ -111,7 +465,8 @@ def test_integration_forwards_only_phase_1_platforms() -> None:
     constants_source = (INTEGRATION_DIR / "const.py").read_text()
 
     assert setup_source.count("async_forward_entry_setups(entry, PLATFORMS)") == 1
-    assert setup_source.count("async_unload_platforms(entry, PLATFORMS)") == 1
+    # Normal unload and frontend-registration rollback are the only two paths.
+    assert setup_source.count("async_unload_platforms(entry, PLATFORMS)") == 2
     for platform in (
         "Platform.BINARY_SENSOR",
         "Platform.CLIMATE",
@@ -592,6 +947,7 @@ def test_task_14_modules_have_no_physical_control_or_future_feature_path() -> No
         for path in task_14_paths
         for term in prohibited
         if term in path.read_text()
+        and not (path.name == "storage.py" and term == "occupancy")
     ]
 
     assert offenders == []

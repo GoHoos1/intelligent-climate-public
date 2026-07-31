@@ -1,11 +1,110 @@
 # Changelog
 
-This changelog records source changes in the public Intelligent Climate
+This changelog records source changes in the public Intelligent Climate source
 distribution repository. It does not assert that a public release tag exists.
 
 ## Unreleased
 
-### Documentation
+No unreleased changes.
+
+## 0.0.9 - 2026-07-31
+
+### Phase 2 development
+
+- Began Phase 2 Task 1 without changing runtime behavior or the 0.0.8 package
+  version.
+- Added immutable 0.0.8 config, zone, options, Store, platform, operating-mode,
+  and acceptance-evidence fixtures for future migration testing.
+- Added sentinels that reject Phase 2 runtime vocabulary, frontend surfaces,
+  physical adapters, and Home Assistant service calls before their approved
+  backlog tasks.
+- Added the approved Phase 2 requirements/design and governing source documents
+  to the development repository.
+- Added Task 2's typed schedule, override, decision, command, safety, contact,
+  and occupancy identifiers plus operating-mode, execution-state, reason-code,
+  and live/simulation context vocabulary without runtime wiring.
+- Added Task 3's immutable weekly schedule models, strict JSON codec, canonical
+  ordering, and complete identity/timezone/zone/capability/limit validation
+  without persistence, evaluation, runtime wiring, or command behavior.
+- Added Task 4's pure circular weekly schedule evaluator with inherited-period,
+  next-boundary, and next-material-target calculation plus deterministic
+  local-wall-time resolution, without timers, persistence, runtime wiring, or
+  command behavior.
+- Added Task 5's deterministic clock matrix covering spring gaps, fall folds,
+  midnight, empty days, Sunday/Monday wrapping, leap day, non-hour DST,
+  no-DST zones, and schedule time-zone changes without runtime behavior.
+- Added Task 6's authoritative Schedule Store v1 with verified atomic writes,
+  optimistic revision conflicts, canonical post-save publication, semantic
+  quarantine, and read-only future-version preservation without runtime wiring.
+- Added Task 7's pure config 2.0, zone 2, Runtime Store 2.0/inner 2 target
+  schemas, safe 0.0.8 migration dry run, and isolated bounded Presentation
+  Trace Store v1 schema without activating migration or runtime control.
+- Added Task 8's crash-safe 0.0.8-to-Phase-2 migration transaction, interrupted
+  migration reconciliation, verified Runtime Store v2 replacement, bounded
+  quarantine and future-version preservation, and post-reconciliation empty
+  Presentation Trace initialization. Every migrated and newly configured entry
+  remains unarmed in Observe Only, with no Home Assistant service-call path.
+- Added Task 9's pure control-precedence resolver, legal-transition state
+  machine, explicit Manual Control user-intent authority gate, fail-closed
+  recovery discipline, and permanent observation behavior without runtime
+  wiring, timers, command plans, or Home Assistant service calls.
+- Added Task 10's typed manual-override record and strict codec, complete
+  deterministic expiration-policy calculators, privacy-safe projections, and
+  immutable cancellation/extension lifecycle without runtime wiring, timers,
+  schedule execution, persistence activation, or physical control.
+- Added Task 11's typed bounded command journal, strict restart codec,
+  stable command/correlation identities, semantic acknowledgement matching,
+  and fail-closed external/ambiguous change classification without an adapter,
+  sink, dispatch path, runtime wiring, retry execution, or physical control.
+- Added Task 12's strict contact-binding codec and deterministic contact
+  debounce/grace/minimum-open/close/resume state machine, including unavailable
+  fail-closed and privacy-bounded reasons, without subscriptions, timers,
+  coordinator wiring, command plans, or physical control.
+- Added Task 13's strict occupancy policy codec, stable occupancy-source IDs,
+  bounded per-zone effects, and deterministic manual/priority/delay/unavailable
+  resolver without runtime source reads, timers, configuration-flow wiring,
+  schedule execution, command plans, or physical control.
+- Added Task 14's pure shared-equipment safety arbitration, including explicit
+  single-authority review, complete zone priority, compatible/opposite demand,
+  active-direction preservation, emergency precedence, and uncertain related
+  thermostat holds without runtime wiring, a command plan, or physical control.
+- Added Task 15's strict fan policy/binding codec, calculated Magnus dew point,
+  spread hysteresis, occupancy/HVAC/quiet-time gates, humidity and post-cooling
+  lockouts, minimum-on and rolling-hour runtime budget, and correlated
+  thermostat fan-mode restore eligibility as pure, unwired fan-only policy.
+- Added Task 16's pure central SafetyGate with strict ownership, capability,
+  revision/precondition, absolute-limit, deadband, interval, cooldown,
+  arbitration, fan-evidence, and authority checks. Its privacy-bounded result
+  grants no dispatch authority and remains unwired from the coordinator,
+  command plans, sinks, adapters, and Home Assistant service calls.
+- Added Task 17's strict typed `CommandPlan`, canonical semantic dedupe, explicit
+  manual/scheduled user-context rules, injected input/UTC-clock/sink protocols,
+  and typed Observe Only suppression while retaining the Phase 1 runtime probe
+  until Task 19. No adapter, service call, or coordinator plan wiring exists.
+- Added Task 18's physically inert Shadow sink, privacy-bounded exact
+  would-command history with strict Runtime Store-compatible codec, continuous
+  24-hour/20-decision/two-transition/95% qualification calculations, current
+  blocking-fault handling, and canonical readiness entity snapshots. Runtime
+  coordinator/entity wiring and every physical action remain absent.
+- Added Task 19's coordinator-owned suppressed-policy composition through
+  schedule, override, shared-equipment arbitration, the central SafetyGate,
+  and the Shadow sink, plus a bounded 48-hour nonauthoritative Presentation
+  Trace Store. Observe Only and Scheduled Shadow remain zero-command modes.
+- Added Task 20's versioned backend WebSocket read/subscribe, schedule
+  validation/preview/save, activity, Shadow/observation status, DST-correct
+  Today timeline, deterministic fact-bounded narrative, and typed manual-action
+  contracts without frontend code, active adapters, or Home Assistant service
+  calls.
+- Added Task 21's strict TypeScript/Lit frontend foundation with versioned
+  WebSocket DTO validation, Home Assistant theme tokens, responsive and
+  reduced-motion primitives, explicit unavailable-state semantics, and
+  automated accessibility checks.
+- Added Task 22's bundled Intelligent Climate sidebar with Overview, Sensors,
+  Activity, Settings, Shadow readiness, factual status explanations, and a
+  DST-correct Today timeline. The panel remains read-only and exposes no
+  physical-control action or Home Assistant service-call path.
+
+### Phase 1 documentation
 
 - Recorded the completed Home Assistant 0.0.8 UI, activity, diagnostics, and
   restart walkthrough and formally closed all 35 Phase 1 acceptance criteria.
@@ -99,7 +198,7 @@ distribution repository. It does not assert that a public release tag exists.
   service call, writable climate capability, schedule, prediction, simulation,
   or command adapter.
 
-## 0.0.5 - 2026-07-28
+## 0.0.5 - 2026-07-27
 
 ### Added
 
@@ -147,7 +246,7 @@ distribution repository. It does not assert that a public release tag exists.
   service call, writable climate capability, schedule, prediction, simulation,
   or command adapter.
 
-## 0.0.4 - 2026-07-27
+## 0.0.4 - 2026-07-26
 
 ### Added
 
@@ -182,7 +281,7 @@ distribution repository. It does not assert that a public release tag exists.
 - Repairs adds no automatic repair flow, configuration mutation, Store
   filesystem behavior, or writable/physical HVAC behavior.
 
-## 0.0.3 - 2026-07-25
+## 0.0.3 - 2026-07-24
 
 ### Added
 
@@ -273,10 +372,9 @@ distribution repository. It does not assert that a public release tag exists.
 
 ### Added
 
-- Established the public source-available repository under the PolyForm Strict
-  License 1.0.0, Home Assistant custom integration package, HACS metadata,
-  Python 3.14 tooling, Quality/Hassfest/HACS workflows, strict typing, and the
-  observation-only architecture decision.
+- Established the proprietary private repository, Home Assistant custom
+  integration package, HACS metadata, Python 3.14 tooling, Quality/Hassfest/HACS
+  workflows, strict typing, and the observation-only architecture decision.
 - Added immutable UUID-backed equipment-group, zone, and source identifiers,
   strict schema decoders/encoders, options and future runtime Store models, and
   migration scaffolding. No Store read/write path was implemented.
@@ -327,5 +425,5 @@ The 0.0.0 foundation added no diagnostics, Repairs, runtime Store persistence,
 activity history/events, schedule, predictive control, physical command
 adapter, service call, or writable HVAC behavior.
 
-This public distribution remains source-available under the PolyForm Strict
-License 1.0.0. See `LICENSE` and `NOTICE`.
+This public source distribution is licensed under the PolyForm Strict License
+1.0.0. See `LICENSE` and `NOTICE`.

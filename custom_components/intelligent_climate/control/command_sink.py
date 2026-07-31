@@ -1,4 +1,4 @@
-"""Observation-only command boundary."""
+"""Physically inert Observe Only command sink for Phase 2 Task 17."""
 
 from __future__ import annotations
 
@@ -6,12 +6,22 @@ import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from ..command.dependencies import UtcClock
+from ..models.plan import (
+    CommandPlan,
+    CommandSinkDisposition,
+    CommandSinkResult,
+    validate_command_plan,
+)
+from ..models.safety import SafetyGateDecision, SafetyReasonCode
+from ..models.schema import SchemaValidationError
+
 _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class ObservationIntent:
-    """A future decision intent recorded without executing any command."""
+    """Legacy Phase 1 invariant probe retained until Task 19 wiring."""
 
     source: str
     description: str
@@ -19,44 +29,37 @@ class ObservationIntent:
 
 @dataclass(frozen=True, slots=True)
 class CommandBoundaryResult:
-    """Result returned by the observation-only command boundary."""
+    """Legacy result from the Phase 1 invariant probe."""
 
     status: Literal["suppressed_observe_only"]
     intent: ObservationIntent
 
 
-class CommandSink(Protocol):
-    """Protocol for recording future command intents."""
-
-    async def async_record_intent(
-        self,
-        intent: ObservationIntent,
-    ) -> CommandBoundaryResult:
-        """Record an intent without physical control."""
-
-
 class CommandViolationReporter(Protocol):
-    """Protocol for reporting an unexpected nonempty command intent."""
+    """Report an unexpected legacy free-text boundary probe."""
 
     def async_report_command_boundary_violation(self) -> None:
-        """Report a suppressed command-boundary invariant violation."""
+        """Create the existing entry-scoped invariant Repair."""
 
 
 class ObserveOnlyCommandSink:
-    """Command sink that can only suppress and report an intent."""
+    """Record a validated plan as suppressed without any physical call path."""
 
     def __init__(
         self,
         violation_reporter: CommandViolationReporter | None = None,
+        *,
+        clock: UtcClock | None = None,
     ) -> None:
-        """Initialize with an optional entry-scoped Repairs reporter."""
+        """Retain the Phase 1 probe and accept an injected Task 17 clock."""
         self._violation_reporter = violation_reporter
+        self._clock = clock
 
     async def async_record_intent(
         self,
         intent: ObservationIntent,
     ) -> CommandBoundaryResult:
-        """Record an intent as suppressed by the observation-only boundary."""
+        """Retain the Phase 1 no-command invariant until Task 19 replaces wiring."""
         if intent.source or intent.description:
             _LOGGER.error(
                 "Physical command intent suppressed: "
@@ -67,4 +70,41 @@ class ObserveOnlyCommandSink:
         return CommandBoundaryResult(
             status="suppressed_observe_only",
             intent=intent,
+        )
+
+    async def async_record_plan(
+        self,
+        plan: CommandPlan,
+        safety_decision: SafetyGateDecision,
+    ) -> CommandSinkResult:
+        """Return a bounded Observe Only suppression result."""
+        validate_command_plan(plan)
+        if not isinstance(safety_decision, SafetyGateDecision):
+            raise SchemaValidationError("safety_decision", "must be a safety decision")
+        if (
+            safety_decision.safety_evaluation_id != plan.safety_evaluation_id
+            or not safety_decision.hard_checks_passed
+            or safety_decision.reason_code is not SafetyReasonCode.OBSERVE_ONLY
+        ):
+            raise SchemaValidationError(
+                "safety_decision",
+                "must be the matching Observe Only safety result",
+            )
+        if self._clock is None:
+            raise SchemaValidationError("clock", "is required for typed command plans")
+        recorded_at = self._clock.now_utc()
+        offset = recorded_at.utcoffset()
+        if recorded_at.tzinfo is None or offset is None:
+            raise SchemaValidationError("clock", "must return timezone-aware UTC")
+        if offset.total_seconds() != 0:
+            raise SchemaValidationError("clock", "must return UTC")
+        if recorded_at < plan.created_at_utc:
+            raise SchemaValidationError("clock", "must not precede plan creation")
+        return CommandSinkResult(
+            disposition=CommandSinkDisposition.SUPPRESSED_OBSERVE_ONLY,
+            command_id=plan.command_id,
+            decision_id=plan.decision_id,
+            safety_evaluation_id=plan.safety_evaluation_id,
+            reason_code=SafetyReasonCode.OBSERVE_ONLY,
+            recorded_at_utc=recorded_at,
         )

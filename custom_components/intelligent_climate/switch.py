@@ -16,7 +16,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
 from .entity import IntelligentClimateZoneEntity
-from .models import RuntimeConfigurationState, ZoneConfig, encode_options
+from .models import RuntimeConfigurationState, ZoneConfig
+from .schema_compat import encode_active_observation_options
 from .type_aliases import IntelligentClimateConfigEntry
 
 _ZONE_MODEL = "Climate zone"
@@ -107,6 +108,11 @@ class IntelligentClimateObservationEnabledSwitch(
             return
         self.hass.config_entries.async_update_entry(
             entry,
-            options=dict(encode_options(replace(current, observation_enabled=enabled))),
+            options=encode_active_observation_options(
+                replace(current, observation_enabled=enabled),
+                version=entry.version,
+                minor_version=entry.minor_version,
+                current_data=entry.options,
+            ),
         )
         await self.hass.config_entries.async_reload(entry.entry_id)

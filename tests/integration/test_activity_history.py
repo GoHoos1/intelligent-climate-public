@@ -61,6 +61,8 @@ from custom_components.intelligent_climate.event import (
 )
 from custom_components.intelligent_climate.models import (
     DEFAULT_OPTIONS,
+    PHASE2_RUNTIME_STORE_ENVELOPE_MINOR_VERSION,
+    PHASE2_RUNTIME_STORE_ENVELOPE_VERSION,
     ActivityReason,
     ActivityType,
     ControlState,
@@ -71,6 +73,7 @@ from custom_components.intelligent_climate.models import (
     SourceBaseline,
     SourceQuality,
     ZoneId,
+    decode_phase2_runtime_store_document,
     encode_options,
     encode_runtime_store_document,
 )
@@ -817,8 +820,9 @@ async def test_store_1_1_migration_restores_baseline_for_reconciliation_only(
 
     coordinator = entry.runtime_data
     runtime_store = coordinator.runtime_store
-    assert runtime_store.load_status is StoreLoadStatus.MIGRATED
-    assert runtime_store.minor_version == 2
+    assert runtime_store.load_status is StoreLoadStatus.LOADED
+    assert runtime_store.version == PHASE2_RUNTIME_STORE_ENVELOPE_VERSION
+    assert runtime_store.minor_version == PHASE2_RUNTIME_STORE_ENVELOPE_MINOR_VERSION
     assert runtime_store.previous_clean_shutdown is False
     assert (
         runtime_store.restored_source_baselines[
@@ -844,7 +848,7 @@ async def test_store_1_1_migration_restores_baseline_for_reconciliation_only(
             payload["reason_code"] == ActivityReason.STORE_MIGRATED.value
             for payload in events
         )
-        == 1
+        == 0
     )
     assert (
         sum(
@@ -859,16 +863,17 @@ async def test_store_1_1_migration_restores_baseline_for_reconciliation_only(
     assert await hass.config_entries.async_unload(entry.entry_id)
     current_store: Store[dict[str, Any]] = Store(
         hass,
-        1,
+        PHASE2_RUNTIME_STORE_ENVELOPE_VERSION,
         f"intelligent_climate.{ENTRY_ID}",
         atomic_writes=True,
-        minor_version=2,
+        minor_version=PHASE2_RUNTIME_STORE_ENVELOPE_MINOR_VERSION,
     )
     saved = await current_store.async_load()
     assert saved is not None
-    assert saved["schema_version"] == 1
-    assert saved["last_clean_shutdown"] is True
-    assert saved["command_journal"] == []
+    document = decode_phase2_runtime_store_document(saved)
+    assert saved["schema_version"] == 2
+    assert document.last_clean_shutdown is True
+    assert document.command_journal == ()
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -948,7 +953,7 @@ async def test_existing_quarantine_repair_survives_setup_until_verified_cleanup(
     registry = ir.async_get(hass)
     migration_issue = issue_id(entry.entry_id, IssueCode.MIGRATION_FAILED)
 
-    assert runtime_store.load_status is StoreLoadStatus.LOADED
+    assert runtime_store.load_status is StoreLoadStatus.QUARANTINED
     assert runtime_store.quarantine_present is True
     assert registry.async_get_issue(DOMAIN, migration_issue) is not None
 
@@ -960,10 +965,10 @@ async def test_existing_quarantine_repair_survives_setup_until_verified_cleanup(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
-async def test_future_store_minor_is_preserved_read_only_across_unload(
+async def test_future_phase1_store_minor_is_preserved_and_blocks_migration(
     hass: HomeAssistant,
 ) -> None:
-    """Unknown future persistence starts safely without destructive downgrade."""
+    """Unknown future persistence blocks setup without destructive downgrade."""
     _set_states(hass)
     future_payload = _store_document()
     future_store: Store[dict[str, Any]] = Store(
@@ -975,11 +980,9 @@ async def test_future_store_minor_is_preserved_read_only_across_unload(
     )
     await future_store.async_save(future_payload)
 
-    entry = await _setup(hass, _entry())
-    runtime_store = entry.runtime_data.runtime_store
-    assert runtime_store.load_status is StoreLoadStatus.UNSUPPORTED
-    assert runtime_store.read_only is True
-    assert runtime_store.dirty is False
+    entry = _entry()
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
     assert (
         ir.async_get(hass).async_get_issue(
             DOMAIN,
@@ -987,8 +990,6 @@ async def test_future_store_minor_is_preserved_read_only_across_unload(
         )
         is not None
     )
-    assert entry.runtime_data.data.zones[0].effective_temperature_c == 20.0
-
-    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert not hasattr(entry, "runtime_data")
     reloaded_future = await future_store.async_load()
     assert reloaded_future == future_payload

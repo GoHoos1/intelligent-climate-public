@@ -57,3 +57,4 @@ design review covering:
 - No-fight behavior with wall thermostats and Home Assistant automations.
 - Restart, unload, unavailable-entity, and command-failure behavior.
 - Tests proving that active control is impossible unless all safety gates pass.
+

@@ -27,3 +27,4 @@ changes the phase boundary:
 The integration must not create empty or unknown-state entities for future
 features. Future capability must be added only when it has real behavior,
 documentation, tests, and safety review.
+

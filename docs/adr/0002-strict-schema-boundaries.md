@@ -35,3 +35,4 @@ Runtime Store data remains nonauthoritative. Unsupported future Store versions
 or undocumented historical versions are rejected by the schema layer so the
 future runtime can rebuild live observation state instead of trusting ambiguous
 persisted data.
+

@@ -40,11 +40,17 @@ from custom_components.intelligent_climate.coordinator import (
 from custom_components.intelligent_climate.models import (
     CONFIG_ENTRY_MAJOR_VERSION,
     CONFIG_ENTRY_MINOR_VERSION,
+    PHASE2_CONFIG_MAJOR_VERSION,
+    PHASE2_CONFIG_MINOR_VERSION,
     ControlState,
     EquipmentRelationship,
+    OperatingMode,
     RuntimeConfigurationState,
     SourceQuality,
     decode_equipment_group_document,
+    decode_phase2_equipment_group_document,
+    decode_phase2_options,
+    decode_phase2_zone_config,
 )
 from custom_components.intelligent_climate.repairs import IssueCode, issue_id
 
@@ -205,20 +211,26 @@ async def _assert_invalid(hass: HomeAssistant, entry: ConfigEntry) -> None:
 async def test_config_entry_1_0_migration_is_atomic_and_canonical(
     hass: HomeAssistant,
 ) -> None:
-    """A fully valid 1.0 hierarchy becomes canonical 1.1 in one update."""
+    """A fully valid 1.0 hierarchy becomes safe canonical Phase 2."""
     _set_valid_states(hass)
     entry = _entry(zone_data=_zone_data(), minor_version=0)
     entry.add_to_hass(hass)
-    original_zone = dict(entry.subentries["zone-subentry-1"].data)
-
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 1
-    assert entry.minor_version == 1
-    assert dict(entry.data) == _parent_data()
-    assert entry.options["history_max_records"] == 500
-    assert entry.options["history_max_age_days"] == 30
-    assert dict(entry.subentries["zone-subentry-1"].data) == original_zone
+    assert entry.version == PHASE2_CONFIG_MAJOR_VERSION
+    assert entry.minor_version == PHASE2_CONFIG_MINOR_VERSION
+    parent = decode_phase2_equipment_group_document(entry.data)
+    options = decode_phase2_options(entry.options)
+    zone = decode_phase2_zone_config(entry.subentries["zone-subentry-1"].data)
+    assert str(parent.equipment_group.equipment_group_id) == GROUP_ID
+    assert parent.automation_enabled is False
+    assert parent.desired_operating_mode is OperatingMode.OBSERVE_ONLY
+    assert options.observation.history_max_records == 500
+    assert options.observation.history_max_age_days == 30
+    assert str(zone.zone.zone_id) == ZONE_ID
+    assert zone.contact_bindings == ()
+    assert zone.occupancy_bindings == ()
+    assert zone.fan_bindings == ()
     assert (
         ir.async_get(hass).async_get_issue(
             DOMAIN,
@@ -276,9 +288,19 @@ async def test_current_and_future_config_entry_migration_boundaries(
     hass: HomeAssistant,
 ) -> None:
     """Current entries are no-ops and future entries fail closed."""
-    current = _entry(entry_id="entry-current")
+    _set_valid_states(hass)
+    current = _entry(entry_id="entry-current", zone_data=_zone_data())
+    current.add_to_hass(hass)
     assert await async_migrate_entry(hass, current)
-    assert current.minor_version == CONFIG_ENTRY_MINOR_VERSION
+    current_data = deepcopy(dict(current.data))
+    current_options = deepcopy(dict(current.options))
+    assert await async_migrate_entry(hass, current)
+    assert (current.version, current.minor_version) == (
+        PHASE2_CONFIG_MAJOR_VERSION,
+        PHASE2_CONFIG_MINOR_VERSION,
+    )
+    assert dict(current.data) == current_data
+    assert dict(current.options) == current_options
 
     future = _entry(
         entry_id="entry-future",
@@ -309,9 +331,9 @@ async def test_valid_selected_parent_and_zone_graph(hass: HomeAssistant) -> None
         assert await async_setup_entry(hass, entry)
     forward.assert_awaited_once_with(entry, PLATFORMS)
     assert entry.runtime_data.data.entry_id == entry.entry_id
-    assert DOMAIN not in hass.data
+    assert hass.data[DOMAIN]["frontend_loaded_entries"] == {entry.entry_id: entry.title}
     assert await async_unload_entry(hass, entry)
-    assert DOMAIN not in hass.data
+    assert hass.data[DOMAIN]["frontend_loaded_entries"] == {}
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
@@ -907,10 +929,12 @@ async def test_unload_one_of_two_runtime_entries_preserves_other(
 
     assert await async_unload_entry(hass, first)
     assert first_coordinator._shutdown is True
-    assert DOMAIN not in hass.data
+    assert hass.data[DOMAIN]["frontend_loaded_entries"] == {
+        second.entry_id: second.title
+    }
     assert await async_unload_entry(hass, second)
     assert second_coordinator._shutdown is True
-    assert DOMAIN not in hass.data
+    assert hass.data[DOMAIN]["frontend_loaded_entries"] == {}
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

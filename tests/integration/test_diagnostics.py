@@ -463,9 +463,9 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert report["diagnostics_schema_version"] == 1
     assert report["integration"] == {
         "domain": DOMAIN,
-        "version": "0.0.8",
-        "config_entry_version": 1,
-        "config_entry_minor_version": 1,
+        "version": "0.0.9",
+        "config_entry_version": 2,
+        "config_entry_minor_version": 0,
     }
 
     configuration = report["configuration"]
@@ -524,13 +524,13 @@ async def test_loaded_diagnostics_are_allowlisted_deterministic_and_json_safe(
     assert runtime["available"] is True
     assert runtime["repairs"] == {"active_issue_codes": []}
     assert runtime["store"] == {
-        "version": 1,
-        "minor_version": 2,
+        "version": 2,
+        "minor_version": 0,
         "loaded": True,
         "load_status": store_state[6].value,
         "read_only": False,
         "quarantine_present": False,
-        "previous_clean_shutdown": None,
+        "previous_clean_shutdown": True,
         "restored_source_baseline_count": 0,
         "dirty": True,
         "consecutive_write_failure_count": 0,

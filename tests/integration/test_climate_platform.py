@@ -778,7 +778,7 @@ async def test_observation_switch_changes_only_entry_options(
         )
         reload.assert_awaited_once_with(entry.entry_id)
 
-    assert entry.options["observation_enabled"] is False
+    assert entry.options["observation"]["observation_enabled"] is False
     assert hass.states.get(THERMOSTAT) == physical_before
     assert await hass.config_entries.async_unload(entry.entry_id)
 

@@ -641,3 +641,4 @@ options, the exact Phase 1 entity matrix, guarded degraded-state recovery,
 reason-coded/cooldown-bounded logging, the supplied sanitized Nest fixture, and
 network-isolated acceptance gates. It adds no Phase 2 behavior or physical
 command path.
+

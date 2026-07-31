@@ -41,6 +41,19 @@ this repository record.
 - JSON validation: passed
 - Git patch hygiene: passed
 
+Private release:
+
+- Repository: `GoHoos1/intelligent-climate`
+- Release PR:
+  [#22](https://github.com/GoHoos1/intelligent-climate/pull/22)
+- Merge:
+  [`28dcea6c`](https://github.com/GoHoos1/intelligent-climate/commit/28dcea6cf9e52361e4c2fd7e3f39a026a3451f03)
+- [Quality](https://github.com/GoHoos1/intelligent-climate/actions/runs/30457676053),
+  [Hassfest](https://github.com/GoHoos1/intelligent-climate/actions/runs/30457676079),
+  and
+  [HACS](https://github.com/GoHoos1/intelligent-climate/actions/runs/30457676467)
+  passed on the reviewed candidate.
+
 Public release:
 
 - Repository: `GoHoos1/intelligent-climate-public`
@@ -154,3 +167,4 @@ release 0.0.8.
 Phase 2 may now enter design review. Physical HVAC control remains prohibited
 until the Phase 2 design, safety gates, migrations, user controls, and
 acceptance criteria are separately approved and implemented.
+

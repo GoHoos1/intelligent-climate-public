@@ -1,0 +1,123 @@
+{
+  "release": {
+    "version": "0.0.8",
+    "accepted_commit": "803ad044da81494c7034e5e9ae52b898cd347b07",
+    "accepted_at": "2026-07-29",
+    "acceptance_criteria_passed": 35,
+    "automated_tests_passed": 817,
+    "statement_coverage_pct": 97.88,
+    "branch_coverage_pct": 95.21
+  },
+  "config_entry": {
+    "version": 1,
+    "minor_version": 1,
+    "data": {
+      "equipment_group": {
+        "equipment_group_id": "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3",
+        "name": "Main Floor HVAC",
+        "equipment_type": "air_source_heat_pump",
+        "relationship": "single_system",
+        "thermostats": [
+          {
+            "entity_id": "climate.dining_room",
+            "role": "primary"
+          }
+        ],
+        "shared_policy": null
+      }
+    }
+  },
+  "options": {
+    "observation_enabled": true,
+    "temperature_strategy": "median",
+    "humidity_strategy": "median",
+    "min_valid_temperature_sources": 1,
+    "min_valid_humidity_sources": 1,
+    "source_stale_after_seconds": 1800,
+    "startup_reconciliation_seconds": 60,
+    "jump_limit_c_per_5_minutes": 2.8,
+    "outlier_floor_c": 1.7,
+    "indoor_temperature_min_c": 1.7,
+    "indoor_temperature_max_c": 43.3,
+    "history_max_records": 500,
+    "history_max_age_days": 30,
+    "log_level_detail": "normal"
+  },
+  "zone_subentry": {
+    "data_version": 1,
+    "zone_id": "99246285-6f02-4e8a-94ed-bdfd4a5e62c4",
+    "name": "Dining Room",
+    "thermostat_entity_ids": [
+      "climate.dining_room"
+    ],
+    "temperature_sources": [
+      {
+        "source_id": "f15f73b1-ea59-4b28-819f-7b99acf065bf",
+        "entity_id": "climate.dining_room",
+        "attribute": "current_temperature",
+        "offset_c": 0.0,
+        "weight": 1.0,
+        "priority": 0,
+        "enabled": true
+      }
+    ],
+    "humidity_sources": [
+      {
+        "source_id": "ce30dafc-fadd-4cc4-b261-8a896d5a6d12",
+        "entity_id": "climate.dining_room",
+        "attribute": "current_humidity",
+        "offset_pct": 0.0,
+        "weight": 1.0,
+        "priority": 0,
+        "enabled": true
+      }
+    ],
+    "window_door_entity_ids": [],
+    "occupancy_entity_ids": [],
+    "stage_entity_ids": [],
+    "fan_entity_ids": []
+  },
+  "runtime_store": {
+    "envelope_version": 1,
+    "envelope_minor_version": 2,
+    "data": {
+      "schema_version": 1,
+      "entry_id": "01JEXAMPLEENTRY",
+      "equipment_group_id": "b7ea11b6-6ff6-49de-934e-a9be3a1ce5a3",
+      "saved_at": "2026-07-20T15:30:00+00:00",
+      "last_clean_shutdown": true,
+      "zones": {
+        "99246285-6f02-4e8a-94ed-bdfd4a5e62c4": {
+          "last_runtime_state": "observing",
+          "last_live_observation_at": "2026-07-20T15:29:48+00:00",
+          "last_effective_temperature_c": 23.7,
+          "last_effective_humidity_pct": 50.0,
+          "last_decision_id": "37eaa5de-8a48-47ea-9988-bb0fc2e10a24"
+        }
+      },
+      "source_baselines": {
+        "f15f73b1-ea59-4b28-819f-7b99acf065bf": {
+          "last_accepted_value": 23.7,
+          "last_accepted_at": "2026-07-20T15:29:48+00:00"
+        }
+      },
+      "decisions": [],
+      "command_journal": []
+    }
+  },
+  "runtime_contract": {
+    "operating_modes": [
+      "disabled",
+      "observe_only"
+    ],
+    "forwarded_platforms": [
+      "binary_sensor",
+      "climate",
+      "event",
+      "sensor",
+      "switch"
+    ],
+    "physical_service_calls": 0,
+    "writable_zone_climate_features": 0
+  }
+}
