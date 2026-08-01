@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing, type PropertyValues } from "lit";
+import { LitElement, css, html, nothing, svg, type PropertyValues } from "lit";
 
 import { formatTemperature, formatTimestamp } from "../accessibility/semantics";
 import type {
@@ -10,6 +10,11 @@ import type {
 interface ChartPoint {
   x: number;
   y: number;
+}
+
+interface ChartWindow {
+  start: number;
+  end: number;
 }
 
 interface RenderedSeries {
@@ -57,6 +62,8 @@ const PLOT_TOP = 30;
 const PLOT_BOTTOM = 155;
 const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
 const GRID_Y_POSITIONS = [30, 61.25, 92.5, 123.75, 155] as const;
+const EARLY_WINDOW_PADDING_MS = 5 * 60 * 1000;
+const MINIMUM_EARLY_WINDOW_MS = 15 * 60 * 1000;
 
 function label(kind: string): string {
   return LABELS[kind] ?? kind.replaceAll("_", " ");
@@ -149,7 +156,8 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     const timeline = this.timeline;
     const chartRange = this.temperatureRange(timeline);
-    const rendered = this.renderedSeries(timeline, chartRange);
+    const chartWindow = this.chartWindow(timeline);
+    const rendered = this.renderedSeries(timeline, chartRange, chartWindow);
     const indoorSeries = rendered.find(
       (series) => series.kind === "effective_temperature",
     );
@@ -158,7 +166,8 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     const stateSeries = timeline.series.filter((series) =>
       ["hvac_action", "fan_action"].includes(series.kind),
     );
-    const cursor = this.currentCursor(timeline);
+    const cursor = this.currentCursor(chartWindow);
+    const axisTimes = this.axisTimes(chartWindow, timeline);
     return html`
       <div class="legend" aria-label="Timeline legend">
         ${rendered.map(
@@ -206,11 +215,11 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   <g class="grid" aria-hidden="true">
                     ${GRID_Y_POSITIONS.map(
                       (y) =>
-                        html`<line x1="80" x2="970" y1=${y} y2=${y}></line>`,
+                        svg`<line x1="80" x2="970" y1=${y} y2=${y}></line>`,
                     )}
                     ${[80, 303, 525, 748, 970].map(
                       (x) =>
-                        html`<line
+                        svg`<line
                           x1=${x}
                           x2=${x}
                           y1=${PLOT_TOP}
@@ -222,7 +231,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                     ${GRID_Y_POSITIONS.map((y, index) => {
                       const [minimum, maximum] = chartRange;
                       const value = maximum - ((maximum - minimum) * index) / 4;
-                      return html`<text x="72" y=${y + 6} text-anchor="end">
+                      return svg`<text x="72" y=${y + 6} text-anchor="end">
                         ${formatTemperature(
                           value,
                           this.temperatureUnit,
@@ -233,7 +242,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   </g>
                   ${rendered.map(
                     (series) =>
-                      html`<g class="series-group ${series.className}">
+                      svg`<g class="series-group ${series.className}">
                         <path
                           class="series ${series.className}"
                           d=${series.path}
@@ -242,7 +251,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                           series.kind === "effective_temperature"
                             ? series.points.map(
                                 (point) =>
-                                  html`<circle
+                                  svg`<circle
                                     class="sample-point measured-temperature"
                                     cx=${point.x}
                                     cy=${point.y}
@@ -256,7 +265,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   ${
                     cursor === null
                       ? nothing
-                      : html`<line
+                      : svg`<line
                           class="now"
                           x1=${cursor}
                           x2=${cursor}
@@ -267,17 +276,21 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   ${timeline.annotations.map((annotation) => {
                     const x = this.xPosition(
                       Date.parse(annotation.timestamp_utc),
-                      timeline,
+                      chartWindow,
                     );
-                    return html`<g class="annotation" aria-hidden="true">
+                    return svg`<g class="annotation" aria-hidden="true">
                       <circle cx=${x} cy="15" r="6"></circle>
                       <line x1=${x} x2=${x} y1="21" y2=${PLOT_TOP + 6}></line>
                     </g>`;
                   })}
                   <g class="axis-labels" aria-hidden="true">
-                    <text x="80" y="198">12 AM</text>
-                    <text x="525" y="198" text-anchor="middle">12 PM</text>
-                    <text x="970" y="198" text-anchor="end">12 AM</text>
+                    <text x="80" y="198">${axisTimes[0]}</text>
+                    <text x="525" y="198" text-anchor="middle">
+                      ${axisTimes[1]}
+                    </text>
+                    <text x="970" y="198" text-anchor="end">
+                      ${axisTimes[2]}
+                    </text>
                   </g>
                 </svg>
                 ${this.sampleSummary(indoorSeries)}
@@ -328,6 +341,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
   private renderedSeries(
     timeline: TodayTimelineResponse,
     chartRange: readonly [number, number],
+    chartWindow: ChartWindow,
   ): RenderedSeries[] {
     const numeric = timeline.series.filter(
       (series) => numericSamples(series).length > 0 && series.unit !== "%",
@@ -335,7 +349,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     return numeric.map((series) => {
       const samples = numericSamples(series);
       const points = samples.map((sample) => ({
-        x: this.xPosition(Date.parse(sample.timestamp_utc), timeline),
+        x: this.xPosition(Date.parse(sample.timestamp_utc), chartWindow),
         y: this.yPosition(sample.value, chartRange),
       }));
       const latest = samples.at(-1);
@@ -444,13 +458,13 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     return [minimum - padding, maximum + padding];
   }
 
-  private xPosition(
-    timestamp: number,
-    timeline: TodayTimelineResponse,
-  ): number {
-    const start = Date.parse(timeline.day_start_utc);
-    const end = Date.parse(timeline.day_end_utc);
-    return 80 + ((timestamp - start) / (end - start)) * 890;
+  private xPosition(timestamp: number, chartWindow: ChartWindow): number {
+    return (
+      80 +
+      ((timestamp - chartWindow.start) /
+        (chartWindow.end - chartWindow.start)) *
+        890
+    );
   }
 
   private yPosition(value: number, range: readonly [number, number]): number {
@@ -460,15 +474,65 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     );
   }
 
-  private currentCursor(timeline: TodayTimelineResponse): number | null {
+  private currentCursor(chartWindow: ChartWindow): number | null {
     const now = Date.now();
-    if (
-      now < Date.parse(timeline.day_start_utc) ||
-      now > Date.parse(timeline.day_end_utc)
-    ) {
+    if (now < chartWindow.start || now > chartWindow.end) {
       return null;
     }
-    return this.xPosition(now, timeline);
+    return this.xPosition(now, chartWindow);
+  }
+
+  private chartWindow(timeline: TodayTimelineResponse): ChartWindow {
+    const dayStart = Date.parse(timeline.day_start_utc);
+    const dayEnd = Date.parse(timeline.day_end_utc);
+    const timestamps = timeline.series
+      .filter((series) => series.unit !== "%")
+      .flatMap((series) =>
+        numericSamples(series).map((sample) =>
+          Date.parse(sample.timestamp_utc),
+        ),
+      )
+      .filter((timestamp) => Number.isFinite(timestamp));
+    if (timestamps.length === 0) {
+      return { start: dayStart, end: dayEnd };
+    }
+
+    const first = Math.min(...timestamps);
+    const last = Math.max(...timestamps);
+    const dayDuration = dayEnd - dayStart;
+    const requestedDuration = Math.max(
+      MINIMUM_EARLY_WINDOW_MS,
+      last - first + EARLY_WINDOW_PADDING_MS * 2,
+    );
+    const duration = Math.min(dayDuration, requestedDuration);
+    const midpoint = (first + last) / 2;
+    let start = midpoint - duration / 2;
+    let end = midpoint + duration / 2;
+    if (start < dayStart) {
+      start = dayStart;
+      end = dayStart + duration;
+    }
+    if (end > dayEnd) {
+      end = dayEnd;
+      start = dayEnd - duration;
+    }
+    return { start, end };
+  }
+
+  private axisTimes(
+    chartWindow: ChartWindow,
+    timeline: TodayTimelineResponse,
+  ): readonly [string, string, string] {
+    const formatter = new Intl.DateTimeFormat(this.locale, {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: timeline.time_zone,
+    });
+    return [
+      formatter.format(new Date(chartWindow.start)),
+      formatter.format(new Date((chartWindow.start + chartWindow.end) / 2)),
+      formatter.format(new Date(chartWindow.end)),
+    ];
   }
 
   private latestValue(series: RenderedSeries): string {

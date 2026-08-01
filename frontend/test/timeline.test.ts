@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import "../src/components/today-timeline";
 import { timeline } from "./fixtures";
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
 describe("accessible Today timeline", () => {
   it("renders provenance with non-color line styles and a data table", async () => {
     const element = document.createElement("ic-today-timeline");
@@ -18,6 +20,11 @@ describe("accessible Today timeline", () => {
     expect(root?.querySelectorAll("circle.measured-temperature")).toHaveLength(
       2,
     );
+    expect(
+      [...(root?.querySelectorAll("path, circle, line, text") ?? [])].every(
+        (node) => node.namespaceURI === SVG_NAMESPACE,
+      ),
+    ).toBe(true);
     expect(root?.textContent).toContain("Indoor temperature");
     expect(root?.textContent).toContain("measured");
     expect(root?.textContent).toContain("74.7°F");
@@ -36,7 +43,7 @@ describe("accessible Today timeline", () => {
     element.remove();
   });
 
-  it("keeps a flat measured trace visible above the grid", async () => {
+  it("keeps a flat three-sample five-minute trace visible", async () => {
     const element = document.createElement("ic-today-timeline");
     element.timeline = {
       ...timeline,
@@ -50,11 +57,11 @@ describe("accessible Today timeline", () => {
                   value: 24.4,
                 },
                 {
-                  timestamp_utc: "2026-07-31T18:00:00+00:00",
+                  timestamp_utc: "2026-07-31T17:05:00+00:00",
                   value: 24.4,
                 },
                 {
-                  timestamp_utc: "2026-07-31T19:00:00+00:00",
+                  timestamp_utc: "2026-07-31T17:10:00+00:00",
                   value: 24.4,
                 },
               ],
@@ -69,13 +76,52 @@ describe("accessible Today timeline", () => {
     const path = root?.querySelector("path.effective_temperature");
     const pathData = path?.getAttribute("d") ?? "";
     expect(pathData.match(/ L /g)).toHaveLength(2);
-    expect(new Set(pathData.match(/\d+\.\d+/g))).not.toHaveLength(1);
+    expect(pathData).toBe("M 302.50 92.50 L 525.00 92.50 L 747.50 92.50");
     expect(root?.querySelectorAll("circle.measured-temperature")).toHaveLength(
       3,
     );
     expect(root?.querySelector("svg")?.getAttribute("viewBox")).toBe(
       "0 0 1000 210",
     );
+    expect(root?.querySelector(".axis-labels")?.textContent).toContain(
+      "1:05 PM",
+    );
+    element.remove();
+  });
+
+  it("keeps a flat two-sample five-minute trace visibly separated", async () => {
+    const element = document.createElement("ic-today-timeline");
+    element.timeline = {
+      ...timeline,
+      series: timeline.series.map((series) =>
+        series.kind === "effective_temperature"
+          ? {
+              ...series,
+              samples: [
+                {
+                  timestamp_utc: "2026-07-31T17:00:00+00:00",
+                  value: 24.4,
+                },
+                {
+                  timestamp_utc: "2026-07-31T17:05:00+00:00",
+                  value: 24.4,
+                },
+              ],
+            }
+          : series,
+      ),
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    const pathData =
+      element.shadowRoot
+        ?.querySelector("path.effective_temperature")
+        ?.getAttribute("d") ?? "";
+    expect(pathData).toBe("M 376.67 92.50 L 673.33 92.50");
+    expect(
+      element.shadowRoot?.querySelectorAll("circle.measured-temperature"),
+    ).toHaveLength(2);
     element.remove();
   });
 

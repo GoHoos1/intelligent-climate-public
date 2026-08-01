@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Today timeline browser regression</title>
+    <style>
+      :root {
+        --primary-text-color: #111827;
+        --secondary-text-color: #4b5563;
+        --divider-color: #d1d5db;
+        --card-background-color: #ffffff;
+        --primary-color: #005a9c;
+        --ic-accent: #005a9c;
+        --ic-surface: #ffffff;
+      }
+      body {
+        width: 1000px;
+        margin: 0;
+        padding: 12px;
+        background: #ffffff;
+      }
+    </style>
+    <script type="module" src="/src/components/today-timeline.ts"></script>
+  </head>
+  <body>
+    <ic-today-timeline id="timeline"></ic-today-timeline>
+  </body>
+</html>

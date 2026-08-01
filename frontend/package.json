@@ -1,29 +1,33 @@
 {
   "name": "@intelligent-climate/frontend",
   "private": true,
-  "version": "0.0.12",
+  "version": "0.0.13",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run test:browser",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "vitest run --coverage",
+    "test:browser": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "lit": "^3.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "axe-core": "^4.10.3",
     "@eslint/js": "^9.32.0",
     "@types/node": "^24.1.0",
+    "@types/pngjs": "^6.0.5",
     "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^9.32.0",
     "eslint-plugin-lit": "^2.1.1",
     "jsdom": "^26.1.0",
     "prettier": "^3.6.2",
+    "pngjs": "^7.0.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.38.0",
     "vite": "^7.1.0",
