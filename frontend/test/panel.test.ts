@@ -2,6 +2,7 @@ import axe from "axe-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import "../src/panel/intelligent-climate-panel";
+import type { SnapshotResponse } from "../src/types/contracts";
 import type { HomeAssistantLike } from "../src/types/home-assistant";
 import {
   ENTRY_ID,
@@ -17,6 +18,8 @@ import {
 function createHass(): {
   hass: HomeAssistantLike;
   cleanup: ReturnType<typeof vi.fn>;
+  emitSnapshot: (value: SnapshotResponse) => void;
+  setResponse: (type: string, value: unknown) => void;
 } {
   const responses: Record<string, unknown> = {
     "intelligent_climate/config/get": configuration,
@@ -28,14 +31,24 @@ function createHass(): {
     "intelligent_climate/narrative/current": narrative,
   };
   const cleanup = vi.fn();
+  let subscription: ((message: unknown) => void) | undefined;
   const callWS: HomeAssistantLike["callWS"] = <T>(
     message: Record<string, unknown>,
   ) => Promise.resolve(responses[String(message["type"])] as T);
   return {
     cleanup,
+    emitSnapshot: (value) => subscription?.(value),
+    setResponse: (type, value) => {
+      responses[type] = value;
+    },
     hass: {
       callWS,
-      connection: { subscribeMessage: () => Promise.resolve(cleanup) },
+      connection: {
+        subscribeMessage: (callback) => {
+          subscription = callback;
+          return Promise.resolve(cleanup);
+        },
+      },
       locale: { language: "en-US" },
       config: { unit_system: { temperature: "°F" } },
     },
@@ -56,19 +69,21 @@ async function settle(panel: HTMLElement): Promise<void> {
 function mount(): {
   panel: HTMLElement;
   cleanup: ReturnType<typeof vi.fn>;
+  emitSnapshot: (value: SnapshotResponse) => void;
+  setResponse: (type: string, value: unknown) => void;
 } {
   const panel = document.createElement("intelligent-climate-panel");
-  const { hass, cleanup } = createHass();
+  const { hass, cleanup, emitSnapshot, setResponse } = createHass();
   panel.hass = hass;
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.10",
+      frontend_version: "0.0.11",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };
   document.body.append(panel);
-  return { panel, cleanup };
+  return { panel, cleanup, emitSnapshot, setResponse };
 }
 
 afterEach(() => {
@@ -173,5 +188,37 @@ describe("Intelligent Climate sidebar", () => {
     await settle(panel);
     panel.remove();
     expect(cleanup).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes timeline details when a live snapshot revision arrives", async () => {
+    const { panel, emitSnapshot, setResponse } = mount();
+    await settle(panel);
+    setResponse("intelligent_climate/timeline/today", {
+      ...timeline,
+      series: timeline.series.map((series) =>
+        series.kind === "hvac_action"
+          ? {
+              ...series,
+              samples: [
+                ...series.samples,
+                {
+                  timestamp_utc: "2026-07-31T18:05:00+00:00",
+                  value: "heating",
+                },
+              ],
+            }
+          : series,
+      ),
+    });
+    emitSnapshot({ ...snapshot, observation_revision: 9 });
+    await settle(panel);
+    const timelineElement =
+      panel.shadowRoot?.querySelector("ic-today-timeline");
+    await (
+      timelineElement as HTMLElement & { updateComplete: Promise<boolean> }
+    ).updateComplete;
+    expect(timelineElement?.shadowRoot?.textContent).toContain(
+      "Running with heating",
+    );
   });
 });

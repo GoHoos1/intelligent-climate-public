@@ -97,9 +97,11 @@ export class IntelligentClimatePanel extends LitElement {
   private client: IntelligentClimateClient | undefined;
   private unsubscribe: (() => void) | undefined;
   private loadGeneration = 0;
+  private detailLoadGeneration = 0;
 
   public override disconnectedCallback(): void {
     this.loadGeneration += 1;
+    this.detailLoadGeneration += 1;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     super.disconnectedCallback();
@@ -546,11 +548,11 @@ export class IntelligentClimatePanel extends LitElement {
                 <dd>${this.enabledBindingCount(zone.occupancy_entity_ids)}</dd>
               </div>
               <div>
-                <dt>HVAC stage</dt>
+                <dt>Equipment-stage evidence</dt>
                 <dd>${zone.stage_entity_ids.length}</dd>
               </div>
               <div>
-                <dt>Fan</dt>
+                <dt>Fan-only control</dt>
                 <dd>${this.enabledBindingCount(zone.fan_entity_ids)}</dd>
               </div>
             </dl>
@@ -977,11 +979,15 @@ export class IntelligentClimatePanel extends LitElement {
     if (this.client === undefined || this.selectedZoneId.length === 0) {
       return;
     }
+    const detailGeneration = ++this.detailLoadGeneration;
     const [timeline, narrative] = await Promise.allSettled([
       this.client.todayTimeline(this.selectedZoneId),
       this.client.narrative(this.selectedZoneId),
     ]);
-    if (generation !== this.loadGeneration) {
+    if (
+      generation !== this.loadGeneration ||
+      detailGeneration !== this.detailLoadGeneration
+    ) {
       return;
     }
     this.timeline =
@@ -995,6 +1001,7 @@ export class IntelligentClimatePanel extends LitElement {
       return;
     }
     this.data = { ...this.data, snapshot };
+    void this.loadZoneDetails(this.loadGeneration);
   }
 
   private describeError(error: unknown): string {

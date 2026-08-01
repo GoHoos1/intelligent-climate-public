@@ -7,6 +7,27 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.11 - 2026-07-31
+
+### Fixed
+
+- Corrected thermostat-state interpretation so HVAC operation comes from the
+  thermostat's reported `hvac_action`, while `fan_mode` represents only
+  explicit fan-only circulation.
+- Distinguished unavailable, not-reported, and older unknown observations,
+  and added a clearly labeled derived air-handler status during active heating
+  or cooling without claiming direct blower telemetry.
+- Repaired the Today chart with one labeled temperature scale, consistent
+  Fahrenheit/Celsius rendering, visible indoor and target lines, sample-count
+  progress, latest-sample time and source, and live detail refreshes.
+- Relabeled optional HVAC-stage inputs as external equipment-stage evidence and
+  collapsed repetitive equipment-state samples into meaningful transitions.
+
+### Security
+
+- The correctness release remains read-only and adds no physical adapter, Home
+  Assistant service call, writable climate behavior, or control authority.
+
 ## 0.0.10 - 2026-07-31
 
 ### Changed

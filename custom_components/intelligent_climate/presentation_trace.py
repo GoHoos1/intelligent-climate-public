@@ -34,7 +34,11 @@ from .models.presentation import (
     encode_presentation_trace_document,
     validate_presentation_trace,
 )
-from .models.runtime import EntryObservationSnapshot, ZoneObservation
+from .models.runtime import (
+    EntryObservationSnapshot,
+    NormalizedClimateState,
+    ZoneObservation,
+)
 from .models.schedule import TargetKind, TargetSpec
 from .models.schema import SchemaValidationError
 
@@ -279,9 +283,9 @@ def _trace_point(
     humidity = _rounded(zone.effective_humidity_pct)
     scheduled = _rounded_target(policy.scheduled_target)
     effective = _rounded_target(policy.effective_target)
-    thermostat = zone.thermostat_states[0] if zone.thermostat_states else None
-    hvac = _hvac_action(None if thermostat is None else thermostat.hvac_action)
-    fan = _fan_action(None if thermostat is None else thermostat.hvac_action)
+    thermostat = _primary_thermostat(zone.thermostat_states)
+    hvac = _hvac_action(thermostat)
+    fan = _fan_only_action(thermostat)
     quality = _quality_flags(zone)
     material = latest is None or (
         latest.scheduled_target != scheduled
@@ -342,8 +346,26 @@ def _quality_flags(zone: ZoneObservation) -> tuple[PresentationQualityFlag, ...]
     return tuple(result)
 
 
-def _hvac_action(value: object) -> PresentationHvacAction:
-    raw = getattr(value, "value", value)
+def _primary_thermostat(
+    states: tuple[NormalizedClimateState, ...],
+) -> NormalizedClimateState | None:
+    """Prefer the first available configured thermostat for presentation."""
+    return next(
+        (state for state in states if state.available),
+        states[0] if states else None,
+    )
+
+
+def _hvac_action(
+    thermostat: NormalizedClimateState | None,
+) -> PresentationHvacAction:
+    if thermostat is None:
+        return PresentationHvacAction.NOT_REPORTED
+    if not thermostat.available:
+        return PresentationHvacAction.UNAVAILABLE
+    if thermostat.hvac_action is None:
+        return PresentationHvacAction.NOT_REPORTED
+    raw = getattr(thermostat.hvac_action, "value", thermostat.hvac_action)
     aliases = {"fan_only": PresentationHvacAction.FAN}
     if str(raw) in aliases:
         return aliases[str(raw)]
@@ -353,11 +375,31 @@ def _hvac_action(value: object) -> PresentationHvacAction:
         return PresentationHvacAction.UNKNOWN
 
 
-def _fan_action(value: object) -> PresentationFanAction:
-    raw = getattr(value, "value", value)
-    if raw in {"fan", "fan_only"}:
+def _fan_only_action(
+    thermostat: NormalizedClimateState | None,
+) -> PresentationFanAction:
+    """Report explicit fan-only circulation, never the HVAC-driven blower."""
+    if thermostat is None:
+        return PresentationFanAction.NOT_REPORTED
+    if not thermostat.available:
+        return PresentationFanAction.UNAVAILABLE
+    hvac_raw = getattr(thermostat.hvac_action, "value", thermostat.hvac_action)
+    if hvac_raw in {"fan", "fan_only"}:
         return PresentationFanAction.ON
-    if raw in {"off", "idle", "heating", "cooling", "drying"}:
+    if thermostat.fan_mode is None:
+        return PresentationFanAction.NOT_REPORTED
+    raw = thermostat.fan_mode.strip().lower()
+    if raw in {
+        "on",
+        "circulate",
+        "circulation",
+        "fan_only",
+        "low",
+        "medium",
+        "high",
+    }:
+        return PresentationFanAction.ON
+    if raw in {"off", "auto"}:
         return PresentationFanAction.OFF
     return PresentationFanAction.UNKNOWN
 

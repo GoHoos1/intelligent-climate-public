@@ -16,6 +16,15 @@ describe("accessible Today timeline", () => {
     expect(root?.textContent).toContain("Indoor temperature");
     expect(root?.textContent).toContain("measured");
     expect(root?.textContent).toContain("74.7°F");
+    expect(root?.querySelectorAll(".y-axis-labels text")).toHaveLength(5);
+    expect(root?.textContent).toContain("Source: effective zone temperature");
+    expect(root?.textContent).toContain("HVAC operation");
+    expect(root?.textContent).toContain("Cooling");
+    expect(root?.textContent).toContain("Air handler derived");
+    expect(root?.textContent).toContain("Running with cooling");
+    expect(root?.textContent).toContain("Fan-only circulation");
+    expect(root?.textContent).toContain("Off");
+    expect(root?.querySelectorAll(".state-row")).toHaveLength(3);
     expect(root?.querySelector("table caption")?.textContent).toContain(
       "Latest factual value",
     );
@@ -44,6 +53,12 @@ describe("accessible Today timeline", () => {
     await element.updateComplete;
     expect(element.shadowRoot?.textContent).toContain(
       "Collecting climate history",
+    );
+    expect(element.shadowRoot?.textContent).toContain(
+      "1 of 2 temperature samples collected",
+    );
+    expect(element.shadowRoot?.textContent).toContain(
+      "Source: effective zone temperature",
     );
     expect(element.shadowRoot?.querySelector("svg")).toBeNull();
     element.remove();

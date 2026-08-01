@@ -131,6 +131,32 @@ export const timeline: TodayTimelineResponse = {
         { timestamp_utc: NOW, value: 23.7 },
       ],
     },
+    {
+      kind: "hvac_action",
+      value_kind: "measured",
+      unit: null,
+      source_quality: "available",
+      coverage_start_utc: "2026-07-31T17:00:00+00:00",
+      coverage_end_utc: NOW,
+      missing_intervals: [],
+      samples: [
+        { timestamp_utc: "2026-07-31T17:00:00+00:00", value: "idle" },
+        { timestamp_utc: NOW, value: "cooling" },
+      ],
+    },
+    {
+      kind: "fan_action",
+      value_kind: "measured",
+      unit: null,
+      source_quality: "available",
+      coverage_start_utc: "2026-07-31T17:00:00+00:00",
+      coverage_end_utc: NOW,
+      missing_intervals: [],
+      samples: [
+        { timestamp_utc: "2026-07-31T17:00:00+00:00", value: "off" },
+        { timestamp_utc: NOW, value: "off" },
+      ],
+    },
   ],
   annotations: [],
 };
