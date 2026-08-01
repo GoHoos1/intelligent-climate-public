@@ -78,7 +78,7 @@ function mount(): {
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.12",
+      frontend_version: "0.0.13",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };
@@ -105,6 +105,29 @@ describe("Intelligent Climate sidebar", () => {
     expect(root?.querySelector(".narrative")?.textContent).not.toContain("°C");
     expect(root?.querySelector("ic-today-timeline")).not.toBeNull();
     expect(root?.textContent).toContain("Shadow readiness");
+    expect(root?.textContent).toContain(
+      "Not started — Scheduled Shadow is not active.",
+    );
+    expect(root?.textContent).toContain(
+      "Ordinary observation history is still being collected.",
+    );
+    expect(root?.textContent).not.toContain("42%");
+  });
+
+  it("shows qualification facts only while Scheduled Shadow is active", async () => {
+    const { panel, setResponse } = mount();
+    setResponse("intelligent_climate/snapshot/get", {
+      ...snapshot,
+      control_state: "shadow_qualifying",
+    });
+    await settle(panel);
+
+    expect(panel.shadowRoot?.textContent).toContain("◌ Qualifying");
+    expect(panel.shadowRoot?.textContent).toContain("42%");
+    expect(panel.shadowRoot?.textContent).toContain("10.0 / 24 h");
+    expect(panel.shadowRoot?.textContent).not.toContain(
+      "Scheduled Shadow is not active",
+    );
   });
 
   it("provides keyboard-sized route controls and all Task 22 sections", async () => {

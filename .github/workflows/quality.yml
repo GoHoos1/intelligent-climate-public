@@ -55,3 +55,10 @@ jobs:
       - name: Run frontend quality gates
         working-directory: frontend
         run: npm run check
+
+      - name: Build production frontend bundle
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify committed production frontend bundle
+        run: git diff --exit-code -- custom_components/intelligent_climate/frontend_dist/intelligent-climate-panel.js

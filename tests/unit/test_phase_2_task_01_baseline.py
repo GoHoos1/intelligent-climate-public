@@ -89,7 +89,7 @@ def test_accepted_release_evidence_is_frozen() -> None:
     assert "**Result:** All 35 Phase 1 acceptance criteria passed" in acceptance
     assert acceptance.count("| P1-AC-") == 35
     assert release["version"] == "0.0.8"
-    assert INTEGRATION_VERSION == "0.0.12"
+    assert INTEGRATION_VERSION == "0.0.13"
 
 
 def test_accepted_config_zone_options_and_store_round_trip() -> None:

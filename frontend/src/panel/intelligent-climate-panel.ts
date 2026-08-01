@@ -225,6 +225,10 @@ export class IntelligentClimatePanel extends LitElement {
     const data = this.requireData();
     const status = statusSemantics(data.snapshot.control_state);
     const readiness = data.shadow.readiness;
+    const scheduledShadowActive = [
+      "shadow_qualifying",
+      "shadow_ready",
+    ].includes(data.snapshot.control_state);
     const selectedZone = this.selectedZone();
     return html`
       <section
@@ -341,69 +345,82 @@ export class IntelligentClimatePanel extends LitElement {
             <span
               class="readiness-state ${readiness?.ready === true ? "ready" : "waiting"}"
             >
-              ${readiness?.ready === true ? "✓ Ready" : "◌ Observing"}
+              ${
+                readiness?.ready === true
+                  ? "✓ Ready"
+                  : scheduledShadowActive
+                    ? "◌ Qualifying"
+                    : "○ Not started"
+              }
             </span>
           </div>
           ${
-            readiness === null
+            !scheduledShadowActive
               ? html`<p class="muted">
-                  Shadow qualification has not started. Observe Only remains
-                  fully available.
+                  <strong>Not started — Scheduled Shadow is not active.</strong>
+                  Ordinary observation history is still being collected.
                 </p>`
-              : html`<div class="progress-row">
-                    <div class="progress-label">
-                      <span>Qualification</span
-                      ><strong
-                        >${Math.round(readiness.qualification_percent)}%</strong
+              : readiness === null
+                ? html`<p class="muted">
+                    Scheduled Shadow is starting. Qualification evidence will
+                    appear after its first valid evaluation.
+                  </p>`
+                : html`<div class="progress-row">
+                      <div class="progress-label">
+                        <span>Qualification</span
+                        ><strong
+                          >${Math.round(readiness.qualification_percent)}%</strong
+                        >
+                      </div>
+                      <div
+                        class="progress"
+                        role="progressbar"
+                        aria-label="Shadow qualification"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                        aria-valuenow=${readiness.qualification_percent}
                       >
+                        <span
+                          style=${`width: ${String(Math.min(100, Math.max(0, readiness.qualification_percent)))}%`}
+                        ></span>
+                      </div>
                     </div>
-                    <div
-                      class="progress"
-                      role="progressbar"
-                      aria-label="Shadow qualification"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-valuenow=${readiness.qualification_percent}
-                    >
-                      <span
-                        style=${`width: ${String(Math.min(100, Math.max(0, readiness.qualification_percent)))}%`}
-                      ></span>
-                    </div>
-                  </div>
-                  <dl class="readiness-facts">
-                    <div>
-                      <dt>Elapsed</dt>
-                      <dd>${readiness.elapsed_hours.toFixed(1)} / 24 h</dd>
-                    </div>
-                    <div>
-                      <dt>Decisions</dt>
-                      <dd>${readiness.evaluated_decisions} / 20</dd>
-                    </div>
-                    <div>
-                      <dt>Valid</dt>
-                      <dd>${readiness.valid_evaluation_percent.toFixed(0)}%</dd>
-                    </div>
-                    <div>
-                      <dt>Transitions</dt>
-                      <dd>${readiness.minimum_material_transitions} / 2</dd>
-                    </div>
-                  </dl>
-                  ${
-                    readiness.blocking_reasons.length === 0
-                      ? nothing
-                      : html`<p class="blocking">
-                          <strong>Still needed:</strong>
-                          ${readiness.blocking_reasons.map((reason) => reason.replaceAll("_", " ")).join(", ")}
-                        </p>`
-                  }
-                  ${
-                    readiness.blocking_faults.length === 0
-                      ? nothing
-                      : html`<p class="fault">
-                          <strong>Blocking fault:</strong>
-                          ${readiness.blocking_faults.join(", ")}
-                        </p>`
-                  }`
+                    <dl class="readiness-facts">
+                      <div>
+                        <dt>Elapsed</dt>
+                        <dd>${readiness.elapsed_hours.toFixed(1)} / 24 h</dd>
+                      </div>
+                      <div>
+                        <dt>Decisions</dt>
+                        <dd>${readiness.evaluated_decisions} / 20</dd>
+                      </div>
+                      <div>
+                        <dt>Valid</dt>
+                        <dd>
+                          ${readiness.valid_evaluation_percent.toFixed(0)}%
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Transitions</dt>
+                        <dd>${readiness.minimum_material_transitions} / 2</dd>
+                      </div>
+                    </dl>
+                    ${
+                      readiness.blocking_reasons.length === 0
+                        ? nothing
+                        : html`<p class="blocking">
+                            <strong>Still needed:</strong>
+                            ${readiness.blocking_reasons.map((reason) => reason.replaceAll("_", " ")).join(", ")}
+                          </p>`
+                    }
+                    ${
+                      readiness.blocking_faults.length === 0
+                        ? nothing
+                        : html`<p class="fault">
+                            <strong>Blocking fault:</strong>
+                            ${readiness.blocking_faults.join(", ")}
+                          </p>`
+                    }`
           }
         </section>
       </div>

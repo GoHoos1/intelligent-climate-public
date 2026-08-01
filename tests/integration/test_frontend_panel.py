@@ -1,5 +1,4 @@
 """Task 22 supported sidebar lifecycle and bundled-asset tests."""
-
 from __future__ import annotations
 
 from pathlib import Path

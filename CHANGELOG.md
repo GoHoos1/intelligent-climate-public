@@ -7,6 +7,26 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.13 - 2026-08-01
+
+### Fixed
+
+- Corrected the Today chart's browser SVG namespace so dynamic grid lines,
+  labels, paths, sample markers, cursor, and annotations render as real SVG
+  elements in Chrome, Safari, and other standards-compliant browsers.
+- Added a visible early-history window that expands toward the full Today view
+  as observations accumulate, including flat two-sample and nearly flat
+  three-sample traces five minutes apart.
+- Clarified that Shadow qualification has not started while Scheduled Shadow is
+  inactive, without implying that ordinary observation history is missing.
+
+### Security
+
+- The correctness release preserves existing configuration and stored
+  observations and remains read-only. It adds no physical adapter, Home
+  Assistant service call, writable climate behavior, predictive control, or
+  control authority.
+
 ## 0.0.12 - 2026-07-31
 
 ### Fixed
