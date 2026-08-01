@@ -12,7 +12,12 @@ describe("accessible Today timeline", () => {
     document.body.append(element);
     await element.updateComplete;
     const root = element.shadowRoot;
-    expect(root?.querySelector("path.series.measured")).not.toBeNull();
+    const measuredPath = root?.querySelector("path.series.measured");
+    expect(measuredPath).not.toBeNull();
+    expect(measuredPath?.getAttribute("d")).toMatch(/^M .+ L /);
+    expect(root?.querySelectorAll("circle.measured-temperature")).toHaveLength(
+      2,
+    );
     expect(root?.textContent).toContain("Indoor temperature");
     expect(root?.textContent).toContain("measured");
     expect(root?.textContent).toContain("74.7°F");
@@ -27,6 +32,49 @@ describe("accessible Today timeline", () => {
     expect(root?.querySelectorAll(".state-row")).toHaveLength(3);
     expect(root?.querySelector("table caption")?.textContent).toContain(
       "Latest factual value",
+    );
+    element.remove();
+  });
+
+  it("keeps a flat measured trace visible above the grid", async () => {
+    const element = document.createElement("ic-today-timeline");
+    element.timeline = {
+      ...timeline,
+      series: timeline.series.map((series) =>
+        series.kind === "effective_temperature"
+          ? {
+              ...series,
+              samples: [
+                {
+                  timestamp_utc: "2026-07-31T17:00:00+00:00",
+                  value: 24.4,
+                },
+                {
+                  timestamp_utc: "2026-07-31T18:00:00+00:00",
+                  value: 24.4,
+                },
+                {
+                  timestamp_utc: "2026-07-31T19:00:00+00:00",
+                  value: 24.4,
+                },
+              ],
+            }
+          : series,
+      ),
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    const root = element.shadowRoot;
+    const path = root?.querySelector("path.effective_temperature");
+    const pathData = path?.getAttribute("d") ?? "";
+    expect(pathData.match(/ L /g)).toHaveLength(2);
+    expect(new Set(pathData.match(/\d+\.\d+/g))).not.toHaveLength(1);
+    expect(root?.querySelectorAll("circle.measured-temperature")).toHaveLength(
+      3,
+    );
+    expect(root?.querySelector("svg")?.getAttribute("viewBox")).toBe(
+      "0 0 1000 210",
     );
     element.remove();
   });

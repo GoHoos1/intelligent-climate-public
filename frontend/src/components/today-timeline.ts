@@ -18,6 +18,7 @@ interface RenderedSeries {
   label: string;
   className: string;
   path: string;
+  points: readonly ChartPoint[];
   latest: number | string;
   latestTimestamp: string;
   sampleCount: number;
@@ -51,6 +52,11 @@ const STATE_LABELS: Record<string, string> = {
   unavailable: "Unavailable",
   unknown: "Unknown (older sample)",
 };
+
+const PLOT_TOP = 30;
+const PLOT_BOTTOM = 155;
+const PLOT_HEIGHT = PLOT_BOTTOM - PLOT_TOP;
+const GRID_Y_POSITIONS = [30, 61.25, 92.5, 123.75, 155] as const;
 
 function label(kind: string): string {
   return LABELS[kind] ?? kind.replaceAll("_", " ");
@@ -185,7 +191,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
               </div>`
             : html`<div class="chart-wrap">
                 <svg
-                  viewBox="0 0 1000 300"
+                  viewBox="0 0 1000 210"
                   role="img"
                   aria-labelledby="timeline-title timeline-description"
                 >
@@ -198,17 +204,22 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                     accessible table.
                   </desc>
                   <g class="grid" aria-hidden="true">
-                    ${[40, 95, 150, 205, 260].map(
+                    ${GRID_Y_POSITIONS.map(
                       (y) =>
                         html`<line x1="80" x2="970" y1=${y} y2=${y}></line>`,
                     )}
                     ${[80, 303, 525, 748, 970].map(
                       (x) =>
-                        html`<line x1=${x} x2=${x} y1="40" y2="260"></line>`,
+                        html`<line
+                          x1=${x}
+                          x2=${x}
+                          y1=${PLOT_TOP}
+                          y2=${PLOT_BOTTOM}
+                        ></line>`,
                     )}
                   </g>
                   <g class="y-axis-labels" aria-hidden="true">
-                    ${[40, 95, 150, 205, 260].map((y, index) => {
+                    ${GRID_Y_POSITIONS.map((y, index) => {
                       const [minimum, maximum] = chartRange;
                       const value = maximum - ((maximum - minimum) * index) / 4;
                       return html`<text x="72" y=${y + 6} text-anchor="end">
@@ -222,11 +233,25 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   </g>
                   ${rendered.map(
                     (series) =>
-                      html`<path
-                        class="series ${series.className}"
-                        d=${series.path}
-                        vector-effect="non-scaling-stroke"
-                      ></path>`,
+                      html`<g class="series-group ${series.className}">
+                        <path
+                          class="series ${series.className}"
+                          d=${series.path}
+                        ></path>
+                        ${
+                          series.kind === "effective_temperature"
+                            ? series.points.map(
+                                (point) =>
+                                  html`<circle
+                                    class="sample-point measured-temperature"
+                                    cx=${point.x}
+                                    cy=${point.y}
+                                    r="4.5"
+                                  ></circle>`,
+                              )
+                            : nothing
+                        }
+                      </g>`,
                   )}
                   ${
                     cursor === null
@@ -235,9 +260,8 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                           class="now"
                           x1=${cursor}
                           x2=${cursor}
-                          y1="35"
-                          y2="265"
-                          vector-effect="non-scaling-stroke"
+                          y1=${PLOT_TOP - 5}
+                          y2=${PLOT_BOTTOM + 5}
                         ></line>`
                   }
                   ${timeline.annotations.map((annotation) => {
@@ -246,14 +270,14 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                       timeline,
                     );
                     return html`<g class="annotation" aria-hidden="true">
-                      <circle cx=${x} cy="28" r="6"></circle>
-                      <line x1=${x} x2=${x} y1="34" y2="46"></line>
+                      <circle cx=${x} cy="15" r="6"></circle>
+                      <line x1=${x} x2=${x} y1="21" y2=${PLOT_TOP + 6}></line>
                     </g>`;
                   })}
                   <g class="axis-labels" aria-hidden="true">
-                    <text x="80" y="288">12 AM</text>
-                    <text x="525" y="288" text-anchor="middle">12 PM</text>
-                    <text x="970" y="288" text-anchor="end">12 AM</text>
+                    <text x="80" y="198">12 AM</text>
+                    <text x="525" y="198" text-anchor="middle">12 PM</text>
+                    <text x="970" y="198" text-anchor="end">12 AM</text>
                   </g>
                 </svg>
                 ${this.sampleSummary(indoorSeries)}
@@ -324,6 +348,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
         label: label(series.kind),
         className: `${series.value_kind} ${series.kind}`,
         path: pathFor(points, series.value_kind !== "measured"),
+        points,
         latest: latest.value,
         latestTimestamp: latest.timestamp_utc,
         sampleCount: samples.length,
@@ -430,7 +455,9 @@ export class IntelligentClimateTodayTimeline extends LitElement {
 
   private yPosition(value: number, range: readonly [number, number]): number {
     const [minimum, maximum] = range;
-    return 260 - ((value - minimum) / (maximum - minimum)) * 220;
+    return (
+      PLOT_BOTTOM - ((value - minimum) / (maximum - minimum)) * PLOT_HEIGHT
+    );
   }
 
   private currentCursor(timeline: TodayTimelineResponse): number | null {
@@ -483,7 +510,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     .chart-wrap {
       overflow: hidden;
-      min-block-size: 220px;
+      min-block-size: 150px;
     }
     svg {
       display: block;
@@ -497,10 +524,15 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     .series {
       fill: none;
-      stroke: var(--ic-accent);
-      stroke-width: 3;
+      stroke: var(--ic-accent, var(--primary-color, #03a9f4));
+      stroke-width: 4;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+    .sample-point {
+      fill: var(--ic-surface, var(--card-background-color, #ffffff));
+      stroke: var(--ic-accent, var(--primary-color, #03a9f4));
+      stroke-width: 3;
     }
     .series.configured {
       stroke-dasharray: 14 8;
