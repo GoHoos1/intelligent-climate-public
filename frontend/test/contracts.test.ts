@@ -6,6 +6,10 @@ import {
   validateConfiguration,
   validateNarrative,
   validateObservationStatus,
+  validateScheduleGet,
+  validateSchedulePreview,
+  validateScheduleSave,
+  validateScheduleValidation,
   validateShadowStatus,
   validateSnapshot,
   validateTodayTimeline,
@@ -16,6 +20,11 @@ import {
   narrative,
   observation,
   shadow,
+  scheduleGet,
+  scheduleDocument,
+  schedulePreview,
+  scheduleSave,
+  scheduleValidation,
   snapshot,
   timeline,
 } from "./fixtures";
@@ -29,6 +38,51 @@ describe("frontend schema contracts", () => {
     expect(validateObservationStatus(observation)).toEqual(observation);
     expect(validateTodayTimeline(timeline)).toEqual(timeline);
     expect(validateNarrative(narrative)).toEqual(narrative);
+    expect(validateScheduleGet(scheduleGet)).toEqual(scheduleGet);
+    expect(validateScheduleValidation(scheduleValidation)).toEqual(
+      scheduleValidation,
+    );
+    expect(validateSchedulePreview(schedulePreview)).toEqual(schedulePreview);
+    expect(validateScheduleSave(scheduleSave)).toEqual(scheduleSave);
+  });
+
+  it("fails closed on malformed schedule documents and preview authority", () => {
+    expect(() =>
+      validateScheduleGet({
+        ...scheduleGet,
+        schedule: { ...scheduleGet.schedule, schedule_schema_version: 2 },
+      }),
+    ).toThrow("schedule_schema_version");
+    const incompleteDays = structuredClone(scheduleDocument);
+    const zone = Object.values(incompleteDays.zones)[0];
+    const profile = zone?.profiles[0];
+    if (profile === undefined) throw new Error("fixture profile is missing");
+    profile.days = {
+      monday: [],
+    } as never;
+    expect(() =>
+      validateScheduleGet({ ...scheduleGet, schedule: incompleteDays }),
+    ).toThrow("tuesday");
+    expect(() =>
+      validateSchedulePreview({ ...schedulePreview, authoritative: true }),
+    ).toThrow("nonauthoritative");
+    expect(() =>
+      validateSchedulePreview({
+        ...schedulePreview,
+        dst_warnings: [
+          {
+            zone_id: "zone",
+            profile_id: "profile",
+            period_id: "period",
+            local_date: "2026-03-08",
+            local_start: "2:30",
+            kind: "gap",
+            occurs_at_utc: "2026-03-08T07:00:00Z",
+            explanation: "Shifted once.",
+          },
+        ],
+      }),
+    ).toThrow("HH:MM");
   });
 
   it("fails closed on version drift and malformed primitives", () => {

@@ -89,7 +89,7 @@ def test_accepted_release_evidence_is_frozen() -> None:
     assert "**Result:** All 35 Phase 1 acceptance criteria passed" in acceptance
     assert acceptance.count("| P1-AC-") == 35
     assert release["version"] == "0.0.8"
-    assert INTEGRATION_VERSION == "0.0.13"
+    assert INTEGRATION_VERSION == "0.0.14"
 
 
 def test_accepted_config_zone_options_and_store_round_trip() -> None:
@@ -157,6 +157,7 @@ def test_phase_1_modes_remain_the_frozen_prefix_of_phase_2_vocabulary() -> None:
     assert {path.name for path in schedule_package.glob("*.py")} == {
         "__init__.py",
         "evaluate.py",
+        "preview.py",
         "time.py",
         "transitions.py",
     }

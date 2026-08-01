@@ -5,6 +5,18 @@ import {
   type ConfigurationResponse,
   type NarrativeResponse,
   type ObservationStatusResponse,
+  type ScheduleDocument,
+  type ScheduleDstWarning,
+  type ScheduleGetResponse,
+  type ScheduleOccupancyLabel,
+  type SchedulePeriod,
+  type SchedulePreviewResponse,
+  type SchedulePreviewZone,
+  type ScheduleProfile,
+  type ScheduleSaveResponse,
+  type ScheduleTarget,
+  type ScheduleValidationResponse,
+  type ScheduleWeekday,
   type ShadowReadiness,
   type ShadowStatusResponse,
   type SnapshotResponse,
@@ -17,6 +29,26 @@ import {
   type ZoneConfiguration,
   type ZoneSnapshot,
 } from "../types/contracts";
+
+const SCHEDULE_WEEKDAYS: readonly ScheduleWeekday[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+const SCHEDULE_OCCUPANCY_LABELS = new Set<ScheduleOccupancyLabel>([
+  "none",
+  "home",
+  "away",
+  "sleep",
+  "vacation",
+  "guest",
+  "custom",
+]);
 
 export class FrontendContractError extends Error {
   public constructor(path: string, message: string) {
@@ -95,6 +127,22 @@ function timestamp(value: unknown, path: string): string {
   return result;
 }
 
+function localDate(value: unknown, path: string): string {
+  const result = string(value, path);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(result)) {
+    throw new FrontendContractError(path, "expected YYYY-MM-DD local date");
+  }
+  return result;
+}
+
+function localTime(value: unknown, path: string): string {
+  const result = string(value, path);
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(result)) {
+    throw new FrontendContractError(path, "expected HH:MM local time");
+  }
+  return result;
+}
+
 function version(root: JsonObject, path: string): void {
   if (root["api_version"] !== API_VERSION) {
     throw new FrontendContractError(
@@ -108,6 +156,230 @@ function strings(value: unknown, path: string): string[] {
   return array(value, path).map((item, index) =>
     string(item, `${path}[${String(index)}]`),
   );
+}
+
+function scheduleTarget(value: unknown, path: string): ScheduleTarget {
+  const root = object(value, path);
+  const kind = string(root["kind"], `${path}.kind`);
+  if (kind !== "single" && kind !== "range") {
+    throw new FrontendContractError(`${path}.kind`, "expected single or range");
+  }
+  return {
+    kind,
+    target_c: nullableNumber(root["target_c"], `${path}.target_c`),
+    heat_target_c: nullableNumber(
+      root["heat_target_c"],
+      `${path}.heat_target_c`,
+    ),
+    cool_target_c: nullableNumber(
+      root["cool_target_c"],
+      `${path}.cool_target_c`,
+    ),
+  };
+}
+
+function schedulePeriod(value: unknown, path: string): SchedulePeriod {
+  const root = object(value, path);
+  const occupancy = string(root["occupancy_label"], `${path}.occupancy_label`);
+  if (!SCHEDULE_OCCUPANCY_LABELS.has(occupancy as ScheduleOccupancyLabel)) {
+    throw new FrontendContractError(
+      `${path}.occupancy_label`,
+      "unsupported occupancy label",
+    );
+  }
+  return {
+    period_id: string(root["period_id"], `${path}.period_id`),
+    local_start: localTime(root["local_start"], `${path}.local_start`),
+    label:
+      typeof root["label"] === "string"
+        ? root["label"]
+        : string(root["label"], `${path}.label`),
+    occupancy_label: occupancy as ScheduleOccupancyLabel,
+    target: scheduleTarget(root["target"], `${path}.target`),
+    tolerance_c: number(root["tolerance_c"], `${path}.tolerance_c`),
+  };
+}
+
+function scheduleProfile(value: unknown, path: string): ScheduleProfile {
+  const root = object(value, path);
+  const daysRoot = object(root["days"], `${path}.days`);
+  const days = Object.fromEntries(
+    SCHEDULE_WEEKDAYS.map((weekday) => [
+      weekday,
+      array(daysRoot[weekday], `${path}.days.${weekday}`).map((period, index) =>
+        schedulePeriod(period, `${path}.days.${weekday}[${String(index)}]`),
+      ),
+    ]),
+  ) as Record<ScheduleWeekday, SchedulePeriod[]>;
+  return {
+    profile_id: string(root["profile_id"], `${path}.profile_id`),
+    name: string(root["name"], `${path}.name`),
+    enabled: boolean(root["enabled"], `${path}.enabled`),
+    days,
+  };
+}
+
+function scheduleDocument(value: unknown, path: string): ScheduleDocument {
+  const root = object(value, path);
+  if (root["schedule_schema_version"] !== 1) {
+    throw new FrontendContractError(
+      `${path}.schedule_schema_version`,
+      "expected 1",
+    );
+  }
+  const zonesRoot = object(root["zones"], `${path}.zones`);
+  const zones: ScheduleDocument["zones"] = {};
+  for (const [zoneId, value] of Object.entries(zonesRoot)) {
+    const zonePath = `${path}.zones.${zoneId}`;
+    const zone = object(value, zonePath);
+    zones[zoneId] = {
+      zone_id: string(zone["zone_id"], `${zonePath}.zone_id`),
+      enabled: boolean(zone["enabled"], `${zonePath}.enabled`),
+      selected_profile_id: string(
+        zone["selected_profile_id"],
+        `${zonePath}.selected_profile_id`,
+      ),
+      profiles: array(zone["profiles"], `${zonePath}.profiles`).map(
+        (profile, index) =>
+          scheduleProfile(profile, `${zonePath}.profiles[${String(index)}]`),
+      ),
+    };
+  }
+  return {
+    schedule_schema_version: 1,
+    entry_id: string(root["entry_id"], `${path}.entry_id`),
+    equipment_group_id: string(
+      root["equipment_group_id"],
+      `${path}.equipment_group_id`,
+    ),
+    time_zone: string(root["time_zone"], `${path}.time_zone`),
+    revision: nonNegativeInteger(root["revision"], `${path}.revision`),
+    zones,
+    saved_at_utc: timestamp(root["saved_at_utc"], `${path}.saved_at_utc`),
+  };
+}
+
+export function validateScheduleGet(value: unknown): ScheduleGetResponse {
+  const root = object(value, "schedule");
+  version(root, "schedule");
+  return {
+    api_version: API_VERSION,
+    revision: nonNegativeInteger(root["revision"], "schedule.revision"),
+    schedule:
+      root["schedule"] === null
+        ? null
+        : scheduleDocument(root["schedule"], "schedule.schedule"),
+  };
+}
+
+export function validateScheduleValidation(
+  value: unknown,
+): ScheduleValidationResponse {
+  const root = object(value, "schedule_validation");
+  version(root, "schedule_validation");
+  if (root["valid"] !== true) {
+    throw new FrontendContractError(
+      "schedule_validation.valid",
+      "expected true",
+    );
+  }
+  return {
+    api_version: API_VERSION,
+    valid: true,
+    revision: nonNegativeInteger(
+      root["revision"],
+      "schedule_validation.revision",
+    ),
+  };
+}
+
+function previewZone(value: unknown, path: string): SchedulePreviewZone {
+  const root = object(value, path);
+  return {
+    zone_id: string(root["zone_id"], `${path}.zone_id`),
+    profile_id: string(root["profile_id"], `${path}.profile_id`),
+    period_id: string(root["period_id"], `${path}.period_id`),
+    target: scheduleTarget(root["target"], `${path}.target`),
+    next_target:
+      root["next_target"] === null
+        ? null
+        : scheduleTarget(root["next_target"], `${path}.next_target`),
+    next_boundary_utc: timestamp(
+      root["next_boundary_utc"],
+      `${path}.next_boundary_utc`,
+    ),
+    next_material_transition_utc:
+      root["next_material_transition_utc"] === null
+        ? null
+        : timestamp(
+            root["next_material_transition_utc"],
+            `${path}.next_material_transition_utc`,
+          ),
+    inherited_from_previous_day: boolean(
+      root["inherited_from_previous_day"],
+      `${path}.inherited_from_previous_day`,
+    ),
+  };
+}
+
+function dstWarning(value: unknown, path: string): ScheduleDstWarning {
+  const root = object(value, path);
+  const kind = string(root["kind"], `${path}.kind`);
+  if (kind !== "gap" && kind !== "fold") {
+    throw new FrontendContractError(`${path}.kind`, "expected gap or fold");
+  }
+  return {
+    zone_id: string(root["zone_id"], `${path}.zone_id`),
+    profile_id: string(root["profile_id"], `${path}.profile_id`),
+    period_id: string(root["period_id"], `${path}.period_id`),
+    local_date: localDate(root["local_date"], `${path}.local_date`),
+    local_start: localTime(root["local_start"], `${path}.local_start`),
+    kind,
+    occurs_at_utc: timestamp(root["occurs_at_utc"], `${path}.occurs_at_utc`),
+    explanation: string(root["explanation"], `${path}.explanation`),
+  };
+}
+
+export function validateSchedulePreview(
+  value: unknown,
+): SchedulePreviewResponse {
+  const root = object(value, "schedule_preview");
+  version(root, "schedule_preview");
+  if (root["authoritative"] !== false) {
+    throw new FrontendContractError(
+      "schedule_preview.authoritative",
+      "preview must be nonauthoritative",
+    );
+  }
+  return {
+    api_version: API_VERSION,
+    authoritative: false,
+    at_utc: timestamp(root["at_utc"], "schedule_preview.at_utc"),
+    time_zone: string(root["time_zone"], "schedule_preview.time_zone"),
+    preview_week_start_local: localDate(
+      root["preview_week_start_local"],
+      "schedule_preview.preview_week_start_local",
+    ),
+    zones: array(root["zones"], "schedule_preview.zones").map((item, index) =>
+      previewZone(item, `schedule_preview.zones[${String(index)}]`),
+    ),
+    dst_warnings: array(
+      root["dst_warnings"],
+      "schedule_preview.dst_warnings",
+    ).map((item, index) =>
+      dstWarning(item, `schedule_preview.dst_warnings[${String(index)}]`),
+    ),
+  };
+}
+
+export function validateScheduleSave(value: unknown): ScheduleSaveResponse {
+  const root = object(value, "schedule_save");
+  version(root, "schedule_save");
+  return {
+    api_version: API_VERSION,
+    revision: nonNegativeInteger(root["revision"], "schedule_save.revision"),
+    schedule: scheduleDocument(root["schedule"], "schedule_save.schedule"),
+  };
 }
 
 function zoneConfiguration(value: unknown, path: string): ZoneConfiguration {

@@ -181,3 +181,105 @@ export interface EntryDashboardData {
   shadow: ShadowStatusResponse;
   observation: ObservationStatusResponse;
 }
+
+export type ScheduleWeekday =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+export type ScheduleOccupancyLabel =
+  "none" | "home" | "away" | "sleep" | "vacation" | "guest" | "custom";
+
+export interface ScheduleTarget {
+  kind: "single" | "range";
+  target_c: number | null;
+  heat_target_c: number | null;
+  cool_target_c: number | null;
+}
+
+export interface SchedulePeriod {
+  period_id: string;
+  local_start: string;
+  label: string;
+  occupancy_label: ScheduleOccupancyLabel;
+  target: ScheduleTarget;
+  tolerance_c: number;
+}
+
+export interface ScheduleProfile {
+  profile_id: string;
+  name: string;
+  enabled: boolean;
+  days: Record<ScheduleWeekday, SchedulePeriod[]>;
+}
+
+export interface ZoneSchedule {
+  zone_id: string;
+  enabled: boolean;
+  selected_profile_id: string;
+  profiles: ScheduleProfile[];
+}
+
+export interface ScheduleDocument {
+  schedule_schema_version: 1;
+  entry_id: string;
+  equipment_group_id: string;
+  time_zone: string;
+  revision: number;
+  zones: Record<string, ZoneSchedule>;
+  saved_at_utc: string;
+}
+
+export interface ScheduleGetResponse {
+  api_version: typeof API_VERSION;
+  revision: number;
+  schedule: ScheduleDocument | null;
+}
+
+export interface ScheduleValidationResponse {
+  api_version: typeof API_VERSION;
+  valid: true;
+  revision: number;
+}
+
+export interface SchedulePreviewZone {
+  zone_id: string;
+  profile_id: string;
+  period_id: string;
+  target: ScheduleTarget;
+  next_target: ScheduleTarget | null;
+  next_boundary_utc: string;
+  next_material_transition_utc: string | null;
+  inherited_from_previous_day: boolean;
+}
+
+export interface ScheduleDstWarning {
+  zone_id: string;
+  profile_id: string;
+  period_id: string;
+  local_date: string;
+  local_start: string;
+  kind: "gap" | "fold";
+  occurs_at_utc: string;
+  explanation: string;
+}
+
+export interface SchedulePreviewResponse {
+  api_version: typeof API_VERSION;
+  authoritative: false;
+  at_utc: string;
+  time_zone: string;
+  preview_week_start_local: string;
+  zones: SchedulePreviewZone[];
+  dst_warnings: ScheduleDstWarning[];
+}
+
+export interface ScheduleSaveResponse {
+  api_version: typeof API_VERSION;
+  revision: number;
+  schedule: ScheduleDocument;
+}

@@ -6,6 +6,11 @@ import {
   type EntryDashboardData,
   type NarrativeResponse,
   type ObservationStatusResponse,
+  type ScheduleDocument,
+  type ScheduleGetResponse,
+  type SchedulePreviewResponse,
+  type ScheduleSaveResponse,
+  type ScheduleValidationResponse,
   type ShadowStatusResponse,
   type SnapshotResponse,
   type TodayTimelineResponse,
@@ -15,6 +20,10 @@ import {
   validateConfiguration,
   validateNarrative,
   validateObservationStatus,
+  validateScheduleGet,
+  validateSchedulePreview,
+  validateScheduleSave,
+  validateScheduleValidation,
   validateShadowStatus,
   validateSnapshot,
   validateTodayTimeline,
@@ -96,6 +105,45 @@ export class IntelligentClimateClient {
       "intelligent_climate/narrative/current",
       validateNarrative,
       { zone_id: zoneId },
+    );
+  }
+
+  public schedule(): Promise<ScheduleGetResponse> {
+    return this.request(
+      "intelligent_climate/schedule/get",
+      validateScheduleGet,
+    );
+  }
+
+  public validateSchedule(
+    schedule: ScheduleDocument,
+  ): Promise<ScheduleValidationResponse> {
+    return this.request(
+      "intelligent_climate/schedule/validate",
+      validateScheduleValidation,
+      { schedule },
+    );
+  }
+
+  public previewSchedule(
+    schedule: ScheduleDocument,
+    atUtc?: string,
+  ): Promise<SchedulePreviewResponse> {
+    return this.request(
+      "intelligent_climate/schedule/preview",
+      validateSchedulePreview,
+      atUtc === undefined ? { schedule } : { schedule, at_utc: atUtc },
+    );
+  }
+
+  public saveSchedule(
+    schedule: ScheduleDocument,
+    expectedRevision: number,
+  ): Promise<ScheduleSaveResponse> {
+    return this.request(
+      "intelligent_climate/schedule/save",
+      validateScheduleSave,
+      { schedule, expected_revision: expectedRevision },
     );
   }
 

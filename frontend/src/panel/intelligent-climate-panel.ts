@@ -15,6 +15,7 @@ import {
 } from "../accessibility/semantics";
 import { IntelligentClimateClient } from "../api/client";
 import { FrontendContractError } from "../api/validate";
+import "../components/schedule-editor";
 import "../components/today-timeline";
 import {
   readTemperatureUnitPreference,
@@ -23,11 +24,17 @@ import {
   writeTemperatureUnitPreference,
 } from "../preferences/temperature-unit";
 import { intelligentClimateTheme } from "../styles/theme";
+import {
+  createEmptyScheduleDraft,
+  prepareScheduleWrite,
+} from "../schedule/draft";
 import type {
   ActivityRecord,
   ConfiguredSource,
   EntryDashboardData,
   NarrativeResponse,
+  ScheduleDocument,
+  SchedulePreviewResponse,
   SnapshotResponse,
   TodayTimelineResponse,
   ReviewedBinding,
@@ -40,7 +47,7 @@ import type {
   IntelligentClimatePanelEntry,
 } from "../types/home-assistant";
 
-type PanelRoute = "overview" | "sensors" | "activity" | "settings";
+type PanelRoute = "overview" | "schedule" | "sensors" | "activity" | "settings";
 
 const ROUTES: readonly {
   id: PanelRoute;
@@ -48,6 +55,7 @@ const ROUTES: readonly {
   icon: string;
 }[] = [
   { id: "overview", label: "Overview", icon: "⌂" },
+  { id: "schedule", label: "Schedule", icon: "▦" },
   { id: "sensors", label: "Sensors", icon: "◫" },
   { id: "activity", label: "Activity", icon: "↯" },
   { id: "settings", label: "Settings", icon: "⚙" },
@@ -74,6 +82,13 @@ export class IntelligentClimatePanel extends LitElement {
     activityFilter: { state: true },
     temperatureUnitPreference: { state: true },
     activityLoadingOlder: { state: true },
+    scheduleDocument: { state: true },
+    schedulePreview: { state: true },
+    scheduleLoading: { state: true },
+    scheduleSaving: { state: true },
+    scheduleDirty: { state: true },
+    scheduleMessage: { state: true },
+    scheduleConflict: { state: true },
   };
 
   declare public hass: HomeAssistantLike;
@@ -93,17 +108,30 @@ export class IntelligentClimatePanel extends LitElement {
   protected temperatureUnitPreference: TemperatureUnitPreference =
     readTemperatureUnitPreference();
   protected activityLoadingOlder = false;
+  protected scheduleDocument: ScheduleDocument | undefined;
+  protected schedulePreview: SchedulePreviewResponse | undefined;
+  protected scheduleLoading = false;
+  protected scheduleSaving = false;
+  protected scheduleDirty = false;
+  protected scheduleMessage = "";
+  protected scheduleConflict = false;
 
   private client: IntelligentClimateClient | undefined;
   private unsubscribe: (() => void) | undefined;
   private loadGeneration = 0;
   private detailLoadGeneration = 0;
 
+  public override connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("beforeunload", this.beforeUnload);
+  }
+
   public override disconnectedCallback(): void {
     this.loadGeneration += 1;
     this.detailLoadGeneration += 1;
     this.unsubscribe?.();
     this.unsubscribe = undefined;
+    window.removeEventListener("beforeunload", this.beforeUnload);
     super.disconnectedCallback();
   }
 
@@ -212,6 +240,8 @@ export class IntelligentClimatePanel extends LitElement {
     switch (this.activeRoute) {
       case "overview":
         return this.renderOverview();
+      case "schedule":
+        return this.renderSchedule();
       case "sensors":
         return this.renderSensors();
       case "activity":
@@ -219,6 +249,67 @@ export class IntelligentClimatePanel extends LitElement {
       case "settings":
         return this.renderSettings();
     }
+  }
+
+  private renderSchedule(): TemplateResult {
+    const data = this.requireData();
+    return html`
+      <section class="page-heading with-action">
+        <div>
+          <span class="eyebrow">Local weekly comfort schedule</span>
+          <h2>Schedule</h2>
+          <p>
+            Build an accessible weekly schedule with authoritative backend
+            validation. Advanced drag editing and date exceptions remain a
+            later-phase feature.
+          </p>
+        </div>
+        <span class="schedule-safety">Read-only control preview</span>
+      </section>
+      ${
+        this.scheduleLoading
+          ? html`<div class="loading" role="status">Loading schedule…</div>`
+          : this.scheduleDocument === undefined
+            ? html`<section class="error-card" role="alert">
+                <div>
+                  <h3>Schedule is unavailable</h3>
+                  <p>${this.scheduleMessage}</p>
+                  <button type="button" @click=${this.reloadSchedule}>
+                    Try again
+                  </button>
+                </div>
+              </section>`
+            : html`${
+                  this.scheduleConflict
+                    ? html`<section class="schedule-conflict" role="alert">
+                        <div>
+                          <strong>A newer schedule revision exists.</strong>
+                          <p>
+                            Your draft was not overwritten. Reload the current
+                            schedule before applying these edits again.
+                          </p>
+                        </div>
+                        <button type="button" @click=${this.reloadSchedule}>
+                          Reload current schedule
+                        </button>
+                      </section>`
+                    : nothing
+                }
+                <ic-schedule-editor
+                  .document=${this.scheduleDocument}
+                  .zones=${data.configuration.zones}
+                  .preview=${this.schedulePreview}
+                  .validationMessage=${this.scheduleMessage}
+                  .saving=${this.scheduleSaving}
+                  .dirty=${this.scheduleDirty}
+                  .temperatureUnit=${this.temperatureUnit()}
+                  .locale=${this.locale()}
+                  @schedule-change=${this.scheduleChanged}
+                  @schedule-preview=${this.previewSchedule}
+                  @schedule-save=${this.saveSchedule}
+                ></ic-schedule-editor>`
+      }
+    `;
   }
 
   private renderOverview(): TemplateResult {
@@ -961,6 +1052,11 @@ export class IntelligentClimatePanel extends LitElement {
     this.data = undefined;
     this.timeline = undefined;
     this.narrative = undefined;
+    this.scheduleDocument = undefined;
+    this.schedulePreview = undefined;
+    this.scheduleDirty = false;
+    this.scheduleMessage = "";
+    this.scheduleConflict = false;
     const client = new IntelligentClimateClient(this.hass, entryId);
     this.client = client;
     try {
@@ -973,6 +1069,9 @@ export class IntelligentClimatePanel extends LitElement {
       this.selectedZoneId = firstZone?.zone_id ?? "";
       if (this.selectedZoneId.length > 0) {
         await this.loadZoneDetails(generation);
+      }
+      if (this.activeRoute === "schedule") {
+        await this.loadSchedule(generation);
       }
       if (generation !== this.loadGeneration) {
         return;
@@ -989,6 +1088,30 @@ export class IntelligentClimatePanel extends LitElement {
       if (generation === this.loadGeneration) {
         this.loading = false;
       }
+    }
+  }
+
+  private async loadSchedule(generation: number): Promise<void> {
+    if (this.client === undefined || this.data === undefined) {
+      return;
+    }
+    this.scheduleLoading = true;
+    this.scheduleMessage = "";
+    try {
+      const response = await this.client.schedule();
+      if (generation !== this.loadGeneration) return;
+      this.scheduleDocument =
+        response.schedule ??
+        createEmptyScheduleDraft(this.selectedEntryId, this.data.configuration);
+      this.schedulePreview = undefined;
+      this.scheduleDirty = false;
+      this.scheduleConflict = false;
+    } catch (error: unknown) {
+      if (generation !== this.loadGeneration) return;
+      this.scheduleDocument = undefined;
+      this.scheduleMessage = this.describeError(error);
+    } finally {
+      if (generation === this.loadGeneration) this.scheduleLoading = false;
     }
   }
 
@@ -1032,9 +1155,15 @@ export class IntelligentClimatePanel extends LitElement {
   }
 
   private navigate(route: PanelRoute): void {
+    if (!this.confirmDiscard(route)) {
+      return;
+    }
     this.activeRoute = route;
     window.history.replaceState(null, "", `/intelligent-climate/${route}`);
     this.shadowRoot?.querySelector<HTMLElement>("#main-content")?.focus();
+    if (route === "schedule" && this.scheduleDocument === undefined) {
+      void this.loadSchedule(this.loadGeneration);
+    }
   }
 
   private entryChanged = (event: Event): void => {
@@ -1042,6 +1171,7 @@ export class IntelligentClimatePanel extends LitElement {
     if (!(target instanceof HTMLSelectElement)) {
       return;
     }
+    if (!this.confirmDiscard("overview")) return;
     this.selectedEntryId = target.value;
     void this.loadEntry(target.value);
   };
@@ -1125,6 +1255,94 @@ export class IntelligentClimatePanel extends LitElement {
     }
   };
 
+  private scheduleChanged = (
+    event: CustomEvent<{ document: ScheduleDocument }>,
+  ): void => {
+    this.scheduleDocument = event.detail.document;
+    this.scheduleDirty = true;
+    this.schedulePreview = undefined;
+    this.scheduleMessage = "";
+    this.scheduleConflict = false;
+  };
+
+  private previewSchedule = async (): Promise<void> => {
+    if (this.client === undefined || this.scheduleDocument === undefined)
+      return;
+    this.scheduleMessage = "";
+    try {
+      const draft = prepareScheduleWrite(this.scheduleDocument);
+      await this.client.validateSchedule(draft);
+      this.schedulePreview = await this.client.previewSchedule(draft);
+    } catch (error: unknown) {
+      this.schedulePreview = undefined;
+      this.scheduleMessage = this.describeScheduleError(error);
+    }
+  };
+
+  private saveSchedule = async (): Promise<void> => {
+    if (
+      this.client === undefined ||
+      this.scheduleDocument === undefined ||
+      this.scheduleSaving
+    ) {
+      return;
+    }
+    this.scheduleSaving = true;
+    this.scheduleMessage = "";
+    this.scheduleConflict = false;
+    try {
+      const expectedRevision = this.scheduleDocument.revision;
+      const draft = prepareScheduleWrite(this.scheduleDocument);
+      await this.client.validateSchedule(draft);
+      const saved = await this.client.saveSchedule(draft, expectedRevision);
+      this.scheduleDocument = saved.schedule;
+      this.scheduleDirty = false;
+      this.schedulePreview = await this.client.previewSchedule(saved.schedule);
+    } catch (error: unknown) {
+      const code = this.errorCode(error);
+      this.scheduleConflict = code === "revision_conflict";
+      this.scheduleMessage = this.describeScheduleError(error);
+    } finally {
+      this.scheduleSaving = false;
+    }
+  };
+
+  private reloadSchedule = (): void => {
+    if (
+      this.scheduleDirty &&
+      !window.confirm("Discard this unsaved schedule draft and reload?")
+    ) {
+      return;
+    }
+    void this.loadSchedule(this.loadGeneration);
+  };
+
+  private confirmDiscard(nextRoute: PanelRoute): boolean {
+    return (
+      !this.scheduleDirty ||
+      nextRoute === "schedule" ||
+      window.confirm("Discard unsaved schedule changes?")
+    );
+  }
+
+  private beforeUnload = (event: BeforeUnloadEvent): void => {
+    if (!this.scheduleDirty) return;
+    event.preventDefault();
+  };
+
+  private errorCode(error: unknown): string | undefined {
+    if (typeof error !== "object" || error === null) return undefined;
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : undefined;
+  }
+
+  private describeScheduleError(error: unknown): string {
+    if (this.errorCode(error) === "revision_conflict") {
+      return "The schedule changed in another editor. Your draft was not saved.";
+    }
+    return this.describeError(error);
+  }
+
   public static override styles = [
     intelligentClimateTheme,
     css`
@@ -1152,6 +1370,28 @@ export class IntelligentClimatePanel extends LitElement {
         background: color-mix(in srgb, var(--ic-surface) 92%, transparent);
         border-block-end: 1px solid var(--ic-border);
         backdrop-filter: blur(18px);
+      }
+      .schedule-safety {
+        border: 1px solid var(--ic-border);
+        border-radius: 999px;
+        padding: 8px 12px;
+        color: var(--secondary-text-color);
+        font-weight: 700;
+      }
+      .schedule-conflict {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-block-end: 16px;
+        padding: 16px;
+        border: 2px solid var(--warning-color, #f9a825);
+        border-radius: 14px;
+        background: color-mix(
+          in srgb,
+          var(--warning-color, #f9a825) 10%,
+          var(--ic-surface)
+        );
       }
       .brand {
         display: flex;
