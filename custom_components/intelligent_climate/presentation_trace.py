@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Any
 from uuid import uuid4
 
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
@@ -23,6 +24,8 @@ from .models.presentation import (
     PRESENTATION_TRACE_RETENTION_HOURS,
     PRESENTATION_TRACE_STORE_MINOR_VERSION,
     PRESENTATION_TRACE_STORE_VERSION,
+    PresentationContactState,
+    PresentationControlContext,
     PresentationFanAction,
     PresentationHvacAction,
     PresentationPointKind,
@@ -71,6 +74,7 @@ class PresentationTraceRuntime:
         entry_id: str,
         equipment_group_id: EquipmentGroupId,
         zone_ids: tuple[ZoneId, ...],
+        contact_entity_ids_by_zone: Mapping[ZoneId, tuple[str, ...]] | None = None,
         now_fn: NowFunction = utcnow,
     ) -> None:
         if not isinstance(equipment_group_id, EquipmentGroupId):
@@ -82,6 +86,10 @@ class PresentationTraceRuntime:
         self._equipment_group_id = equipment_group_id
         self._zone_ids = tuple(zone_ids)
         self._expected_zone_ids = frozenset(self._zone_ids)
+        self._contact_entity_ids_by_zone = {
+            zone_id: tuple((contact_entity_ids_by_zone or {}).get(zone_id, ()))
+            for zone_id in self._zone_ids
+        }
         self._now_fn = now_fn
         self._store = _PresentationDataStore(
             hass, f"intelligent_climate.presentation.{entry_id}"
@@ -167,7 +175,13 @@ class PresentationTraceRuntime:
             if zone is None or policy_zone is None:
                 samples[zone_id] = previous
                 continue
-            point = _trace_point(zone, policy_zone, previous, now)
+            point = _trace_point(
+                zone,
+                policy_zone,
+                previous,
+                now,
+                contact_state=self._contact_state(zone_id),
+            )
             if point is not None:
                 previous = (*previous, point)[-PRESENTATION_TRACE_MAX_SAMPLES_PER_ZONE:]
                 changed = True
@@ -267,18 +281,42 @@ class PresentationTraceRuntime:
     def _now(self) -> datetime:
         return _utc(self._now_fn())
 
+    def _contact_state(self, zone_id: ZoneId) -> PresentationContactState:
+        entity_ids = self._contact_entity_ids_by_zone.get(zone_id, ())
+        if not entity_ids:
+            return PresentationContactState.NOT_CONFIGURED
+        states = tuple(self._hass.states.get(entity_id) for entity_id in entity_ids)
+        if any(state is not None and state.state == STATE_ON for state in states):
+            return PresentationContactState.OPEN
+        if states and all(
+            state is not None and state.state == STATE_OFF for state in states
+        ):
+            return PresentationContactState.CLOSED
+        if any(
+            state is None or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}
+            for state in states
+        ):
+            return PresentationContactState.UNAVAILABLE
+        return PresentationContactState.UNAVAILABLE
+
 
 def _trace_point(
     zone: ZoneObservation,
     policy: object,
     previous: tuple[PresentationTracePoint, ...],
     now: datetime,
+    *,
+    contact_state: PresentationContactState,
 ) -> PresentationTracePoint | None:
     from .models.policy_runtime import ZonePolicySnapshot
 
     if not isinstance(policy, ZonePolicySnapshot):
         raise ValueError("policy zone must be typed")
     latest = previous[-1] if previous else None
+    if latest is not None and now <= latest.timestamp_utc:
+        # Presentation history must never invent time to force a material state
+        # change into canonical order. A later observation will record it.
+        return None
     temperature = _rounded(zone.effective_temperature_c)
     humidity = _rounded(zone.effective_humidity_pct)
     scheduled = _rounded_target(policy.scheduled_target)
@@ -286,12 +324,15 @@ def _trace_point(
     thermostat = _primary_thermostat(zone.thermostat_states)
     hvac = _hvac_action(thermostat)
     fan = _fan_only_action(thermostat)
+    control_context = _control_context(policy.control_state.value)
     quality = _quality_flags(zone)
     material = latest is None or (
         latest.scheduled_target != scheduled
         or latest.effective_target != effective
         or latest.hvac_action is not hvac
         or latest.fan_action is not fan
+        or latest.contact_state is not contact_state
+        or latest.control_context is not control_context
         or latest.quality_flags != quality
     )
     bucket = now.replace(
@@ -321,7 +362,20 @@ def _trace_point(
         fan_action=fan,
         quality_flags=quality,
         annotation_ids=(),
+        contact_state=contact_state,
+        control_context=control_context,
     )
+
+
+def _control_context(value: str) -> PresentationControlContext:
+    return {
+        "manual_override": PresentationControlContext.MANUAL_OVERRIDE,
+        "window_suspended": PresentationControlContext.WINDOW_SUSPENDED,
+        "shared_conflict_hold": PresentationControlContext.SHARED_CONFLICT,
+        "safe_fallback": PresentationControlContext.SAFE_FALLBACK,
+        "emergency_paused": PresentationControlContext.PAUSED,
+        "degraded": PresentationControlContext.DEGRADED,
+    }.get(value, PresentationControlContext.NORMAL)
 
 
 def _quality_flags(zone: ZoneObservation) -> tuple[PresentationQualityFlag, ...]:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import "../src/components/today-timeline";
-import { timeline } from "./fixtures";
+import { NOW, timeline } from "./fixtures";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -30,16 +30,127 @@ describe("accessible Today timeline", () => {
     expect(root?.textContent).toContain("74.7°F");
     expect(root?.querySelectorAll(".y-axis-labels text")).toHaveLength(5);
     expect(root?.textContent).toContain("Source: effective zone temperature");
-    expect(root?.textContent).toContain("HVAC operation");
+    expect(root?.textContent).toContain("Heating");
     expect(root?.textContent).toContain("Cooling");
-    expect(root?.textContent).toContain("Air handler derived");
-    expect(root?.textContent).toContain("Running with cooling");
-    expect(root?.textContent).toContain("Fan-only circulation");
-    expect(root?.textContent).toContain("Off");
-    expect(root?.querySelectorAll(".state-row")).toHaveLength(3);
+    expect(root?.textContent).toContain("Air handler");
+    expect(root?.textContent).toContain(
+      "Derived from actual thermostat operation",
+    );
+    expect(root?.textContent).toContain("Fan only");
+    expect(root?.querySelectorAll(".lane-row")).toHaveLength(4);
     expect(root?.querySelector("table caption")?.textContent).toContain(
       "Latest factual value",
     );
+    element.remove();
+  });
+
+  it("shows scheduled heat and cool steps with aligned context lanes", async () => {
+    const element = document.createElement("ic-today-timeline");
+    const samples = [
+      { timestamp_utc: "2026-07-31T17:00:00+00:00", value: 20.5 },
+      { timestamp_utc: "2026-07-31T18:00:00+00:00", value: 20.5 },
+    ];
+    element.timeline = {
+      ...timeline,
+      series: [
+        ...timeline.series,
+        {
+          kind: "scheduled_heat_target",
+          value_kind: "configured",
+          unit: "°C",
+          source_quality: "available",
+          coverage_start_utc: samples[0]?.timestamp_utc ?? NOW,
+          coverage_end_utc: samples[1]?.timestamp_utc ?? NOW,
+          missing_intervals: [],
+          samples,
+        },
+        {
+          kind: "scheduled_cool_target",
+          value_kind: "configured",
+          unit: "°C",
+          source_quality: "available",
+          coverage_start_utc: samples[0]?.timestamp_utc ?? NOW,
+          coverage_end_utc: samples[1]?.timestamp_utc ?? NOW,
+          missing_intervals: [],
+          samples: samples.map((sample) => ({ ...sample, value: 24 })),
+        },
+        {
+          kind: "contact_state",
+          value_kind: "measured",
+          unit: null,
+          source_quality: "available",
+          coverage_start_utc: "2026-07-31T17:00:00+00:00",
+          coverage_end_utc: NOW,
+          missing_intervals: [],
+          samples: [
+            { timestamp_utc: "2026-07-31T17:00:00+00:00", value: "closed" },
+            { timestamp_utc: "2026-07-31T17:30:00+00:00", value: "open" },
+            { timestamp_utc: NOW, value: "open" },
+          ],
+        },
+        {
+          kind: "control_context",
+          value_kind: "calculated",
+          unit: null,
+          source_quality: "available",
+          coverage_start_utc: "2026-07-31T17:00:00+00:00",
+          coverage_end_utc: NOW,
+          missing_intervals: [],
+          samples: [
+            { timestamp_utc: "2026-07-31T17:00:00+00:00", value: "normal" },
+            {
+              timestamp_utc: "2026-07-31T17:35:00+00:00",
+              value: "window_suspended",
+            },
+            { timestamp_utc: NOW, value: "window_suspended" },
+          ],
+        },
+      ],
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    const root = element.shadowRoot;
+    expect(root?.querySelector("path.scheduled_heat_target")).not.toBeNull();
+    expect(root?.querySelector("path.scheduled_cool_target")).not.toBeNull();
+    expect(root?.textContent).toContain("Window / door");
+    expect(root?.textContent).toContain("Control context");
+    expect(root?.querySelectorAll(".lane-segment.contact.open")).toHaveLength(
+      1,
+    );
+    expect(
+      root?.querySelectorAll(".lane-segment.context.window_suspended"),
+    ).toHaveLength(1);
+    element.remove();
+  });
+
+  it("omits dots from dense history while preserving the measured line", async () => {
+    const element = document.createElement("ic-today-timeline");
+    element.timeline = {
+      ...timeline,
+      series: timeline.series.map((series) =>
+        series.kind === "effective_temperature"
+          ? {
+              ...series,
+              samples: Array.from({ length: 24 }, (_, index) => ({
+                timestamp_utc: new Date(
+                  Date.parse("2026-07-31T16:00:00+00:00") + index * 5 * 60_000,
+                ).toISOString(),
+                value: 23.5 + index / 100,
+              })),
+            }
+          : series,
+      ),
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    expect(
+      element.shadowRoot?.querySelector("path.effective_temperature"),
+    ).not.toBeNull();
+    expect(
+      element.shadowRoot?.querySelectorAll("circle.measured-temperature"),
+    ).toHaveLength(0);
     element.remove();
   });
 

@@ -91,7 +91,7 @@ function mount(): {
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.14",
+      frontend_version: "0.0.8-g4",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };
@@ -232,7 +232,7 @@ describe("Intelligent Climate sidebar", () => {
     }
     await (editor as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
-    expect(editor.shadowRoot?.textContent).toContain("Starter templates");
+    expect(editor.shadowRoot?.textContent).toContain("Starter schedule");
     expect(editor.shadowRoot?.textContent).toContain(
       "Inherits the most recent period",
     );
@@ -394,8 +394,6 @@ describe("Intelligent Climate sidebar", () => {
     await (
       timelineElement as HTMLElement & { updateComplete: Promise<boolean> }
     ).updateComplete;
-    expect(timelineElement?.shadowRoot?.textContent).toContain(
-      "Running with heating",
-    );
+    expect(timelineElement?.shadowRoot?.textContent).toContain("Heating");
   });
 });

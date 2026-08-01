@@ -7,6 +7,33 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.16 - 2026-08-01
+
+### Changed
+
+- Refined the schedule editor with clear-day confirmation, copying any day to
+  one or several destinations, a clearer schedule-profile explanation, and
+  editable Home/Away/Sleep heat-and-cool comfort-band starter targets.
+- Simplified dense Today temperature history to a clean line-first view while
+  retaining sample markers for sparse startup history.
+- Added scheduled heat and cool step lines plus aligned factual Heating,
+  Cooling, Fan-only, and derived Air-handler lanes.
+- Added optional aggregate Window / door and material Control context lanes
+  when those states are configured and relevant.
+
+### Fixed
+
+- Prevented replayed or equal-time presentation observations from creating
+  duplicate timestamp points; changed context is recorded at the next genuinely
+  newer observation.
+
+### Security
+
+- Contact history stores only a zone-level aggregate state, never contact
+  entity IDs. Existing schema-1 presentation traces migrate in memory with
+  neutral defaults, existing schedules and history remain available, and this
+  release adds no Home Assistant service call or physical-control authority.
+
 ## 0.0.15 - 2026-08-01
 
 ### Fixed

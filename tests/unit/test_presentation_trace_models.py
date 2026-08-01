@@ -21,6 +21,8 @@ from custom_components.intelligent_climate.models import (
     PRESENTATION_TRACE_STORE_VERSION,
     EquipmentGroupId,
     PresentationAnnotationKind,
+    PresentationContactState,
+    PresentationControlContext,
     PresentationFanAction,
     PresentationHvacAction,
     PresentationPointKind,
@@ -142,7 +144,7 @@ def test_presentation_trace_contract_is_versioned_bounded_and_auxiliary() -> Non
         PRESENTATION_TRACE_STORE_VERSION,
         PRESENTATION_TRACE_STORE_MINOR_VERSION,
         PRESENTATION_TRACE_SCHEMA_VERSION,
-    ) == (1, 0, 1)
+    ) == (1, 0, 2)
     assert PRESENTATION_TRACE_RETENTION_HOURS == 48
     assert PRESENTATION_TRACE_BUCKET_MINUTES == 5
     assert PRESENTATION_TRACE_MAX_SAMPLES_PER_ZONE == 1024
@@ -199,6 +201,8 @@ def test_complete_trace_round_trips_with_only_rounded_factual_fields() -> None:
         cool_target_c=24.0,
     )
     assert point.annotation_ids == (ANNOTATION_ID,)
+    assert point.contact_state is PresentationContactState.NOT_CONFIGURED
+    assert point.control_context is PresentationControlContext.NOT_REPORTED
     assert decoded.annotations[0].activity_record_id == ACTIVITY_ID
 
 
@@ -237,7 +241,7 @@ def test_trace_round_trips_honest_missing_equipment_states(
     [
         (lambda data: data.update(unknown=True), "unknown field"),
         (
-            lambda data: data.update(presentation_schema_version=2),
+            lambda data: data.update(presentation_schema_version=3),
             "future presentation trace",
         ),
         (
@@ -271,6 +275,30 @@ def test_trace_decode_rejects_unknown_future_and_foreign_documents(
             expected_equipment_group_id=GROUP_ID,
             expected_zone_ids=frozenset({ZONE_ID}),
         )
+
+
+def test_schema_one_trace_migrates_without_inventing_context() -> None:
+    """Existing history remains readable and gains honest missing context."""
+    encoded = _encode()
+    encoded["presentation_schema_version"] = 1
+    point = cast(
+        list[dict[str, object]],
+        cast(dict[str, object], encoded["samples_by_zone"])[str(ZONE_ID)],
+    )[0]
+    point.pop("contact_state")
+    point.pop("control_context")
+
+    decoded = decode_presentation_trace_document(
+        encoded,
+        expected_entry_id=ENTRY_ID,
+        expected_equipment_group_id=GROUP_ID,
+        expected_zone_ids=frozenset({ZONE_ID}),
+    )
+
+    restored = decoded.samples_by_zone[ZONE_ID][0]
+    assert restored.contact_state is PresentationContactState.NOT_CONFIGURED
+    assert restored.control_context is PresentationControlContext.NOT_REPORTED
+    assert _encode(decoded)["presentation_schema_version"] == 2
 
 
 @pytest.mark.parametrize(
@@ -719,6 +747,8 @@ def test_trace_rejects_every_malformed_target_union(
         ("kind", "unknown", "unsupported value"),
         ("hvac_action", "unknown-action", "unsupported value"),
         ("fan_action", "unknown-action", "unsupported value"),
+        ("contact_state", "unknown-contact", "unsupported value"),
+        ("control_context", "unknown-context", "unsupported value"),
         ("quality_flags", ["unknown"], "unsupported value"),
         ("annotation_ids", ["not-a-uuid"], "must be a UUID"),
         ("effective_temperature_c", "hot", "finite number"),

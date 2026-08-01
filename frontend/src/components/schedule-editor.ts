@@ -37,6 +37,24 @@ interface EditorDetail {
   document: ScheduleDocument;
 }
 
+interface StarterTargets {
+  homeHeatC: number;
+  homeCoolC: number;
+  awayHeatC: number;
+  awayCoolC: number;
+  sleepHeatC: number;
+  sleepCoolC: number;
+}
+
+const DEFAULT_STARTER_TARGETS: StarterTargets = {
+  homeHeatC: 20.6,
+  homeCoolC: 23.9,
+  awayHeatC: 18.9,
+  awayCoolC: 26.7,
+  sleepHeatC: 19.4,
+  sleepCoolC: 23.9,
+};
+
 export class ScheduleEditor extends LitElement {
   public static override properties = {
     document: { attribute: false },
@@ -50,7 +68,10 @@ export class ScheduleEditor extends LitElement {
     selectedZoneId: { state: true },
     selectedProfileId: { state: true },
     mobileDay: { state: true },
+    copySource: { state: true },
     copyTargets: { state: true },
+    clearPendingDay: { state: true },
+    starterTargets: { state: true },
   };
 
   declare public document: ScheduleDocument;
@@ -65,7 +86,10 @@ export class ScheduleEditor extends LitElement {
   protected selectedZoneId = "";
   protected selectedProfileId = "";
   protected mobileDay: ScheduleWeekday = "monday";
+  protected copySource: ScheduleWeekday = "monday";
   protected copyTargets: ScheduleWeekday[] = [];
+  protected clearPendingDay: ScheduleWeekday | undefined;
+  protected starterTargets: StarterTargets = { ...DEFAULT_STARTER_TARGETS };
 
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("document")) {
@@ -102,18 +126,35 @@ export class ScheduleEditor extends LitElement {
             )}
           </select>
         </label>
-        <label>
-          <span>Profile</span>
-          <select
-            .value=${this.selectedProfileId}
-            @change=${this.profileChanged}
-          >
-            ${zone.profiles.map(
-              (item) =>
-                html`<option value=${item.profile_id}>${item.name}</option>`,
-            )}
-          </select>
-        </label>
+        ${
+          zone.profiles.length === 1
+            ? html`<div class="profile-summary">
+                <span>Schedule profile</span>
+                <strong>${profile.name}</strong>
+                <small>
+                  A profile is a complete weekly schedule. Additional profiles
+                  can later support patterns such as Vacation or Guest.
+                </small>
+              </div>`
+            : html`<label>
+                <span>Schedule profile</span>
+                <select
+                  .value=${this.selectedProfileId}
+                  @change=${this.profileChanged}
+                  aria-describedby="profile-help"
+                >
+                  ${zone.profiles.map(
+                    (item) =>
+                      html`<option value=${item.profile_id}>
+                        ${item.name}
+                      </option>`,
+                  )}
+                </select>
+                <small id="profile-help">
+                  Each profile is a complete weekly schedule for this zone.
+                </small>
+              </label>`
+        }
         <label class="switch-label">
           <input
             type="checkbox"
@@ -133,18 +174,27 @@ export class ScheduleEditor extends LitElement {
       </section>
 
       <section class="template-tools" aria-labelledby="template-heading">
-        <div>
-          <h3 id="template-heading">Starter templates</h3>
+        <div class="template-intro">
+          <h3 id="template-heading">Starter schedule</h3>
           <p>
-            Replace the selected profile’s matching days with editable periods.
+            Review these comfort bands before replacing the matching days.
+            Heating and cooling targets stay together in one schedule period;
+            your thermostat mode determines which side applies.
           </p>
         </div>
-        <button type="button" @click=${() => this.applyTemplate("weekday")}>
-          Apply weekdays
-        </button>
-        <button type="button" @click=${() => this.applyTemplate("weekend")}>
-          Apply weekend
-        </button>
+        <div class="starter-grid">
+          ${this.starterTargetInputs("Home", "homeHeatC", "homeCoolC")}
+          ${this.starterTargetInputs("Away", "awayHeatC", "awayCoolC")}
+          ${this.starterTargetInputs("Sleep", "sleepHeatC", "sleepCoolC")}
+        </div>
+        <div class="template-actions">
+          <button type="button" @click=${() => this.applyTemplate("weekday")}>
+            Apply weekdays
+          </button>
+          <button type="button" @click=${() => this.applyTemplate("weekend")}>
+            Apply weekend
+          </button>
+        </div>
       </section>
 
       <label class="mobile-day-picker">
@@ -160,17 +210,33 @@ export class ScheduleEditor extends LitElement {
         ${WEEKDAYS.map((day) => this.renderDay(profile, day))}
       </section>
 
-      <section class="copy-tool" aria-labelledby="copy-heading">
+      <section
+        class="copy-tool"
+        id="copy-day-tool"
+        aria-labelledby="copy-heading"
+      >
         <div>
-          <h3 id="copy-heading">Copy ${DAY_LABELS[this.mobileDay]}</h3>
-          <p>Copied periods receive new stable identities.</p>
+          <h3 id="copy-heading">Copy a day</h3>
+          <p>
+            Choose any source and one or more destinations. Copied periods
+            receive new stable identities.
+          </p>
         </div>
+        <label>
+          <span>Copy from</span>
+          <select .value=${this.copySource} @change=${this.copySourceChanged}>
+            ${WEEKDAYS.map(
+              (day) => html`<option value=${day}>${DAY_LABELS[day]}</option>`,
+            )}
+          </select>
+        </label>
         <div class="copy-days">
-          ${WEEKDAYS.filter((day) => day !== this.mobileDay).map(
+          ${WEEKDAYS.filter((day) => day !== this.copySource).map(
             (day) =>
               html`<label>
                 <input
                   type="checkbox"
+                  aria-label=${`Copy ${DAY_LABELS[this.copySource]} to ${DAY_LABELS[day]}`}
                   .checked=${this.copyTargets.includes(day)}
                   @change=${(event: Event) => this.copyTargetChanged(day, event)}
                 />
@@ -233,15 +299,56 @@ export class ScheduleEditor extends LitElement {
             ${periods.length === 1 ? "period" : "periods"}</span
           >
         </div>
-        <button
-          type="button"
-          class="add"
-          aria-label=${`Add ${DAY_LABELS[day]} period`}
-          @click=${() => this.addPeriod(day)}
-        >
-          + Add
-        </button>
+        <div class="day-actions">
+          <button
+            type="button"
+            aria-label=${`Copy ${DAY_LABELS[day]}`}
+            @click=${() => this.selectCopySource(day)}
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            class="add"
+            aria-label=${`Add ${DAY_LABELS[day]} period`}
+            @click=${() => this.addPeriod(day)}
+          >
+            + Add
+          </button>
+          <button
+            type="button"
+            class="danger"
+            ?disabled=${periods.length === 0}
+            aria-label=${`Clear ${DAY_LABELS[day]}`}
+            @click=${() => this.requestClearDay(day)}
+          >
+            Clear
+          </button>
+        </div>
       </header>
+      ${
+        this.clearPendingDay === day
+          ? html`<div class="clear-confirmation" role="alert">
+              <p>
+                Clear every ${DAY_LABELS[day]} period? The final settings from
+                the prior configured day will continue until the next period.
+              </p>
+              <div>
+                <button type="button" @click=${this.cancelClearDay}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="danger"
+                  aria-label=${`Confirm clear ${DAY_LABELS[day]}`}
+                  @click=${() => this.confirmClearDay(day)}
+                >
+                  Clear ${DAY_LABELS[day]}
+                </button>
+              </div>
+            </div>`
+          : nothing
+      }
       ${
         periods.length === 0
           ? html`<p class="inheritance">
@@ -547,7 +654,10 @@ export class ScheduleEditor extends LitElement {
     const target = event.currentTarget;
     if (target instanceof HTMLSelectElement) {
       this.mobileDay = target.value as ScheduleWeekday;
-      this.copyTargets = [];
+      this.copySource = this.mobileDay;
+      this.copyTargets = this.copyTargets.filter(
+        (day) => day !== this.copySource,
+      );
     }
   };
 
@@ -581,6 +691,21 @@ export class ScheduleEditor extends LitElement {
 
   private deletePeriod(day: ScheduleWeekday, index: number): void {
     this.updateProfile((profile) => profile.days[day].splice(index, 1));
+  }
+
+  private requestClearDay(day: ScheduleWeekday): void {
+    this.clearPendingDay = day;
+  }
+
+  private cancelClearDay = (): void => {
+    this.clearPendingDay = undefined;
+  };
+
+  private confirmClearDay(day: ScheduleWeekday): void {
+    this.updateProfile((profile) => {
+      profile.days[day] = [];
+    });
+    this.clearPendingDay = undefined;
   }
 
   private periodTextChanged(
@@ -678,8 +803,26 @@ export class ScheduleEditor extends LitElement {
       : this.copyTargets.filter((item) => item !== day);
   }
 
+  private copySourceChanged = (event: Event): void => {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLSelectElement)) return;
+    this.copySource = target.value as ScheduleWeekday;
+    this.copyTargets = this.copyTargets.filter(
+      (day) => day !== this.copySource,
+    );
+  };
+
+  private selectCopySource(day: ScheduleWeekday): void {
+    this.copySource = day;
+    this.copyTargets = this.copyTargets.filter((target) => target !== day);
+    const tool = this.renderRoot.querySelector<HTMLElement>("#copy-day-tool");
+    if (tool !== null && typeof tool.scrollIntoView === "function") {
+      tool.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
   private copyDay = (): void => {
-    const sourceDay = this.mobileDay;
+    const sourceDay = this.copySource;
     const targets = [...this.copyTargets];
     this.updateProfile((profile) => {
       const source = profile.days[sourceDay];
@@ -695,33 +838,76 @@ export class ScheduleEditor extends LitElement {
 
   private applyTemplate(kind: "weekday" | "weekend"): void {
     const days = kind === "weekday" ? WEEKDAYS.slice(0, 5) : WEEKDAYS.slice(5);
-    const starts =
+    const starts: readonly [
+      string,
+      string,
+      keyof StarterTargets,
+      keyof StarterTargets,
+    ][] =
       kind === "weekday"
         ? ([
-            ["06:30", "Morning", 21],
-            ["08:30", "Day", 18],
-            ["17:30", "Evening", 21],
-            ["22:30", "Sleep", 18],
+            ["06:30", "Morning", "homeHeatC", "homeCoolC"],
+            ["08:30", "Away", "awayHeatC", "awayCoolC"],
+            ["17:30", "Evening", "homeHeatC", "homeCoolC"],
+            ["22:30", "Sleep", "sleepHeatC", "sleepCoolC"],
           ] as const)
         : ([
-            ["08:00", "Morning", 21],
-            ["23:00", "Sleep", 18],
+            ["08:00", "Morning", "homeHeatC", "homeCoolC"],
+            ["23:00", "Sleep", "sleepHeatC", "sleepCoolC"],
           ] as const);
     this.updateProfile((profile) => {
       for (const day of days) {
-        profile.days[day] = starts.map(([time, label, target]) => ({
+        profile.days[day] = starts.map(([time, label, heatKey, coolKey]) => ({
           ...this.newPeriod(time),
           label,
-          occupancy_label: label === "Sleep" ? "sleep" : "home",
+          occupancy_label:
+            label === "Sleep" ? "sleep" : label === "Away" ? "away" : "home",
           target: {
-            kind: "single",
-            target_c: target,
-            heat_target_c: null,
-            cool_target_c: null,
+            kind: "range",
+            target_c: null,
+            heat_target_c: this.starterTargets[heatKey],
+            cool_target_c: this.starterTargets[coolKey],
           },
         }));
       }
     });
+  }
+
+  private starterTargetInputs(
+    label: string,
+    heatKey: keyof StarterTargets,
+    coolKey: keyof StarterTargets,
+  ) {
+    return html`<fieldset>
+      <legend>${label}</legend>
+      ${this.starterTemperatureInput("Heat", heatKey)}
+      ${this.starterTemperatureInput("Cool", coolKey)}
+    </fieldset>`;
+  }
+
+  private starterTemperatureInput(label: string, key: keyof StarterTargets) {
+    return html`<label>
+      <span>${label} (${this.temperatureUnit})</span>
+      <input
+        type="number"
+        step=${this.temperatureUnit === "°F" ? "0.5" : "0.1"}
+        .value=${this.formatNumber(
+          this.displayTemperature(this.starterTargets[key]),
+        )}
+        @change=${(event: Event) => this.starterTargetChanged(key, event)}
+      />
+    </label>`;
+  }
+
+  private starterTargetChanged(key: keyof StarterTargets, event: Event): void {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLInputElement)) return;
+    const value = Number(target.value);
+    if (!Number.isFinite(value)) return;
+    this.starterTargets = {
+      ...this.starterTargets,
+      [key]: this.celsiusTemperature(value),
+    };
   }
 
   private requestPreview = (): void => {
@@ -897,6 +1083,17 @@ export class ScheduleEditor extends LitElement {
         inline-size: 20px;
         min-block-size: 20px;
       }
+      .profile-summary {
+        display: grid;
+        gap: 5px;
+      }
+      .profile-summary > span,
+      .profile-summary small,
+      label small {
+        color: var(--secondary-text-color);
+        font-size: 0.76rem;
+        line-height: 1.35;
+      }
       .template-tools,
       .copy-tool,
       .preview-card,
@@ -908,12 +1105,34 @@ export class ScheduleEditor extends LitElement {
         margin-block: 16px;
       }
       .template-tools {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) minmax(360px, 2fr) auto;
+        align-items: end;
+        gap: 16px;
       }
-      .template-tools div:first-child {
-        margin-inline-end: auto;
+      .starter-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .starter-grid fieldset {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        min-inline-size: 0;
+        margin: 0;
+        padding: 8px;
+        border: 1px solid var(--ic-border);
+        border-radius: 10px;
+      }
+      .starter-grid legend {
+        padding-inline: 4px;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .template-actions {
+        display: grid;
+        gap: 8px;
       }
       h3,
       p {
@@ -946,6 +1165,34 @@ export class ScheduleEditor extends LitElement {
         justify-content: space-between;
         gap: 8px;
         align-items: start;
+      }
+      .day-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: end;
+        gap: 4px;
+      }
+      .day-actions button {
+        min-block-size: 36px;
+        padding: 5px 7px;
+        font-size: 0.72rem;
+      }
+      .clear-confirmation {
+        margin-block-start: 10px;
+        padding: 10px;
+        border: 1px solid var(--warning-color, #f9a825);
+        border-radius: 10px;
+        background: color-mix(
+          in srgb,
+          var(--warning-color, #f9a825) 9%,
+          transparent
+        );
+      }
+      .clear-confirmation div {
+        display: flex;
+        justify-content: end;
+        gap: 8px;
+        margin-block-start: 8px;
       }
       .day-column header span {
         color: var(--secondary-text-color);
@@ -1005,7 +1252,7 @@ export class ScheduleEditor extends LitElement {
       }
       .copy-tool {
         display: grid;
-        grid-template-columns: minmax(180px, 1fr) 2fr auto;
+        grid-template-columns: minmax(180px, 1fr) minmax(150px, 0.6fr) 2fr auto;
         align-items: center;
         gap: 16px;
       }
@@ -1096,11 +1343,11 @@ export class ScheduleEditor extends LitElement {
           grid-template-columns: 1fr 1fr;
         }
         .template-tools {
+          grid-template-columns: 1fr;
           align-items: stretch;
-          flex-wrap: wrap;
         }
-        .template-tools div:first-child {
-          inline-size: 100%;
+        .starter-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .mobile-day-picker {
           display: grid;
@@ -1124,8 +1371,11 @@ export class ScheduleEditor extends LitElement {
         .editor-toolbar {
           grid-template-columns: 1fr;
         }
-        .template-tools button {
+        .template-actions button {
           inline-size: 100%;
+        }
+        .starter-grid {
+          grid-template-columns: 1fr;
         }
         .preview-card dl {
           grid-template-columns: 1fr;

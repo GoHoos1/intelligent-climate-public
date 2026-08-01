@@ -37,6 +37,8 @@ class TimelineSeriesKind(StrEnum):
     EFFECTIVE_COOL_TARGET = "effective_cool_target"
     HVAC_ACTION = "hvac_action"
     FAN_ACTION = "fan_action"
+    CONTACT_STATE = "contact_state"
+    CONTROL_CONTEXT = "control_context"
 
 
 @dataclass(frozen=True, slots=True)

@@ -101,6 +101,15 @@ describe("Task 23 schedule editor", () => {
     expect(editor.shadowRoot?.textContent).toContain(
       "No scheduled boundary crosses a DST gap",
     );
+    expect(editor.shadowRoot?.textContent).toContain("Schedule profile");
+    expect(editor.shadowRoot?.textContent).toContain(
+      "A profile is a complete weekly schedule",
+    );
+    expect(
+      editor.shadowRoot?.querySelector(
+        "select[aria-describedby='profile-help']",
+      ),
+    ).toBeNull();
   });
 
   it("adds, duplicates, deletes, copies, and templates periods with new IDs", async () => {
@@ -205,6 +214,76 @@ describe("Task 23 schedule editor", () => {
     expect(
       changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.friday,
     ).toHaveLength(4);
+    expect(
+      changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.friday[0]?.target,
+    ).toMatchObject({
+      kind: "range",
+      heat_target_c: 20.6,
+      cool_target_c: 23.9,
+    });
+  });
+
+  it("copies any desktop day to multiple destinations", async () => {
+    const editor = await renderEditor();
+    const changes: ScheduleDocument[] = [];
+    editor.addEventListener("schedule-change", (event) => {
+      const detail = (event as CustomEvent<{ document: ScheduleDocument }>)
+        .detail;
+      changes.push(detail.document);
+      editor.document = detail.document;
+    });
+
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>('button[aria-label="Copy Monday"]')
+      ?.click();
+    await editor.updateComplete;
+    const destinations = [
+      ...(editor.shadowRoot?.querySelectorAll<HTMLInputElement>(
+        ".copy-days input",
+      ) ?? []),
+    ];
+    destinations[0]?.click();
+    destinations.at(-1)?.click();
+    await editor.updateComplete;
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".copy-tool > button")
+      ?.click();
+    await editor.updateComplete;
+
+    expect(
+      changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.tuesday[0]?.label,
+    ).toBe("Morning");
+    expect(
+      changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.sunday[0]?.label,
+    ).toBe("Morning");
+  });
+
+  it("clears a whole day only after explaining inherited settings", async () => {
+    const editor = await renderEditor();
+    const changes: ScheduleDocument[] = [];
+    editor.addEventListener("schedule-change", (event) => {
+      const detail = (event as CustomEvent<{ document: ScheduleDocument }>)
+        .detail;
+      changes.push(detail.document);
+      editor.document = detail.document;
+    });
+
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>('button[aria-label="Clear Monday"]')
+      ?.click();
+    await editor.updateComplete;
+    expect(editor.shadowRoot?.textContent.replaceAll(/\s+/g, " ")).toContain(
+      "final settings from the prior configured day will continue",
+    );
+    expect(changes).toHaveLength(0);
+
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".clear-confirmation button.danger")
+      ?.click();
+    await editor.updateComplete;
+    expect(changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.monday).toEqual(
+      [],
+    );
   });
 
   it("emits preview and save requests without making control calls", async () => {

@@ -795,7 +795,7 @@ To make the current day available without depending on Recorder configuration, a
 
 - a maximum of 48 rolling hours per zone;
 - five-minute rounded observation buckets, plus immediate points for material target, equipment-state, quality, or control-event changes;
-- effective zone temperature/humidity, outdoor observation, scheduled/effective target, thermostat/fan action, quality flags, and typed annotation references;
+- effective zone temperature/humidity, outdoor observation, scheduled/effective target, thermostat/fan action, privacy-safe aggregate contact state, material control context, quality flags, and typed annotation references;
 - no raw source attributes, user/context identifiers, free-form exception text, or executable command payloads;
 - debounced persistence no more often than every 15 minutes plus orderly shutdown; and
 - corruption, write failure, or loss degrades only historical display and raises the existing Store/diagnostic path; it never changes a control decision, qualification result, or command.
@@ -1286,7 +1286,7 @@ Qualification by itself is normal status; a Repair appears only if the user trie
 | Runtime Store envelope | 1.2 | 2.0 |
 | Runtime inner schema | 1 | 2 |
 | Schedule Store | Absent | 1.0 / inner 1 |
-| Presentation Trace Store | Absent | 1.0 / inner 1 |
+| Presentation Trace Store | Absent | 1.0 / inner 2 |
 | Diagnostics schema | 1 | 2 |
 | Frontend API | Absent | 1 |
 
@@ -1330,7 +1330,7 @@ Persisted Phase 1 zone temperatures remain nonauthoritative and are not hydrated
 
 ## 15.5 Presentation Trace Store
 
-The auxiliary Store key is `intelligent_climate.presentation.<entry_id>`, with Home Assistant Store envelope 1.0 and `presentation_schema_version: 1`. It is deliberately outside Runtime Store v2 so invalid or lost visualization history cannot quarantine overrides, command journal, transition ledger, qualification, timers, failure counters, or control intent.
+The auxiliary Store key is `intelligent_climate.presentation.<entry_id>`, with Home Assistant Store envelope 1.0 and `presentation_schema_version: 2`. Schema 2 adds privacy-safe aggregate contact state and material control context; schema 1 traces migrate in memory with those values marked not configured/not reported. It is deliberately outside Runtime Store v2 so invalid or lost visualization history cannot quarantine overrides, command journal, transition ledger, qualification, timers, failure counters, or control intent.
 
 The trace starts empty after Phase 2 migration and is created only after authoritative config/Schedule/Runtime migration succeeds and live reconciliation begins. It may collect only new validated Phase 2 snapshots; it must not convert persisted Phase 1 comparison baselines into chart measurements. Decode failure quarantines/discards only the auxiliary trace and starts a new empty trace. Retention or write failure degrades only the chart/history surface and cannot block ordinary observation or alter control, qualification, activity, or later model learning. Diagnostics and the existing Store Repair report the degraded presentation history honestly.
 

@@ -114,6 +114,18 @@ def build_today_timeline(
             None,
             lambda item: item.fan_action.value,
         ),
+        (
+            TimelineSeriesKind.CONTACT_STATE,
+            TimelineValueKind.MEASURED,
+            None,
+            lambda item: item.contact_state.value,
+        ),
+        (
+            TimelineSeriesKind.CONTROL_CONTEXT,
+            TimelineValueKind.CALCULATED,
+            None,
+            lambda item: item.control_context.value,
+        ),
     )
     series = tuple(
         result

@@ -38,6 +38,8 @@ from custom_components.intelligent_climate.models import (
     Phase2RuntimeStoreDocument,
     Phase2RuntimeZoneState,
     Phase2ZoneConfig,
+    PresentationContactState,
+    PresentationControlContext,
     PresentationFanAction,
     PresentationHvacAction,
     ScheduleDocument,
@@ -475,3 +477,126 @@ async def test_presentation_trace_buckets_material_changes_and_flushes(
         assert len(trace.document.samples_by_zone[ZONE_ID]) == 1
         await trace.async_shutdown()
     save.assert_awaited_once()
+
+
+async def test_presentation_trace_records_aggregate_contact_and_control_context(
+    hass: HomeAssistant,
+) -> None:
+    """The trace stores no contact IDs, only the zone-level factual state."""
+    hass.states.async_set("binary_sensor.dining_window", "on")
+    trace = PresentationTraceRuntime(
+        hass,
+        entry_id=ENTRY_ID,
+        equipment_group_id=GROUP_ID,
+        zone_ids=(ZONE_ID,),
+        contact_entity_ids_by_zone={
+            ZONE_ID: ("binary_sensor.dining_window",),
+        },
+        now_fn=lambda: NOW,
+    )
+    policy = Phase2PolicySnapshot(
+        entry_id=ENTRY_ID,
+        observation_revision=1,
+        evaluated_at_utc=NOW,
+        control_state=ControlExecutionState.WINDOW_SUSPENDED,
+        reason_code=ControlReason.WINDOW_OPEN,
+        zones=(
+            ZonePolicySnapshot(
+                zone_id=ZONE_ID,
+                control_state=ControlExecutionState.WINDOW_SUSPENDED,
+                reason_code=ControlReason.WINDOW_OPEN,
+                scheduled_target=None,
+                effective_target=None,
+                profile_id=None,
+                period_id=None,
+                next_transition_utc=None,
+                safety_decision=None,
+                would_command=False,
+            ),
+        ),
+        shadow_readiness=None,
+        next_evaluation_at_utc=None,
+    )
+    with (
+        patch.object(trace._store, "async_load", AsyncMock(return_value=None)),
+        patch.object(trace._store, "async_save", AsyncMock()),
+    ):
+        await trace.async_load()
+        assert trace.record_snapshot(_observation(), policy)
+        point = trace.document.samples_by_zone[ZONE_ID][-1]
+        assert point.contact_state is PresentationContactState.OPEN
+        assert point.control_context is PresentationControlContext.WINDOW_SUSPENDED
+        encoded = str(trace.document)
+        assert "binary_sensor.dining_window" not in encoded
+        await trace.async_shutdown()
+
+
+async def test_presentation_trace_defers_material_change_until_time_advances(
+    hass: HomeAssistant,
+) -> None:
+    """Reload/replay never appends a new point at a non-newer timestamp."""
+    trace = PresentationTraceRuntime(
+        hass,
+        entry_id=ENTRY_ID,
+        equipment_group_id=GROUP_ID,
+        zone_ids=(ZONE_ID,),
+        now_fn=lambda: NOW,
+    )
+    policy = Phase2PolicySnapshot(
+        entry_id=ENTRY_ID,
+        observation_revision=1,
+        evaluated_at_utc=NOW,
+        control_state=ControlExecutionState.OBSERVING,
+        reason_code=ControlReason.OBSERVE_ONLY_SELECTED,
+        zones=(
+            ZonePolicySnapshot(
+                zone_id=ZONE_ID,
+                control_state=ControlExecutionState.OBSERVING,
+                reason_code=ControlReason.OBSERVE_ONLY_SELECTED,
+                scheduled_target=None,
+                effective_target=None,
+                profile_id=None,
+                period_id=None,
+                next_transition_utc=None,
+                safety_decision=None,
+                would_command=False,
+            ),
+        ),
+        shadow_readiness=None,
+        next_evaluation_at_utc=None,
+    )
+    suspended = replace(
+        policy,
+        control_state=ControlExecutionState.WINDOW_SUSPENDED,
+        reason_code=ControlReason.WINDOW_OPEN,
+        zones=(
+            replace(
+                policy.zones[0],
+                control_state=ControlExecutionState.WINDOW_SUSPENDED,
+                reason_code=ControlReason.WINDOW_OPEN,
+            ),
+        ),
+    )
+    with (
+        patch.object(trace._store, "async_load", AsyncMock(return_value=None)),
+        patch.object(trace._store, "async_save", AsyncMock()),
+    ):
+        await trace.async_load()
+        assert trace.record_snapshot(_observation(), policy)
+        assert not trace.record_snapshot(_observation(), suspended)
+        later_observation = replace(
+            _observation(),
+            revision=2,
+            calculated_at=NOW + timedelta(seconds=1),
+        )
+        later_policy = replace(
+            suspended,
+            observation_revision=2,
+            evaluated_at_utc=NOW + timedelta(seconds=1),
+        )
+        assert trace.record_snapshot(later_observation, later_policy)
+        points = trace.document.samples_by_zone[ZONE_ID]
+        assert len(points) == 2
+        assert points[-1].control_context is PresentationControlContext.WINDOW_SUSPENDED
+        assert points[-1].timestamp_utc == NOW + timedelta(seconds=1)
+        await trace.async_shutdown()

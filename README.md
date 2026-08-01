@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.15 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.16 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,14 +14,20 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.15**. Intelligent Climate is pre-alpha software
+The current release is **0.0.16**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.15 restores schedule editing when Home Assistant is opened through
-plain HTTP on a local-network address. The responsive editor, stored schedules,
-and read-only physical-control boundary are otherwise unchanged.
+Release 0.0.16 refines schedule editing and the Today timeline with clearer
+comfort-band workflows, scheduled target lines, factual equipment-state lanes,
+and optional aggregate window/door context. Existing schedules and history are
+preserved, and the physical-control boundary remains read-only.
 
 ## Recent changes
 
+- **0.0.16**
+  - Adds clear-day confirmation, multi-destination day copying, clearer profile
+    guidance, and editable Home/Away/Sleep heat-and-cool starter targets.
+  - Adds scheduled target step lines, cleaner dense temperature traces, factual
+    HVAC lanes, and optional privacy-bounded Window / door and Control context.
 - **0.0.15**
   - Restores schedule editing on plain-HTTP local-network addresses where the
     browser does not expose `crypto.randomUUID()`.
@@ -144,10 +150,13 @@ Intelligent Climate currently provides:
   restart baselines.
 - A read-only Intelligent Climate sidebar with Overview, Schedule, Sensors,
   Activity, and Settings views.
-- A responsive weekly schedule editor with period, template, preview, and
-  conflict-safe save workflows that changes schedule data only.
-- A DST-correct Today timeline, current operating explanation, observation
-  status, Shadow readiness, and suppressed “would have commanded” history.
+- A responsive weekly schedule editor with period, clear-day, multi-day copy,
+  starter comfort-band, preview, and conflict-safe save workflows that changes
+  schedule data only.
+- A DST-correct Today timeline with scheduled heat/cool targets, factual HVAC
+  operation lanes, optional aggregate window/door and control context, current
+  operating explanation, observation status, Shadow readiness, and suppressed
+  “would have commanded” history.
 - Strictly validated schedule, arbitration, safety, and Shadow-planning data
   that remains unable to call Home Assistant equipment services.
 
@@ -156,7 +165,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.15 does not provide:
+Release 0.0.16 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A manual control page, active occupancy control, or active window suspension.
