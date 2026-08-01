@@ -15,7 +15,7 @@ from .websocket import API_VERSION
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
-FRONTEND_VERSION: Final = "0.0.11"
+FRONTEND_VERSION: Final = "0.0.12"
 PANEL_URL_PATH: Final = "intelligent-climate"
 PANEL_COMPONENT_NAME: Final = "intelligent-climate-panel"
 PANEL_STATIC_URL: Final = "/intelligent_climate_frontend/intelligent-climate-panel.js"

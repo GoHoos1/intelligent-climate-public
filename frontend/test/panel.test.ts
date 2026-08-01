@@ -78,7 +78,7 @@ function mount(): {
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.11",
+      frontend_version: "0.0.12",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };

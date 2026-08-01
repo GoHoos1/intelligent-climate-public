@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.11 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.12 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,14 +14,18 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.11**. Intelligent Climate is pre-alpha software
+The current release is **0.0.12**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.11 preserves the accepted Phase 1 observation behavior and corrects
-the first visible Phase 2 checkpoint's HVAC/fan interpretation and Today chart.
-Physical HVAC control remains absent.
+Release 0.0.12 preserves the accepted Phase 1 observation behavior and makes
+flat or nearly flat indoor-temperature traces reliably visible in a shorter
+Today chart. Physical HVAC control remains absent.
 
 ## Recent changes
 
+- **0.0.12**
+  - Makes flat or nearly flat indoor-temperature traces visible with a stronger
+    measured line and explicit sample markers.
+  - Reduces the Today chart height for tablet and mobile displays.
 - **0.0.11**
   - Uses the thermostat's reported current HVAC action instead of requiring an
     external equipment-stage sensor.
@@ -137,7 +141,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.11 does not provide:
+Release 0.0.12 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A user-facing schedule editor, manual control page, active occupancy control,

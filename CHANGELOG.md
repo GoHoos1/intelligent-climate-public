@@ -7,6 +7,21 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.12 - 2026-07-31
+
+### Fixed
+
+- Hardened the Today temperature chart for flat or nearly flat traces with an
+  explicit high-contrast line, visible sample markers, and geometry assertions
+  that verify more than SVG element presence.
+- Reduced the chart height on tablet and mobile displays without changing
+  stored presentation history.
+
+### Security
+
+- The graph-rendering release remains read-only and adds no physical adapter,
+  Home Assistant service call, writable climate behavior, or control authority.
+
 ## 0.0.11 - 2026-07-31
 
 ### Fixed
