@@ -25,7 +25,8 @@ from .narrative import (
     build_current_narrative_facts,
     narrative_to_json,
 )
-from .schedule.evaluate import ScheduleEvaluationError, evaluate_schedule
+from .schedule.evaluate import ScheduleEvaluationError
+from .schedule.preview import build_schedule_preview
 from .schedule_storage import (
     ScheduleRevisionConflictError,
     ScheduleStoreError,
@@ -285,11 +286,7 @@ async def websocket_schedule_preview(
             validation_context=runtime.schedule_validation_context,
         )
         at = _parse_datetime(msg.get("at_utc"))
-        previews = [
-            evaluate_schedule(document, zone_id=zone_id, at=at)
-            for zone_id in sorted(document.zones, key=str)
-            if document.zones[zone_id].enabled
-        ]
+        preview = build_schedule_preview(document, at=at)
     except (KeyError, TypeError, ValueError, ScheduleEvaluationError) as err:
         connection.send_error(msg["id"], "preview_failed", str(err))
         return
@@ -298,21 +295,42 @@ async def websocket_schedule_preview(
         {
             "api_version": API_VERSION,
             "authoritative": False,
-            "at_utc": at.isoformat(),
+            "at_utc": preview.at_utc.isoformat(),
+            "time_zone": preview.time_zone,
+            "preview_week_start_local": (preview.preview_week_start_local.isoformat()),
             "zones": [
                 {
                     "zone_id": str(item.zone_id),
                     "profile_id": str(item.profile_id),
-                    "period_id": str(item.base_period_id),
-                    "target": _target_json(item.base_target),
+                    "period_id": str(item.period_id),
+                    "target": _target_json(item.target),
+                    "next_target": (
+                        None
+                        if item.next_target is None
+                        else _target_json(item.next_target)
+                    ),
                     "next_boundary_utc": item.next_boundary_utc.isoformat(),
                     "next_material_transition_utc": (
                         None
                         if item.next_material_transition_utc is None
                         else item.next_material_transition_utc.isoformat()
                     ),
+                    "inherited_from_previous_day": (item.inherited_from_previous_day),
                 }
-                for item in previews
+                for item in preview.zones
+            ],
+            "dst_warnings": [
+                {
+                    "zone_id": str(item.zone_id),
+                    "profile_id": str(item.profile_id),
+                    "period_id": str(item.period_id),
+                    "local_date": item.local_date.isoformat(),
+                    "local_start": str(item.local_start),
+                    "kind": item.kind.value,
+                    "occurs_at_utc": item.occurs_at_utc.isoformat(),
+                    "explanation": item.explanation,
+                }
+                for item in preview.dst_warnings
             ],
         },
     )

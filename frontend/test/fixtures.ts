@@ -3,6 +3,11 @@ import type {
   ConfigurationResponse,
   NarrativeResponse,
   ObservationStatusResponse,
+  ScheduleDocument,
+  ScheduleGetResponse,
+  SchedulePreviewResponse,
+  ScheduleSaveResponse,
+  ScheduleValidationResponse,
   ShadowStatusResponse,
   SnapshotResponse,
   TodayTimelineResponse,
@@ -14,7 +19,13 @@ export const NOW = "2026-07-31T18:00:00+00:00";
 
 export const configuration: ConfigurationResponse = {
   api_version: 1,
-  config: { automation_enabled: false },
+  config: {
+    automation_enabled: false,
+    acknowledged_time_zone: "America/New_York",
+    equipment_group: {
+      equipment_group_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    },
+  },
   options: {},
   zones: [
     {
@@ -177,4 +188,94 @@ export const narrative: NarrativeResponse = {
   context_forecast_available: false,
   included_categories: ["control", "observation"],
   rendered: "Intelligent Climate is observing only. The zone is 23.7°C.",
+};
+
+export const scheduleDocument: ScheduleDocument = {
+  schedule_schema_version: 1,
+  entry_id: ENTRY_ID,
+  equipment_group_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  time_zone: "America/New_York",
+  revision: 1,
+  zones: {
+    [ZONE_ID]: {
+      zone_id: ZONE_ID,
+      enabled: true,
+      selected_profile_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      profiles: [
+        {
+          profile_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          name: "Normal",
+          enabled: true,
+          days: {
+            monday: [
+              {
+                period_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                local_start: "06:30",
+                label: "Morning",
+                occupancy_label: "home",
+                target: {
+                  kind: "single",
+                  target_c: 21,
+                  heat_target_c: null,
+                  cool_target_c: null,
+                },
+                tolerance_c: 0.5,
+              },
+            ],
+            tuesday: [],
+            wednesday: [],
+            thursday: [],
+            friday: [],
+            saturday: [],
+            sunday: [],
+          },
+        },
+      ],
+    },
+  },
+  saved_at_utc: NOW,
+};
+
+export const scheduleGet: ScheduleGetResponse = {
+  api_version: 1,
+  revision: 1,
+  schedule: scheduleDocument,
+};
+
+export const scheduleValidation: ScheduleValidationResponse = {
+  api_version: 1,
+  valid: true,
+  revision: 1,
+};
+
+export const schedulePreview: SchedulePreviewResponse = {
+  api_version: 1,
+  authoritative: false,
+  at_utc: NOW,
+  time_zone: "America/New_York",
+  preview_week_start_local: "2026-07-27",
+  zones: [
+    {
+      zone_id: ZONE_ID,
+      profile_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      period_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      target: {
+        kind: "single",
+        target_c: 21,
+        heat_target_c: null,
+        cool_target_c: null,
+      },
+      next_target: null,
+      next_boundary_utc: "2026-08-03T10:30:00+00:00",
+      next_material_transition_utc: null,
+      inherited_from_previous_day: true,
+    },
+  ],
+  dst_warnings: [],
+};
+
+export const scheduleSave: ScheduleSaveResponse = {
+  api_version: 1,
+  revision: 2,
+  schedule: { ...scheduleDocument, revision: 2 },
 };

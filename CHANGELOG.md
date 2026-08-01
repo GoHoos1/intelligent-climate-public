@@ -7,6 +7,24 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.14 - 2026-08-01
+
+### Added
+
+- Added a responsive core schedule editor with synchronized seven-day desktop
+  and one-day mobile views, period editing, copy/duplicate/delete actions, and
+  weekday/weekend starter templates.
+- Added backend-authoritative current and next target previews with exact
+  daylight-saving gap and fold warnings for the displayed local week.
+- Added unsaved-change protection and optimistic revision-conflict recovery
+  without overwriting the user's draft.
+
+### Security
+
+- Schedule saves update schedule data only. This release adds no active adapter,
+  predictive behavior, Home Assistant service call, writable climate entity, or
+  physical-control authority.
+
 ## 0.0.13 - 2026-08-01
 
 ### Fixed

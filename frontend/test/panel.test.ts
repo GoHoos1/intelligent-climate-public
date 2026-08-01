@@ -11,6 +11,10 @@ import {
   narrative,
   observation,
   shadow,
+  scheduleGet,
+  schedulePreview,
+  scheduleSave,
+  scheduleValidation,
   snapshot,
   timeline,
 } from "./fixtures";
@@ -29,12 +33,21 @@ function createHass(): {
     "intelligent_climate/observation/status": observation,
     "intelligent_climate/timeline/today": timeline,
     "intelligent_climate/narrative/current": narrative,
+    "intelligent_climate/schedule/get": scheduleGet,
+    "intelligent_climate/schedule/validate": scheduleValidation,
+    "intelligent_climate/schedule/preview": schedulePreview,
+    "intelligent_climate/schedule/save": scheduleSave,
   };
   const cleanup = vi.fn();
   let subscription: ((message: unknown) => void) | undefined;
   const callWS: HomeAssistantLike["callWS"] = <T>(
     message: Record<string, unknown>,
-  ) => Promise.resolve(responses[String(message["type"])] as T);
+  ) => {
+    const response = responses[String(message["type"])];
+    return response instanceof Error
+      ? Promise.reject(response)
+      : Promise.resolve(response as T);
+  };
   return {
     cleanup,
     emitSnapshot: (value) => subscription?.(value),
@@ -78,7 +91,7 @@ function mount(): {
   panel.panel = {
     config: {
       api_version: 1,
-      frontend_version: "0.0.13",
+      frontend_version: "0.0.14",
       entries: [{ entry_id: ENTRY_ID, title: "Main floor" }],
     },
   };
@@ -87,6 +100,7 @@ function mount(): {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   document.body.replaceChildren();
   window.history.replaceState(null, "", "/");
   window.localStorage.clear();
@@ -138,14 +152,25 @@ describe("Intelligent Climate sidebar", () => {
     ];
     expect(
       buttons.map((button) => button.textContent.replace(/\s+/g, " ").trim()),
-    ).toEqual(["⌂ Overview", "◫ Sensors", "↯ Activity", "⚙ Settings"]);
+    ).toEqual([
+      "⌂ Overview",
+      "▦ Schedule",
+      "◫ Sensors",
+      "↯ Activity",
+      "⚙ Settings",
+    ]);
     (buttons[1] as HTMLButtonElement).click();
+    await settle(panel);
+    expect(panel.shadowRoot?.textContent).toContain(
+      "Local weekly comfort schedule",
+    );
+    (buttons[2] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain(
       "Current readings and configured sources",
     );
-    (buttons[2] as HTMLButtonElement).click();
+    (buttons[3] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain("Newest activity first");
@@ -153,7 +178,7 @@ describe("Intelligent Climate sidebar", () => {
       panel.shadowRoot?.querySelector(".activity-title strong")?.textContent,
     ).toBe("Observation");
     expect(panel.shadowRoot?.textContent).toContain("Historical record");
-    (buttons[3] as HTMLButtonElement).click();
+    (buttons[4] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain("Read-only preview");
@@ -164,7 +189,7 @@ describe("Intelligent Climate sidebar", () => {
     await settle(panel);
     const settings = panel.shadowRoot?.querySelectorAll(
       ".primary-nav button",
-    )[3] as HTMLButtonElement;
+    )[4] as HTMLButtonElement;
     settings.click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
@@ -193,6 +218,122 @@ describe("Intelligent Climate sidebar", () => {
     ).toBe("celsius");
   });
 
+  it("edits, previews, and saves a complete schedule without gaining control authority", async () => {
+    const { panel } = mount();
+    await settle(panel);
+    const scheduleButton = panel.shadowRoot?.querySelectorAll(
+      ".primary-nav button",
+    )[1] as HTMLButtonElement;
+    scheduleButton.click();
+    await settle(panel);
+    const editor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    if (editor === null || editor === undefined) {
+      throw new Error("schedule editor was not rendered");
+    }
+    await (editor as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(editor.shadowRoot?.textContent).toContain("Starter templates");
+    expect(editor.shadowRoot?.textContent).toContain(
+      "Inherits the most recent period",
+    );
+    expect(panel.shadowRoot?.textContent).toContain(
+      "Read-only control preview",
+    );
+
+    const addMonday = editor.shadowRoot?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Add Monday period"]',
+    );
+    addMonday?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    const updatedEditor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    await (updatedEditor as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(updatedEditor?.shadowRoot?.textContent).toContain(
+      "Unsaved schedule changes",
+    );
+
+    const previewButton = [
+      ...(updatedEditor?.shadowRoot?.querySelectorAll(".save-bar button") ??
+        []),
+    ].find(
+      (button) => button.textContent.trim() === "Preview",
+    ) as HTMLButtonElement;
+    previewButton.click();
+    await settle(panel);
+    const previewedEditor =
+      panel.shadowRoot?.querySelector("ic-schedule-editor");
+    await (
+      previewedEditor as HTMLElement & { updateComplete: Promise<boolean> }
+    ).updateComplete;
+    expect(previewedEditor?.shadowRoot?.textContent).toContain(
+      "Authoritative preview",
+    );
+    expect(previewedEditor?.shadowRoot?.textContent).toContain(
+      "nonauthoritative for control",
+    );
+
+    const saveButton = [
+      ...(previewedEditor?.shadowRoot?.querySelectorAll(".save-bar button") ??
+        []),
+    ].find(
+      (button) => button.textContent.trim() === "Validate & save",
+    ) as HTMLButtonElement;
+    saveButton.click();
+    await settle(panel);
+    const savedEditor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    await (savedEditor as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(savedEditor?.shadowRoot?.textContent).toContain("Schedule is saved");
+    expect(savedEditor?.shadowRoot?.textContent).toContain("Revision 2");
+  });
+
+  it("preserves an unsaved draft and explains optimistic revision conflicts", async () => {
+    const { panel, setResponse } = mount();
+    setResponse(
+      "intelligent_climate/schedule/save",
+      Object.assign(new Error("Current schedule revision is 2"), {
+        code: "revision_conflict",
+      }),
+    );
+    await settle(panel);
+    (
+      panel.shadowRoot?.querySelectorAll(
+        ".primary-nav button",
+      )[1] as HTMLButtonElement
+    ).click();
+    await settle(panel);
+    const editor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    await editor?.updateComplete;
+    editor?.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Add Monday period"]',
+      )
+      ?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    const updatedEditor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    await updatedEditor?.updateComplete;
+    const save = [
+      ...(updatedEditor?.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        ".save-bar button",
+      ) ?? []),
+    ].find((button) => button.textContent.trim() === "Validate & save");
+    save?.click();
+    await settle(panel);
+
+    expect(panel.shadowRoot?.textContent).toContain(
+      "A newer schedule revision exists",
+    );
+    expect(panel.shadowRoot?.textContent).toContain(
+      "Your draft was not overwritten",
+    );
+    expect(
+      panel.shadowRoot?.querySelector("ic-schedule-editor")?.shadowRoot
+        ?.textContent,
+    ).toContain("Unsaved schedule changes");
+  });
+
   it("passes an automated accessibility scan", async () => {
     const { panel } = mount();
     await settle(panel);
@@ -204,6 +345,19 @@ describe("Intelligent Climate sidebar", () => {
       rules: { "color-contrast": { enabled: false } },
     });
     expect(result.violations).toEqual([]);
+    (
+      root.querySelectorAll(".primary-nav button")[1] as HTMLButtonElement
+    ).click();
+    await settle(panel);
+    const editor = root.querySelector("ic-schedule-editor");
+    await editor?.updateComplete;
+    if (editor?.shadowRoot === null || editor?.shadowRoot === undefined) {
+      throw new Error("schedule editor shadow root was not created");
+    }
+    const editorResult = await axe.run(editor.shadowRoot, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(editorResult.violations).toEqual([]);
   });
 
   it("owns and releases the backend subscription on disconnect", async () => {

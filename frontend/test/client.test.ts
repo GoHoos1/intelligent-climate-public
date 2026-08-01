@@ -8,6 +8,11 @@ import {
   configuration,
   observation,
   shadow,
+  scheduleDocument,
+  scheduleGet,
+  schedulePreview,
+  scheduleSave,
+  scheduleValidation,
   snapshot,
   narrative,
   timeline,
@@ -25,6 +30,10 @@ function createHass(): {
     "intelligent_climate/observation/status": observation,
     "intelligent_climate/timeline/today": timeline,
     "intelligent_climate/narrative/current": narrative,
+    "intelligent_climate/schedule/get": scheduleGet,
+    "intelligent_climate/schedule/validate": scheduleValidation,
+    "intelligent_climate/schedule/preview": schedulePreview,
+    "intelligent_climate/schedule/save": scheduleSave,
   };
   const callWSMock = vi.fn((message: Record<string, unknown>) =>
     Promise.resolve(responses[String(message["type"])]),
@@ -110,6 +119,29 @@ describe("IntelligentClimateClient", () => {
   it("rejects an empty entry identifier", () => {
     expect(() => new IntelligentClimateClient(createHass().hass, "")).toThrow(
       "entryId is required",
+    );
+  });
+
+  it("validates, previews, and saves complete schedules with revision evidence", async () => {
+    const { hass, callWSMock } = createHass();
+    const client = new IntelligentClimateClient(hass, ENTRY_ID);
+
+    expect(await client.schedule()).toEqual(scheduleGet);
+    expect(await client.validateSchedule(scheduleDocument)).toEqual(
+      scheduleValidation,
+    );
+    expect(
+      await client.previewSchedule(scheduleDocument, "2026-07-31T18:00:00Z"),
+    ).toEqual(schedulePreview);
+    expect(await client.saveSchedule(scheduleDocument, 1)).toEqual(
+      scheduleSave,
+    );
+    expect(callWSMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "intelligent_climate/schedule/save",
+        expected_revision: 1,
+        schedule: scheduleDocument,
+      }),
     );
   });
 });

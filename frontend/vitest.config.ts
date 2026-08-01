@@ -7,7 +7,11 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/api/**/*.ts", "src/accessibility/**/*.ts"],
+      include: [
+        "src/api/**/*.ts",
+        "src/accessibility/**/*.ts",
+        "src/schedule/**/*.ts",
+      ],
       thresholds: {
         lines: 95,
         functions: 95,

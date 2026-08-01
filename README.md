@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.13 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.14 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,15 +14,18 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.13**. Intelligent Climate is pre-alpha software
+The current release is **0.0.14**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.13 preserves the accepted Phase 1 observation behavior, corrects
-browser rendering of the Today chart, improves early-history visibility, and
-clarifies when Shadow qualification has not started. Physical HVAC control
-remains absent.
+Release 0.0.14 adds a responsive weekly schedule editor with authoritative
+preview, daylight-saving warnings, and conflict-safe saving. Schedule editing
+changes stored schedule data only; physical HVAC control remains absent.
 
 ## Recent changes
 
+- **0.0.14**
+  - Adds a responsive seven-day desktop and one-day mobile schedule editor.
+  - Adds authoritative current/next-target and daylight-saving previews plus
+    revision-conflict recovery and unsaved-change protection.
 - **0.0.13**
   - Corrects dynamic SVG namespaces so the Today graph renders in real browsers.
   - Expands an early-history time window as observations accumulate and clearly
@@ -134,8 +137,10 @@ Intelligent Climate currently provides:
 - A privacy-bounded `intelligent_climate_activity` event for automations.
 - Debounced, atomic persistence of nonauthoritative activity history and current
   restart baselines.
-- A read-only Intelligent Climate sidebar with Overview, Sensors, Activity, and
-  Settings views.
+- A read-only Intelligent Climate sidebar with Overview, Schedule, Sensors,
+  Activity, and Settings views.
+- A responsive weekly schedule editor with period, template, preview, and
+  conflict-safe save workflows that changes schedule data only.
 - A DST-correct Today timeline, current operating explanation, observation
   status, Shadow readiness, and suppressed “would have commanded” history.
 - Strictly validated schedule, arbitration, safety, and Shadow-planning data
@@ -146,11 +151,10 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.13 does not provide:
+Release 0.0.14 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
-- A user-facing schedule editor, manual control page, active occupancy control,
-  or active window suspension.
+- A manual control page, active occupancy control, or active window suspension.
 - Predictive control, adaptive start or stop, thermal models, or simulation.
 - Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
 - Predictive, model, schedule, override, fan-control, or simulation entities.

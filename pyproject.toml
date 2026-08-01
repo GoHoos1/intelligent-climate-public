@@ -7,7 +7,7 @@ include = ["custom_components*"]
 
 [project]
 name = "intelligent-climate"
-version = "0.0.13"
+version = "0.0.14"
 description = "Read-only intelligent climate observation and Shadow planning for Home Assistant."
 readme = "README.md"
 requires-python = ">=3.14.2"

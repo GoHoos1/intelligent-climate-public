@@ -240,6 +240,7 @@ def test_task_2_vocabulary_wiring_is_limited_to_approved_foundations() -> None:
         Path("runtime.py"),
     }
     task_20_manual_paths = {Path("manual_control.py")}
+    task_23_preview_paths = {Path("schedule/preview.py")}
     task_2_names = (
         "ControlExecutionState",
         "ControlReason",
@@ -331,6 +332,10 @@ def test_task_2_vocabulary_wiring_is_limited_to_approved_foundations() -> None:
         )
         and not (
             relative_path in task_20_manual_paths and name == "ControlExecutionState"
+        )
+        and not (
+            relative_path in task_23_preview_paths
+            and name in {"ScheduleProfileId", "SchedulePeriodId"}
         )
     ]
 
