@@ -136,8 +136,8 @@
           "humidity_sources": "Humidity sources (optional)",
           "window_door_entity_ids": "Windows and exterior doors (optional)",
           "occupancy_entity_ids": "Occupancy sources (optional)",
-          "stage_entity_ids": "HVAC stage sensors (optional)",
-          "fan_entity_ids": "Circulation fans (optional)"
+          "stage_entity_ids": "Equipment-stage evidence (optional)",
+          "fan_entity_ids": "Fan-only circulation controls (optional)"
         },
         "data_description": {
           "zone_name": "A recognizable display name for this climate zone.",
@@ -146,8 +146,8 @@
           "humidity_sources": "Humidity sensor entities or thermostats that report current humidity.",
           "window_door_entity_ids": "Binary sensors that report an exterior door or window as open or closed.",
           "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers that indicate occupancy.",
-          "stage_entity_ids": "Sensors that report heating, cooling, auxiliary heat, or equipment stage.",
-          "fan_entity_ids": "Separate fan entities or thermostats with supported fan modes."
+          "stage_entity_ids": "Optional external sensors that directly report compressor, heating, cooling, auxiliary-heat, or blower stages. Leave blank when your thermostat does not expose this evidence.",
+          "fan_entity_ids": "Separate fan entities or thermostats with explicit fan-only circulation modes. HVAC-driven blower operation is shown separately as a derived status."
         }
       },
       "confirm": {
@@ -241,8 +241,8 @@
             "humidity_sources": "Humidity sources (optional)",
             "window_door_entity_ids": "Windows and exterior doors (optional)",
             "occupancy_entity_ids": "Occupancy sources (optional)",
-            "stage_entity_ids": "HVAC stage sensors (optional)",
-            "fan_entity_ids": "Circulation fans (optional)"
+            "stage_entity_ids": "Equipment-stage evidence (optional)",
+            "fan_entity_ids": "Fan-only circulation controls (optional)"
           },
           "data_description": {
             "zone_name": "A recognizable display name for this climate zone.",
@@ -251,8 +251,8 @@
             "humidity_sources": "Humidity sensors or thermostats that expose current humidity.",
             "window_door_entity_ids": "Binary sensors for windows or exterior doors.",
             "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers.",
-            "stage_entity_ids": "Sensors that report equipment or auxiliary-heat stages.",
-            "fan_entity_ids": "Separate fan entities or thermostats with fan modes."
+            "stage_entity_ids": "Optional external sensors that directly report equipment or auxiliary-heat stages. Leave blank when this evidence is unavailable.",
+            "fan_entity_ids": "Separate fan entities or thermostats with explicit fan-only circulation modes."
           }
         },
         "reconfigure": {
@@ -265,8 +265,8 @@
             "humidity_sources": "Humidity sources (optional)",
             "window_door_entity_ids": "Windows and exterior doors (optional)",
             "occupancy_entity_ids": "Occupancy sources (optional)",
-            "stage_entity_ids": "HVAC stage sensors (optional)",
-            "fan_entity_ids": "Circulation fans (optional)"
+            "stage_entity_ids": "Equipment-stage evidence (optional)",
+            "fan_entity_ids": "Fan-only circulation controls (optional)"
           },
           "data_description": {
             "zone_name": "The new display name for this climate zone.",
@@ -275,8 +275,8 @@
             "humidity_sources": "Humidity sensors or thermostats that expose current humidity.",
             "window_door_entity_ids": "Binary sensors for windows or exterior doors.",
             "occupancy_entity_ids": "People, trackers, presence sensors, alarm state, or input helpers.",
-            "stage_entity_ids": "Sensors that report equipment or auxiliary-heat stages.",
-            "fan_entity_ids": "Separate fan entities or thermostats with fan modes."
+            "stage_entity_ids": "Optional external sensors that directly report equipment or auxiliary-heat stages. Leave blank when this evidence is unavailable.",
+            "fan_entity_ids": "Separate fan entities or thermostats with explicit fan-only circulation modes."
           }
         },
         "source": {

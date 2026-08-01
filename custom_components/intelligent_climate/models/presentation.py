@@ -42,14 +42,18 @@ class PresentationHvacAction(StrEnum):
     COOLING = "cooling"
     DRYING = "drying"
     FAN = "fan"
+    NOT_REPORTED = "not_reported"
+    UNAVAILABLE = "unavailable"
     UNKNOWN = "unknown"
 
 
 class PresentationFanAction(StrEnum):
-    """Allowlisted factual fan action values."""
+    """Allowlisted factual fan-only circulation values."""
 
     OFF = "off"
     ON = "on"
+    NOT_REPORTED = "not_reported"
+    UNAVAILABLE = "unavailable"
     UNKNOWN = "unknown"
 
 

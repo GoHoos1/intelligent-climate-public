@@ -38,6 +38,8 @@ from custom_components.intelligent_climate.models import (
     Phase2RuntimeStoreDocument,
     Phase2RuntimeZoneState,
     Phase2ZoneConfig,
+    PresentationFanAction,
+    PresentationHvacAction,
     ScheduleDocument,
     ScheduleOccupancyLabel,
     SchedulePeriod,
@@ -70,6 +72,8 @@ from custom_components.intelligent_climate.models.policy_runtime import (
 )
 from custom_components.intelligent_climate.presentation_trace import (
     PresentationTraceRuntime,
+    _fan_only_action,
+    _hvac_action,
 )
 from custom_components.intelligent_climate.runtime import Phase2CoordinatorRuntime
 from custom_components.intelligent_climate.schedule_storage import ScheduleStore
@@ -115,18 +119,23 @@ def _aggregation(value: float | None) -> SourceAggregationResult:
     )
 
 
-def _thermostat() -> ThermostatRuntimeSnapshot:
+def _thermostat(
+    *,
+    available: bool = True,
+    hvac_action: HVACAction | None = HVACAction.HEATING,
+    fan_mode: str | None = None,
+) -> ThermostatRuntimeSnapshot:
     state = NormalizedClimateState(
         entity_id=THERMOSTAT,
-        available=True,
+        available=available,
         hvac_mode=HVACMode.HEAT,
-        hvac_action=HVACAction.HEATING,
+        hvac_action=hvac_action,
         current_temperature_c=19.0,
         target_temperature_c=19.0,
         target_low_c=None,
         target_high_c=None,
         current_humidity_pct=None,
-        fan_mode=None,
+        fan_mode=fan_mode,
         preset_mode=None,
         auxiliary_heat_state=ObservableBoolean.NOT_OBSERVABLE,
         context_id=None,
@@ -158,9 +167,18 @@ def _thermostat() -> ThermostatRuntimeSnapshot:
 
 
 def _observation(
-    *, revision: int = 1, temperature: float = 19.0
+    *,
+    revision: int = 1,
+    temperature: float = 19.0,
+    thermostat_available: bool = True,
+    hvac_action: HVACAction | None = HVACAction.HEATING,
+    fan_mode: str | None = None,
 ) -> EntryObservationSnapshot:
-    thermostat = _thermostat()
+    thermostat = _thermostat(
+        available=thermostat_available,
+        hvac_action=hvac_action,
+        fan_mode=fan_mode,
+    )
     return EntryObservationSnapshot(
         entry_id=ENTRY_ID,
         equipment_group_id=GROUP_ID,
@@ -205,6 +223,33 @@ def _context() -> ScheduleValidationContext:
             )
         },
     )
+
+
+def test_presentation_uses_hvac_action_and_fan_mode_as_distinct_facts() -> None:
+    """Cooling drives the blower but does not imply fan-only circulation."""
+    cooling = _thermostat(
+        hvac_action=HVACAction.COOLING,
+        fan_mode="off",
+    ).state
+    assert _hvac_action(cooling) is PresentationHvacAction.COOLING
+    assert _fan_only_action(cooling) is PresentationFanAction.OFF
+
+    circulating = _thermostat(
+        hvac_action=HVACAction.IDLE,
+        fan_mode="on",
+    ).state
+    assert _hvac_action(circulating) is PresentationHvacAction.IDLE
+    assert _fan_only_action(circulating) is PresentationFanAction.ON
+
+
+def test_presentation_distinguishes_unavailable_and_not_reported() -> None:
+    unavailable = _thermostat(available=False, hvac_action=None).state
+    assert _hvac_action(unavailable) is PresentationHvacAction.UNAVAILABLE
+    assert _fan_only_action(unavailable) is PresentationFanAction.UNAVAILABLE
+
+    not_reported = _thermostat(hvac_action=None, fan_mode=None).state
+    assert _hvac_action(not_reported) is PresentationHvacAction.NOT_REPORTED
+    assert _fan_only_action(not_reported) is PresentationFanAction.NOT_REPORTED
 
 
 def _schedule() -> ScheduleDocument:

@@ -19,6 +19,8 @@ interface RenderedSeries {
   className: string;
   path: string;
   latest: number | string;
+  latestTimestamp: string;
+  sampleCount: number;
   coverage: string;
   gaps: number;
 }
@@ -33,12 +35,56 @@ const LABELS: Record<string, string> = {
   effective_target: "Effective target",
   effective_heat_target: "Effective heat target",
   effective_cool_target: "Effective cool target",
-  hvac_action: "HVAC action",
-  fan_action: "Fan action",
+  hvac_action: "HVAC operation",
+  fan_action: "Fan-only circulation",
+};
+
+const STATE_LABELS: Record<string, string> = {
+  off: "Off",
+  idle: "Idle",
+  heating: "Heating",
+  cooling: "Cooling",
+  drying: "Drying",
+  fan: "Fan only",
+  on: "On",
+  not_reported: "Not reported",
+  unavailable: "Unavailable",
+  unknown: "Unknown (older sample)",
 };
 
 function label(kind: string): string {
   return LABELS[kind] ?? kind.replaceAll("_", " ");
+}
+
+function stateLabel(value: number | string): string {
+  return typeof value === "string"
+    ? (STATE_LABELS[value] ?? label(value))
+    : String(value);
+}
+
+function collapseStateSamples(samples: TimelineSample[]): TimelineSample[] {
+  return samples.filter(
+    (sample, index) =>
+      index === 0 || samples[index - 1]?.value !== sample.value,
+  );
+}
+
+function derivedAirHandlerState(value: number | string): string {
+  switch (value) {
+    case "heating":
+      return "Running with heating";
+    case "cooling":
+      return "Running with cooling";
+    case "drying":
+      return "Running with drying";
+    case "fan":
+      return "Running fan only";
+    case "off":
+    case "idle":
+      return "Not running";
+    default:
+      return stateLabel(value);
+  }
 }
 
 function numericSamples(
@@ -96,10 +142,13 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       </div>`;
     }
     const timeline = this.timeline;
-    const rendered = this.renderedSeries(timeline);
-    const hasChartHistory = timeline.series.some(
-      (series) => series.unit !== "%" && numericSamples(series).length >= 2,
+    const chartRange = this.temperatureRange(timeline);
+    const rendered = this.renderedSeries(timeline, chartRange);
+    const indoorSeries = rendered.find(
+      (series) => series.kind === "effective_temperature",
     );
+    const collectedSamples = indoorSeries?.sampleCount ?? 0;
+    const hasChartHistory = collectedSamples >= 2;
     const stateSeries = timeline.series.filter((series) =>
       ["hvac_action", "fan_action"].includes(series.kind),
     );
@@ -128,9 +177,10 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                 <div>
                   <strong>Collecting climate history</strong>
                   <p>
-                    The first useful chart will appear after at least two
-                    observations. Current readings are already available above.
+                    ${collectedSamples} of 2 temperature samples collected. The
+                    chart will appear after the next observation.
                   </p>
+                  ${this.sampleSummary(indoorSeries)}
                 </div>
               </div>`
             : html`<div class="chart-wrap">
@@ -150,12 +200,25 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                   <g class="grid" aria-hidden="true">
                     ${[40, 95, 150, 205, 260].map(
                       (y) =>
-                        html`<line x1="55" x2="970" y1=${y} y2=${y}></line>`,
+                        html`<line x1="80" x2="970" y1=${y} y2=${y}></line>`,
                     )}
-                    ${[55, 284, 513, 742, 970].map(
+                    ${[80, 303, 525, 748, 970].map(
                       (x) =>
                         html`<line x1=${x} x2=${x} y1="40" y2="260"></line>`,
                     )}
+                  </g>
+                  <g class="y-axis-labels" aria-hidden="true">
+                    ${[40, 95, 150, 205, 260].map((y, index) => {
+                      const [minimum, maximum] = chartRange;
+                      const value = maximum - ((maximum - minimum) * index) / 4;
+                      return html`<text x="72" y=${y + 6} text-anchor="end">
+                        ${formatTemperature(
+                          value,
+                          this.temperatureUnit,
+                          this.locale,
+                        )}
+                      </text>`;
+                    })}
                   </g>
                   ${rendered.map(
                     (series) =>
@@ -188,36 +251,19 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                     </g>`;
                   })}
                   <g class="axis-labels" aria-hidden="true">
-                    <text x="55" y="288">12 AM</text>
-                    <text x="513" y="288" text-anchor="middle">12 PM</text>
+                    <text x="80" y="288">12 AM</text>
+                    <text x="525" y="288" text-anchor="middle">12 PM</text>
                     <text x="970" y="288" text-anchor="end">12 AM</text>
                   </g>
                 </svg>
+                ${this.sampleSummary(indoorSeries)}
               </div>`
       }
       ${
         stateSeries.length === 0
           ? nothing
           : html`<div class="state-bands" aria-label="Equipment state timeline">
-              ${stateSeries.map(
-                (series) =>
-                  html`<div class="state-row">
-                    <strong>${label(series.kind)}</strong>
-                    <div>
-                      ${series.samples.map(
-                        (sample) =>
-                          html`<span class="state-chip">
-                            ${formatTimestamp(
-                              sample.timestamp_utc,
-                              this.locale,
-                              this.timeline?.time_zone,
-                            )}:
-                            ${String(sample.value)}
-                          </span>`,
-                      )}
-                    </div>
-                  </div>`,
-              )}
+              ${stateSeries.map((series) => this.renderStateSeries(series))}
             </div>`
       }
       <p class="capability">${timeline.capability_statement}</p>
@@ -255,29 +301,18 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     `;
   }
 
-  private renderedSeries(timeline: TodayTimelineResponse): RenderedSeries[] {
+  private renderedSeries(
+    timeline: TodayTimelineResponse,
+    chartRange: readonly [number, number],
+  ): RenderedSeries[] {
     const numeric = timeline.series.filter(
       (series) => numericSamples(series).length > 0 && series.unit !== "%",
     );
-    const indoorValues = numeric
-      .filter((series) => series.kind !== "outdoor_temperature")
-      .flatMap((series) =>
-        numericSamples(series).map((sample) => sample.value),
-      );
-    const outdoorValues = numeric
-      .filter((series) => series.kind === "outdoor_temperature")
-      .flatMap((series) =>
-        numericSamples(series).map((sample) => sample.value),
-      );
-    const indoorRange = this.range(indoorValues);
-    const outdoorRange = this.range(outdoorValues);
     return numeric.map((series) => {
       const samples = numericSamples(series);
-      const range =
-        series.kind === "outdoor_temperature" ? outdoorRange : indoorRange;
       const points = samples.map((sample) => ({
         x: this.xPosition(Date.parse(sample.timestamp_utc), timeline),
-        y: this.yPosition(sample.value, range),
+        y: this.yPosition(sample.value, chartRange),
       }));
       const latest = samples.at(-1);
       if (latest === undefined) {
@@ -290,6 +325,8 @@ export class IntelligentClimateTodayTimeline extends LitElement {
         className: `${series.value_kind} ${series.kind}`,
         path: pathFor(points, series.value_kind !== "measured"),
         latest: latest.value,
+        latestTimestamp: latest.timestamp_utc,
+        sampleCount: samples.length,
         coverage: `${formatTimestamp(
           series.coverage_start_utc,
           this.locale,
@@ -302,6 +339,74 @@ export class IntelligentClimateTodayTimeline extends LitElement {
         gaps: series.missing_intervals.length,
       };
     });
+  }
+
+  private temperatureRange(
+    timeline: TodayTimelineResponse,
+  ): readonly [number, number] {
+    return this.range(
+      timeline.series
+        .filter((series) => series.unit === "°C")
+        .flatMap((series) =>
+          numericSamples(series).map((sample) => sample.value),
+        ),
+    );
+  }
+
+  private sampleSummary(
+    series: RenderedSeries | undefined,
+  ): ReturnType<typeof html> | typeof nothing {
+    if (series === undefined) {
+      return nothing;
+    }
+    return html`<p class="sample-summary">
+      Latest sample
+      ${formatTimestamp(
+        series.latestTimestamp,
+        this.locale,
+        this.timeline?.time_zone,
+      )}
+      · Source: effective zone temperature
+    </p>`;
+  }
+
+  private renderStateSeries(series: TimelineSeries): ReturnType<typeof html> {
+    const samples = collapseStateSamples(series.samples);
+    return html`<div class="state-row">
+        <strong>${label(series.kind)}</strong>
+        <div>
+          ${samples.map(
+            (sample) =>
+              html`<span class="state-chip">
+                ${this.stateTimestamp(sample)}: ${stateLabel(sample.value)}
+              </span>`,
+          )}
+        </div>
+      </div>
+      ${
+        series.kind === "hvac_action"
+          ? html`<div class="state-row derived">
+              <strong>Air handler <small>derived</small></strong>
+              <div>
+                ${samples.map(
+                  (sample) =>
+                    html`<span class="state-chip">
+                      ${this.stateTimestamp(sample)}:
+                      ${derivedAirHandlerState(sample.value)}
+                    </span>`,
+                )}
+              </div>
+            </div>`
+          : nothing
+      }`;
+  }
+
+  private stateTimestamp(sample: TimelineSample): string {
+    return formatTimestamp(
+      sample.timestamp_utc,
+      this.locale,
+      this.timeline?.time_zone,
+    );
   }
 
   private range(values: number[]): readonly [number, number] {
@@ -320,7 +425,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
   ): number {
     const start = Date.parse(timeline.day_start_utc);
     const end = Date.parse(timeline.day_end_utc);
-    return 55 + ((timestamp - start) / (end - start)) * 915;
+    return 80 + ((timestamp - start) / (end - start)) * 890;
   }
 
   private yPosition(value: number, range: readonly [number, number]): number {
@@ -423,6 +528,10 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       fill: var(--secondary-text-color, #667085);
       font-size: 24px;
     }
+    .y-axis-labels {
+      fill: var(--secondary-text-color, #667085);
+      font-size: 16px;
+    }
     .state-bands {
       display: grid;
       gap: 8px;
@@ -435,6 +544,12 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       align-items: start;
       font-size: 0.82rem;
     }
+    .state-row.derived strong small {
+      display: block;
+      color: var(--secondary-text-color, #667085);
+      font-size: 0.68rem;
+      font-weight: 500;
+    }
     .state-chip {
       display: inline-block;
       margin: 0 6px 6px 0;
@@ -443,9 +558,13 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       border-radius: 999px;
     }
     .capability,
-    .empty {
+    .empty,
+    .sample-summary {
       color: var(--secondary-text-color, #667085);
       font-size: 0.9rem;
+    }
+    .sample-summary {
+      margin: 8px 0 0;
     }
     .empty {
       min-block-size: 180px;

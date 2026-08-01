@@ -203,6 +203,36 @@ def test_complete_trace_round_trips_with_only_rounded_factual_fields() -> None:
 
 
 @pytest.mark.parametrize(
+    ("hvac_action", "fan_action"),
+    [
+        (PresentationHvacAction.NOT_REPORTED, PresentationFanAction.NOT_REPORTED),
+        (PresentationHvacAction.UNAVAILABLE, PresentationFanAction.UNAVAILABLE),
+        (PresentationHvacAction.UNKNOWN, PresentationFanAction.UNKNOWN),
+    ],
+)
+def test_trace_round_trips_honest_missing_equipment_states(
+    hvac_action: PresentationHvacAction,
+    fan_action: PresentationFanAction,
+) -> None:
+    point = replace(
+        _point(),
+        hvac_action=hvac_action,
+        fan_action=fan_action,
+    )
+    document = _document(point=point)
+    encoded = _encode(document)
+    decoded = decode_presentation_trace_document(
+        encoded,
+        expected_entry_id=ENTRY_ID,
+        expected_equipment_group_id=GROUP_ID,
+        expected_zone_ids=frozenset({ZONE_ID}),
+    )
+    restored = decoded.samples_by_zone[ZONE_ID][0]
+    assert restored.hvac_action is hvac_action
+    assert restored.fan_action is fan_action
+
+
+@pytest.mark.parametrize(
     ("mutation", "match"),
     [
         (lambda data: data.update(unknown=True), "unknown field"),
