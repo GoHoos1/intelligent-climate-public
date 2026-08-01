@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.14 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.15 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,14 +14,19 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.14**. Intelligent Climate is pre-alpha software
+The current release is **0.0.15**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.14 adds a responsive weekly schedule editor with authoritative
-preview, daylight-saving warnings, and conflict-safe saving. Schedule editing
-changes stored schedule data only; physical HVAC control remains absent.
+Release 0.0.15 restores schedule editing when Home Assistant is opened through
+plain HTTP on a local-network address. The responsive editor, stored schedules,
+and read-only physical-control boundary are otherwise unchanged.
 
 ## Recent changes
 
+- **0.0.15**
+  - Restores schedule editing on plain-HTTP local-network addresses where the
+    browser does not expose `crypto.randomUUID()`.
+  - Uses a cryptographically strong Web Crypto UUID fallback without changing
+    existing schedules, observations, or read-only authority.
 - **0.0.14**
   - Adds a responsive seven-day desktop and one-day mobile schedule editor.
   - Adds authoritative current/next-target and daylight-saving previews plus
@@ -151,7 +156,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.14 does not provide:
+Release 0.0.15 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A manual control page, active occupancy control, or active window suspension.

@@ -7,6 +7,22 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.15 - 2026-08-01
+
+### Fixed
+
+- Restored schedule editing on plain-HTTP Home Assistant LAN origins where the
+  browser does not expose `crypto.randomUUID()`.
+- Schedule profile and period identities now prefer the native UUID API and use
+  a cryptographically strong Web Crypto UUID v4 fallback when it is unavailable.
+- Added unit and real-browser regression coverage for the compatibility path.
+
+### Security
+
+- The fallback does not use `Math.random()`. Existing schedules, stored
+  observations, configuration, HVAC semantics, and the read-only physical-
+  control boundary remain unchanged.
+
 ## 0.0.14 - 2026-08-01
 
 ### Added

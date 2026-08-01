@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "intelligent_climate"
 NAME = "Intelligent Climate"
-INTEGRATION_VERSION = "0.0.14"
+INTEGRATION_VERSION = "0.0.15"
 
 PLATFORMS = (
     Platform.BINARY_SENSOR,

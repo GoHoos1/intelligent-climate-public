@@ -4,6 +4,7 @@ import type {
   ScheduleProfile,
   ScheduleWeekday,
 } from "../types/contracts";
+import { createUuid } from "../util/uuid";
 
 const WEEKDAYS: readonly ScheduleWeekday[] = [
   "monday",
@@ -34,7 +35,7 @@ export function createEmptyScheduleDraft(
   );
   const zones: ScheduleDocument["zones"] = {};
   for (const zone of configuration.zones) {
-    const profileId = globalThis.crypto.randomUUID();
+    const profileId = createUuid();
     zones[zone.zone_id] = {
       zone_id: zone.zone_id,
       enabled: false,
