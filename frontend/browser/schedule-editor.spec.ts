@@ -94,3 +94,47 @@ test("uses one-day-at-a-time editing at a 320-pixel viewport", async ({
   );
   expect(bodyWidth).toBeLessThanOrEqual(320);
 });
+
+test("adds periods on plain HTTP when randomUUID is unavailable", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(globalThis.crypto, "randomUUID", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  const editor = await renderEditor(page);
+  await editor.evaluate((element) => {
+    element.addEventListener("schedule-change", (event) => {
+      const detail = (event as CustomEvent).detail as { document: unknown };
+      (
+        globalThis as typeof globalThis & { scheduleChange?: unknown }
+      ).scheduleChange = detail.document;
+    });
+  });
+
+  await editor.getByRole("button", { name: "Add Tuesday period" }).click();
+  const periodId = await page.evaluate(() => {
+    const changed = (
+      globalThis as typeof globalThis & {
+        scheduleChange?: {
+          zones: Record<
+            string,
+            {
+              profiles: {
+                days: { tuesday: { period_id: string }[] };
+              }[];
+            }
+          >;
+        };
+      }
+    ).scheduleChange;
+    const zone = changed?.zones["11111111-1111-4111-8111-111111111111"];
+    return zone?.profiles[0]?.days.tuesday[0]?.period_id;
+  });
+
+  expect(periodId).toMatch(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+  );
+});

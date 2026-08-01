@@ -11,6 +11,7 @@ import type {
   ZoneConfiguration,
   ZoneSchedule,
 } from "../types/contracts";
+import { createUuid } from "../util/uuid";
 
 const WEEKDAYS: readonly ScheduleWeekday[] = [
   "monday",
@@ -772,7 +773,7 @@ export class ScheduleEditor extends LitElement {
   }
 
   private uuid(): string {
-    return globalThis.crypto.randomUUID();
+    return createUuid();
   }
 
   private zoneName(zoneId: string): string {
