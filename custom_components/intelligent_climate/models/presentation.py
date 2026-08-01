@@ -17,7 +17,7 @@ from .schema import SchemaMigrationError, SchemaValidationError
 
 PRESENTATION_TRACE_STORE_VERSION = 1
 PRESENTATION_TRACE_STORE_MINOR_VERSION = 0
-PRESENTATION_TRACE_SCHEMA_VERSION = 1
+PRESENTATION_TRACE_SCHEMA_VERSION = 2
 PRESENTATION_TRACE_RETENTION_HOURS = 48
 PRESENTATION_TRACE_BUCKET_MINUTES = 5
 PRESENTATION_TRACE_MAX_SAMPLES_PER_ZONE = 1024
@@ -55,6 +55,28 @@ class PresentationFanAction(StrEnum):
     NOT_REPORTED = "not_reported"
     UNAVAILABLE = "unavailable"
     UNKNOWN = "unknown"
+
+
+class PresentationContactState(StrEnum):
+    """Privacy-safe aggregate state for configured zone contacts."""
+
+    NOT_CONFIGURED = "not_configured"
+    CLOSED = "closed"
+    OPEN = "open"
+    UNAVAILABLE = "unavailable"
+
+
+class PresentationControlContext(StrEnum):
+    """Material policy context shown alongside factual equipment operation."""
+
+    NORMAL = "normal"
+    MANUAL_OVERRIDE = "manual_override"
+    WINDOW_SUSPENDED = "window_suspended"
+    SHARED_CONFLICT = "shared_conflict"
+    SAFE_FALLBACK = "safe_fallback"
+    PAUSED = "paused"
+    DEGRADED = "degraded"
+    NOT_REPORTED = "not_reported"
 
 
 class PresentationQualityFlag(StrEnum):
@@ -106,6 +128,10 @@ class PresentationTracePoint:
     fan_action: PresentationFanAction
     quality_flags: tuple[PresentationQualityFlag, ...]
     annotation_ids: tuple[UUID, ...]
+    contact_state: PresentationContactState = PresentationContactState.NOT_CONFIGURED
+    control_context: PresentationControlContext = (
+        PresentationControlContext.NOT_REPORTED
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +147,7 @@ class PresentationTraceAnnotation:
 
 @dataclass(frozen=True, slots=True)
 class PresentationTraceDocument:
-    """Auxiliary presentation trace inner schema 1."""
+    """Auxiliary presentation trace document encoded as current inner schema 2."""
 
     entry_id: str
     equipment_group_id: EquipmentGroupId
@@ -173,13 +199,17 @@ def decode_presentation_trace_document(
         "annotations",
     }
     _reject_unknown(root, expected, "")
-    _require_version(root.get("presentation_schema_version"))
+    schema_version = _require_version(root.get("presentation_schema_version"))
     samples_root = _object(root.get("samples_by_zone"), "samples_by_zone")
     samples: dict[ZoneId, tuple[PresentationTracePoint, ...]] = {}
     for raw_zone_id, raw_points in samples_root.items():
         zone_id = _zone_id(raw_zone_id, f"samples_by_zone.{raw_zone_id}")
         points = tuple(
-            _decode_point(item, f"samples_by_zone.{raw_zone_id}[{index}]")
+            _decode_point(
+                item,
+                f"samples_by_zone.{raw_zone_id}[{index}]",
+                schema_version=schema_version,
+            )
             for index, item in enumerate(
                 _list(raw_points, f"samples_by_zone.{raw_zone_id}")
             )
@@ -415,7 +445,12 @@ def _validate_target(target: TargetSpec, path: str) -> None:
         raise SchemaValidationError(path, "range target has single value")
 
 
-def _decode_point(value: object, path: str) -> PresentationTracePoint:
+def _decode_point(
+    value: object,
+    path: str,
+    *,
+    schema_version: int,
+) -> PresentationTracePoint:
     root = _object(value, path)
     expected = {
         "point_id",
@@ -432,6 +467,8 @@ def _decode_point(value: object, path: str) -> PresentationTracePoint:
         "quality_flags",
         "annotation_ids",
     }
+    if schema_version >= 2:
+        expected.update({"contact_state", "control_context"})
     _reject_unknown(root, expected, path)
     return PresentationTracePoint(
         point_id=_uuid(root.get("point_id"), f"{path}.point_id"),
@@ -482,6 +519,24 @@ def _decode_point(value: object, path: str) -> PresentationTracePoint:
                 _list(root.get("annotation_ids"), f"{path}.annotation_ids")
             )
         ),
+        contact_state=(
+            PresentationContactState.NOT_CONFIGURED
+            if schema_version == 1
+            else _enum(
+                PresentationContactState,
+                root.get("contact_state"),
+                f"{path}.contact_state",
+            )
+        ),
+        control_context=(
+            PresentationControlContext.NOT_REPORTED
+            if schema_version == 1
+            else _enum(
+                PresentationControlContext,
+                root.get("control_context"),
+                f"{path}.control_context",
+            )
+        ),
     )
 
 
@@ -500,6 +555,8 @@ def _encode_point(point: PresentationTracePoint) -> JsonObject:
         "fan_action": point.fan_action.value,
         "quality_flags": [item.value for item in point.quality_flags],
         "annotation_ids": [str(item) for item in point.annotation_ids],
+        "contact_state": point.contact_state.value,
+        "control_context": point.control_context.value,
     }
 
 
@@ -576,7 +633,7 @@ def _encode_target(value: TargetSpec | None) -> JsonObject | None:
     }
 
 
-def _require_version(value: object) -> None:
+def _require_version(value: object) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise SchemaValidationError("presentation_schema_version", "must be an integer")
     if value > PRESENTATION_TRACE_SCHEMA_VERSION:
@@ -584,11 +641,12 @@ def _require_version(value: object) -> None:
             "presentation_schema_version",
             "future presentation trace version is unsupported",
         )
-    if value < PRESENTATION_TRACE_SCHEMA_VERSION:
+    if value < 1:
         raise SchemaMigrationError(
             "presentation_schema_version",
             "no migration path for presentation trace version",
         )
+    return value
 
 
 def _object(value: object, path: str) -> dict[str, Any]:

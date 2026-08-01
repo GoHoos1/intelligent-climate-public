@@ -31,6 +31,23 @@ interface RenderedSeries {
   gaps: number;
 }
 
+interface LaneSegment {
+  left: number;
+  width: number;
+  value: string;
+  label: string;
+  className: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+interface StateLane {
+  label: string;
+  detail: string;
+  className: string;
+  segments: LaneSegment[];
+}
+
 const LABELS: Record<string, string> = {
   effective_temperature: "Indoor temperature",
   effective_humidity: "Indoor humidity",
@@ -43,6 +60,8 @@ const LABELS: Record<string, string> = {
   effective_cool_target: "Effective cool target",
   hvac_action: "HVAC operation",
   fan_action: "Fan-only circulation",
+  contact_state: "Window / door",
+  control_context: "Control context",
 };
 
 const STATE_LABELS: Record<string, string> = {
@@ -56,6 +75,15 @@ const STATE_LABELS: Record<string, string> = {
   not_reported: "Not reported",
   unavailable: "Unavailable",
   unknown: "Unknown (older sample)",
+  open: "Open",
+  closed: "Closed",
+  normal: "Normal",
+  window_suspended: "Paused for open window / door",
+  manual_override: "Manual override",
+  shared_conflict: "Shared-equipment conflict",
+  safe_fallback: "Safe fallback",
+  paused: "Paused",
+  degraded: "Degraded",
 };
 
 const PLOT_TOP = 30;
@@ -80,6 +108,12 @@ function collapseStateSamples(samples: TimelineSample[]): TimelineSample[] {
     (sample, index) =>
       index === 0 || samples[index - 1]?.value !== sample.value,
   );
+}
+
+function isTextSample(
+  sample: TimelineSample,
+): sample is TimelineSample & { value: string } {
+  return typeof sample.value === "string";
 }
 
 function derivedAirHandlerState(value: number | string): string {
@@ -163,9 +197,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     );
     const collectedSamples = indoorSeries?.sampleCount ?? 0;
     const hasChartHistory = collectedSamples >= 2;
-    const stateSeries = timeline.series.filter((series) =>
-      ["hvac_action", "fan_action"].includes(series.kind),
-    );
+    const stateLanes = this.stateLanes(timeline, chartWindow);
     const cursor = this.currentCursor(chartWindow);
     const axisTimes = this.axisTimes(chartWindow, timeline);
     return html`
@@ -248,7 +280,8 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                           d=${series.path}
                         ></path>
                         ${
-                          series.kind === "effective_temperature"
+                          series.kind === "effective_temperature" &&
+                          series.sampleCount <= 3
                             ? series.points.map(
                                 (point) =>
                                   svg`<circle
@@ -297,10 +330,15 @@ export class IntelligentClimateTodayTimeline extends LitElement {
               </div>`
       }
       ${
-        stateSeries.length === 0
+        stateLanes.length === 0
           ? nothing
-          : html`<div class="state-bands" aria-label="Equipment state timeline">
-              ${stateSeries.map((series) => this.renderStateSeries(series))}
+          : html`<div
+              class="state-lanes-scroll"
+              aria-label="Equipment and context state timeline"
+            >
+              <div class="state-lanes">
+                ${stateLanes.map((lane) => this.renderStateLane(lane))}
+              </div>
             </div>`
       }
       <p class="capability">${timeline.capability_statement}</p>
@@ -409,43 +447,165 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     </p>`;
   }
 
-  private renderStateSeries(series: TimelineSeries): ReturnType<typeof html> {
-    const samples = collapseStateSamples(series.samples);
-    return html`<div class="state-row">
-        <strong>${label(series.kind)}</strong>
-        <div>
-          ${samples.map(
-            (sample) =>
-              html`<span class="state-chip">
-                ${this.stateTimestamp(sample)}: ${stateLabel(sample.value)}
-              </span>`,
-          )}
-        </div>
-      </div>
-      ${
-        series.kind === "hvac_action"
-          ? html`<div class="state-row derived">
-              <strong>Air handler <small>derived</small></strong>
-              <div>
-                ${samples.map(
-                  (sample) =>
-                    html`<span class="state-chip">
-                      ${this.stateTimestamp(sample)}:
-                      ${derivedAirHandlerState(sample.value)}
-                    </span>`,
-                )}
-              </div>
-            </div>`
-          : nothing
-      }`;
+  private stateLanes(
+    timeline: TodayTimelineResponse,
+    chartWindow: ChartWindow,
+  ): StateLane[] {
+    const hvac = timeline.series.find(
+      (series) => series.kind === "hvac_action",
+    );
+    const fan = timeline.series.find((series) => series.kind === "fan_action");
+    const contacts = timeline.series.find(
+      (series) => series.kind === "contact_state",
+    );
+    const context = timeline.series.find(
+      (series) => series.kind === "control_context",
+    );
+    const result: StateLane[] = [];
+    if (hvac !== undefined) {
+      result.push(
+        this.buildStateLane(
+          hvac,
+          chartWindow,
+          "Heating",
+          "Actual thermostat heating operation",
+          "heating",
+          (value) => value === "heating",
+        ),
+        this.buildStateLane(
+          hvac,
+          chartWindow,
+          "Cooling",
+          "Actual thermostat cooling operation",
+          "cooling",
+          (value) => value === "cooling",
+        ),
+        this.buildStateLane(
+          hvac,
+          chartWindow,
+          "Air handler",
+          "Derived from actual thermostat operation",
+          "air-handler derived",
+          (value) => ["heating", "cooling", "drying", "fan"].includes(value),
+          derivedAirHandlerState,
+        ),
+      );
+    }
+    if (fan !== undefined) {
+      result.splice(
+        Math.min(2, result.length),
+        0,
+        this.buildStateLane(
+          fan,
+          chartWindow,
+          "Fan only",
+          "Explicit circulation without heating or cooling",
+          "fan-only",
+          (value) => value === "on",
+        ),
+      );
+    }
+    if (
+      contacts?.samples.some((sample) => sample.value !== "not_configured") ===
+      true
+    ) {
+      result.push(
+        this.buildStateLane(
+          contacts,
+          chartWindow,
+          "Window / door",
+          "Any configured contact open or unavailable",
+          "contact",
+          (value) => value === "open" || value === "unavailable",
+        ),
+      );
+    }
+    if (
+      context?.samples.some(
+        (sample) =>
+          sample.value !== "normal" && sample.value !== "not_reported",
+      ) === true
+    ) {
+      result.push(
+        this.buildStateLane(
+          context,
+          chartWindow,
+          "Control context",
+          "Recorded override, suspension, fallback, or pause",
+          "context",
+          (value) => value !== "normal" && value !== "not_reported",
+        ),
+      );
+    }
+    return result;
   }
 
-  private stateTimestamp(sample: TimelineSample): string {
-    return formatTimestamp(
-      sample.timestamp_utc,
-      this.locale,
-      this.timeline?.time_zone,
+  private buildStateLane(
+    series: TimelineSeries,
+    chartWindow: ChartWindow,
+    laneLabel: string,
+    detail: string,
+    className: string,
+    active: (value: string) => boolean,
+    valueLabel: (value: string) => string = stateLabel,
+  ): StateLane {
+    const samples = collapseStateSamples(series.samples).filter(isTextSample);
+    const coverageEnd = Math.min(
+      chartWindow.end,
+      Date.parse(series.coverage_end_utc),
     );
+    const segments = samples.flatMap((sample, index) => {
+      if (!active(sample.value)) return [];
+      const start = Math.max(
+        chartWindow.start,
+        Date.parse(sample.timestamp_utc),
+      );
+      const next = samples[index + 1];
+      const end = Math.min(
+        coverageEnd,
+        next === undefined ? coverageEnd : Date.parse(next.timestamp_utc),
+      );
+      if (end <= start) return [];
+      const duration = chartWindow.end - chartWindow.start;
+      return [
+        {
+          left: ((start - chartWindow.start) / duration) * 100,
+          width: ((end - start) / duration) * 100,
+          value: sample.value,
+          label: valueLabel(sample.value),
+          className: `${className} ${sample.value}`,
+          startsAt: this.stateTimestamp(new Date(start).toISOString()),
+          endsAt: this.stateTimestamp(new Date(end).toISOString()),
+        },
+      ];
+    });
+    return { label: laneLabel, detail, className, segments };
+  }
+
+  private renderStateLane(lane: StateLane): ReturnType<typeof html> {
+    return html`<div class="lane-row ${lane.className}">
+      <span class="lane-label">
+        <strong>${lane.label}</strong>
+        <small>${lane.detail}</small>
+      </span>
+      <div class="lane-track">
+        ${lane.segments.map(
+          (segment) =>
+            html`<span
+              class="lane-segment ${segment.className}"
+              style=${`inset-inline-start:${String(segment.left)}%;inline-size:${String(segment.width)}%`}
+              tabindex="0"
+              aria-label=${`${lane.label}: ${segment.label}, ${segment.startsAt} to ${segment.endsAt}`}
+              title=${`${segment.label} · ${segment.startsAt}–${segment.endsAt}`}
+            ></span>`,
+        )}
+      </div>
+      <span aria-hidden="true"></span>
+    </div>`;
+  }
+
+  private stateTimestamp(value: string): string {
+    return formatTimestamp(value, this.locale, this.timeline?.time_zone);
   }
 
   private range(values: number[]): readonly [number, number] {
@@ -602,6 +762,18 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       stroke-dasharray: 14 8;
       stroke: var(--warning-color, #d97706);
     }
+    .series.scheduled_heat_target {
+      stroke: var(--warning-color, #d97706);
+    }
+    .series.scheduled_cool_target {
+      stroke: var(--info-color, #1976d2);
+    }
+    .series.effective_heat_target {
+      stroke: var(--warning-color, #d97706);
+    }
+    .series.effective_cool_target {
+      stroke: var(--info-color, #1976d2);
+    }
     .series.calculated {
       stroke-dasharray: 3 7;
       stroke: var(--success-color, #1f9d68);
@@ -628,30 +800,90 @@ export class IntelligentClimateTodayTimeline extends LitElement {
       fill: var(--secondary-text-color, #667085);
       font-size: 16px;
     }
-    .state-bands {
-      display: grid;
-      gap: 8px;
+    .state-lanes-scroll {
+      overflow-x: auto;
       margin-block: 12px;
     }
-    .state-row {
+    .state-lanes {
       display: grid;
-      grid-template-columns: minmax(100px, 150px) 1fr;
-      gap: 10px;
-      align-items: start;
-      font-size: 0.82rem;
+      gap: 6px;
+      min-inline-size: 620px;
     }
-    .state-row.derived strong small {
+    .lane-row {
+      display: grid;
+      grid-template-columns: 80fr 890fr 30fr;
+      align-items: center;
+      min-block-size: 30px;
+    }
+    .lane-label {
+      display: grid;
+      padding-inline-end: 8px;
+      font-size: 0.72rem;
+      line-height: 1.15;
+    }
+    .lane-label small {
       display: block;
       color: var(--secondary-text-color, #667085);
-      font-size: 0.68rem;
+      font-size: 0.58rem;
       font-weight: 500;
     }
-    .state-chip {
-      display: inline-block;
-      margin: 0 6px 6px 0;
-      padding: 4px 8px;
+    .lane-track {
+      position: relative;
+      block-size: 15px;
       border: 1px solid var(--divider-color, #d8dde3);
-      border-radius: 999px;
+      border-radius: 5px;
+      background: color-mix(
+        in srgb,
+        var(--secondary-text-color, #667085) 7%,
+        transparent
+      );
+      overflow: hidden;
+    }
+    .lane-segment {
+      position: absolute;
+      inset-block: 0;
+      min-inline-size: 2px;
+      background: var(--ic-accent, #0288d1);
+    }
+    .lane-segment:focus-visible {
+      outline: 3px solid var(--primary-text-color);
+      outline-offset: -3px;
+    }
+    .lane-segment.heating {
+      background: var(--warning-color, #ef6c00);
+    }
+    .lane-segment.cooling {
+      background: var(--info-color, #1976d2);
+    }
+    .lane-segment.fan-only,
+    .lane-segment.fan {
+      background: var(--success-color, #2e7d32);
+    }
+    .lane-segment.air-handler {
+      background: repeating-linear-gradient(
+        135deg,
+        var(--secondary-text-color, #667085),
+        var(--secondary-text-color, #667085) 4px,
+        transparent 4px,
+        transparent 8px
+      );
+    }
+    .lane-segment.contact.open {
+      background: var(--warning-color, #ef6c00);
+    }
+    .lane-segment.contact.unavailable,
+    .lane-segment.context.degraded,
+    .lane-segment.context.safe_fallback {
+      background: repeating-linear-gradient(
+        135deg,
+        var(--error-color, #c62828),
+        var(--error-color, #c62828) 4px,
+        transparent 4px,
+        transparent 8px
+      );
+    }
+    .lane-segment.context {
+      background: var(--warning-color, #ef6c00);
     }
     .capability,
     .empty,
@@ -707,9 +939,6 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     @media (max-width: 700px) {
       .chart-wrap {
         overflow-x: auto;
-      }
-      .state-row {
-        grid-template-columns: 1fr;
       }
     }
   `;

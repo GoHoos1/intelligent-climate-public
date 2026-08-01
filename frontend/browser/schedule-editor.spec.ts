@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 
+interface BrowserScheduleDocument {
+  zones: Record<
+    string,
+    {
+      profiles: {
+        days: Record<string, { label?: string }[]>;
+      }[];
+    }
+  >;
+}
+
 async function renderEditor(page: Page) {
   await page.goto("/browser/schedule-fixture.html");
   const editor = page.locator("#editor");
@@ -137,4 +148,54 @@ test("adds periods on plain HTTP when randomUUID is unavailable", async ({
   expect(periodId).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
   );
+});
+
+test("copies to multiple days and explains whole-day clearing", async ({
+  page,
+}) => {
+  const editor = await renderEditor(page);
+  await editor.evaluate((element) => {
+    const value = element as HTMLElement & {
+      document: unknown;
+    };
+    element.addEventListener("schedule-change", (event) => {
+      value.document = (
+        event as CustomEvent<{ document: unknown }>
+      ).detail.document;
+    });
+  });
+
+  await editor.getByRole("button", { name: "Copy Monday" }).click();
+  await editor.getByLabel("Copy Monday to Tuesday").check();
+  await editor.getByLabel("Copy Monday to Sunday").check();
+  await editor.getByRole("button", { name: "Copy to selected days" }).click();
+  const copiedLabels = await editor.evaluate((element) => {
+    const document = (
+      element as HTMLElement & { document: BrowserScheduleDocument }
+    ).document;
+    const zone = document.zones["11111111-1111-4111-8111-111111111111"];
+    const profile = zone?.profiles[0];
+    if (profile === undefined) throw new Error("schedule profile missing");
+    return [
+      profile.days["tuesday"]?.[0]?.label,
+      profile.days["sunday"]?.[0]?.label,
+    ];
+  });
+  expect(copiedLabels).toEqual(["Morning", "Morning"]);
+
+  await editor.getByRole("button", { name: "Clear Monday" }).click();
+  await expect(
+    editor.getByText(/prior configured day will continue/),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Confirm clear Monday" }).click();
+  const mondayPeriods = await editor.evaluate((element) => {
+    const document = (
+      element as HTMLElement & { document: BrowserScheduleDocument }
+    ).document;
+    const zone = document.zones["11111111-1111-4111-8111-111111111111"];
+    const profile = zone?.profiles[0];
+    if (profile === undefined) throw new Error("schedule profile missing");
+    return profile.days["monday"]?.length;
+  });
+  expect(mondayPeriods).toBe(0);
 });

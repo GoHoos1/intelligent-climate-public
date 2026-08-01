@@ -507,6 +507,10 @@ async def async_setup_entry(
                         configuration.equipment_group.equipment_group_id
                     ),
                     zone_ids=tuple(zone.zone_id for zone in configuration.zones),
+                    contact_entity_ids_by_zone={
+                        zone.zone_id: zone.window_door_entity_ids
+                        for zone in configuration.zones
+                    },
                 )
                 await presentation_trace.async_load()
                 phase2_runtime = Phase2CoordinatorRuntime(

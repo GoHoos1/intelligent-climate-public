@@ -20,6 +20,8 @@ from custom_components.intelligent_climate.models import (
     ControlExecutionState,
     ControlReason,
     EquipmentGroupId,
+    PresentationContactState,
+    PresentationControlContext,
     PresentationFanAction,
     PresentationHvacAction,
     PresentationPointKind,
@@ -64,6 +66,8 @@ def _point(
     temperature: float | None = 21.0,
     scheduled: TargetSpec | None = DEFAULT_SCHEDULED_TARGET,
     effective: TargetSpec | None = DEFAULT_EFFECTIVE_TARGET,
+    contact_state: PresentationContactState = PresentationContactState.CLOSED,
+    control_context: PresentationControlContext = PresentationControlContext.NORMAL,
 ) -> PresentationTracePoint:
     return PresentationTracePoint(
         point_id=uuid4(),
@@ -82,6 +86,8 @@ def _point(
             PresentationQualityFlag.THERMOSTAT_VALID,
         ),
         annotation_ids=(),
+        contact_state=contact_state,
+        control_context=control_context,
     )
 
 
@@ -139,6 +145,12 @@ def test_timeline_labels_provenance_omits_unavailable_and_reports_gaps() -> None
     capability = payload["capability_statement"]
     assert isinstance(capability, str)
     assert "No indoor prediction" in capability
+    assert [
+        sample.value for sample in by_kind[TimelineSeriesKind.CONTACT_STATE].samples
+    ] == ["closed", "closed"]
+    assert [
+        sample.value for sample in by_kind[TimelineSeriesKind.CONTROL_CONTEXT].samples
+    ] == ["normal", "normal"]
 
 
 def test_range_targets_become_distinct_configured_and_calculated_series() -> None:
