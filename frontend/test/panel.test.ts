@@ -184,6 +184,71 @@ describe("Intelligent Climate sidebar", () => {
     expect(panel.shadowRoot?.textContent).toContain("Read-only preview");
   });
 
+  it("discards a dirty draft once and does not prompt on later navigation", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { panel } = mount();
+    await settle(panel);
+    const routeButtons = () => [
+      ...(panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        ".primary-nav button",
+      ) ?? []),
+    ];
+
+    routeButtons()[1]?.click();
+    await settle(panel);
+    const editor = panel.shadowRoot?.querySelector("ic-schedule-editor");
+    if (scheduleGet.schedule === null)
+      throw new Error("schedule fixture missing");
+    editor?.dispatchEvent(
+      new CustomEvent("schedule-change", {
+        detail: { document: structuredClone(scheduleGet.schedule) },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+
+    routeButtons()[4]?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    routeButtons()[0]?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    routeButtons()[1]?.click();
+    await settle(panel);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const reloaded = panel.shadowRoot?.querySelector("ic-schedule-editor") as
+      (HTMLElement & { dirty: boolean }) | null;
+    expect(reloaded?.dirty).toBe(false);
+  });
+
+  it("links diagnostics to the integration page instead of developer tools", async () => {
+    const { panel } = mount();
+    await settle(panel);
+    const settings = [
+      ...(panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        ".primary-nav button",
+      ) ?? []),
+    ][4];
+    settings?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+
+    const matching = [
+      ...(panel.shadowRoot?.querySelectorAll<HTMLAnchorElement>(
+        '.settings-links a[href="/config/integrations/integration/intelligent_climate"]',
+      ) ?? []),
+    ].find((link) => link.textContent.includes("Download diagnostics"));
+    expect(matching).toBeDefined();
+    expect(matching?.textContent).toContain("use the entry menu");
+    expect(
+      panel.shadowRoot?.querySelector('a[href="/developer-tools/yaml"]'),
+    ).toBeNull();
+  });
+
   it("lets the user override Home Assistant temperature units consistently", async () => {
     const { panel } = mount();
     await settle(panel);

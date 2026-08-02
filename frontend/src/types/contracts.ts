@@ -35,6 +35,10 @@ export interface ZoneSnapshot {
   zone_id: string;
   effective_temperature_c: number | null;
   effective_humidity_pct: number | null;
+  thermostat_hvac_mode: string | null;
+  supported_hvac_modes: string[];
+  supports_single_target: boolean;
+  supports_target_range: boolean;
   sensor_data_degraded: boolean;
   thermostat_data_degraded: boolean;
 }

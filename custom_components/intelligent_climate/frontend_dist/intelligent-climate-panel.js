@@ -1,4 +1,4 @@
-const K = globalThis, me = K.ShadowRoot && (K.ShadyCSS === void 0 || K.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ve = /* @__PURE__ */ Symbol(), xe = /* @__PURE__ */ new WeakMap();
+const Q = globalThis, me = Q.ShadowRoot && (Q.ShadyCSS === void 0 || Q.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ve = /* @__PURE__ */ Symbol(), xe = /* @__PURE__ */ new WeakMap();
 let Oe = class {
   constructor(e, t, i) {
     if (this._$cssResult$ = !0, i !== ve) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
@@ -17,54 +17,54 @@ let Oe = class {
     return this.cssText;
   }
 };
-const Qe = (a) => new Oe(typeof a == "string" ? a : a + "", void 0, ve), ae = (a, ...e) => {
-  const t = a.length === 1 ? a[0] : e.reduce((i, r, n) => i + ((s) => {
+const Qe = (r) => new Oe(typeof r == "string" ? r : r + "", void 0, ve), re = (r, ...e) => {
+  const t = r.length === 1 ? r[0] : e.reduce((i, a, n) => i + ((s) => {
     if (s._$cssResult$ === !0) return s.cssText;
     if (typeof s == "number") return s;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + s + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
-  })(r) + a[n + 1], a[0]);
-  return new Oe(t, a, ve);
-}, Je = (a, e) => {
-  if (me) a.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
+  })(a) + r[n + 1], r[0]);
+  return new Oe(t, r, ve);
+}, Je = (r, e) => {
+  if (me) r.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
   else for (const t of e) {
-    const i = document.createElement("style"), r = K.litNonce;
-    r !== void 0 && i.setAttribute("nonce", r), i.textContent = t.cssText, a.appendChild(i);
+    const i = document.createElement("style"), a = Q.litNonce;
+    a !== void 0 && i.setAttribute("nonce", a), i.textContent = t.cssText, r.appendChild(i);
   }
-}, $e = me ? (a) => a : (a) => a instanceof CSSStyleSheet ? ((e) => {
+}, $e = me ? (r) => r : (r) => r instanceof CSSStyleSheet ? ((e) => {
   let t = "";
   for (const i of e.cssRules) t += i.cssText;
   return Qe(t);
-})(a) : a;
-const { is: Xe, defineProperty: et, getOwnPropertyDescriptor: tt, getOwnPropertyNames: it, getOwnPropertySymbols: at, getPrototypeOf: rt } = Object, re = globalThis, we = re.trustedTypes, nt = we ? we.emptyScript : "", st = re.reactiveElementPolyfillSupport, F = (a, e) => a, le = { toAttribute(a, e) {
+})(r) : r;
+const { is: Xe, defineProperty: et, getOwnPropertyDescriptor: tt, getOwnPropertyNames: it, getOwnPropertySymbols: at, getPrototypeOf: rt } = Object, ne = globalThis, we = ne.trustedTypes, nt = we ? we.emptyScript : "", st = ne.reactiveElementPolyfillSupport, F = (r, e) => r, le = { toAttribute(r, e) {
   switch (e) {
     case Boolean:
-      a = a ? nt : null;
+      r = r ? nt : null;
       break;
     case Object:
     case Array:
-      a = a == null ? a : JSON.stringify(a);
+      r = r == null ? r : JSON.stringify(r);
   }
-  return a;
-}, fromAttribute(a, e) {
-  let t = a;
+  return r;
+}, fromAttribute(r, e) {
+  let t = r;
   switch (e) {
     case Boolean:
-      t = a !== null;
+      t = r !== null;
       break;
     case Number:
-      t = a === null ? null : Number(a);
+      t = r === null ? null : Number(r);
       break;
     case Object:
     case Array:
       try {
-        t = JSON.parse(a);
+        t = JSON.parse(r);
       } catch {
         t = null;
       }
   }
   return t;
-} }, Ne = (a, e) => !Xe(a, e), ke = { attribute: !0, type: String, converter: le, reflect: !1, useDefault: !1, hasChanged: Ne };
-Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), re.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+} }, Le = (r, e) => !Xe(r, e), ke = { attribute: !0, type: String, converter: le, reflect: !1, useDefault: !1, hasChanged: Le };
+Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), ne.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
 let U = class extends HTMLElement {
   static addInitializer(e) {
     this._$Ei(), (this.l ??= []).push(e);
@@ -74,18 +74,18 @@ let U = class extends HTMLElement {
   }
   static createProperty(e, t = ke) {
     if (t.state && (t.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(e) && ((t = Object.create(t)).wrapped = !0), this.elementProperties.set(e, t), !t.noAccessor) {
-      const i = /* @__PURE__ */ Symbol(), r = this.getPropertyDescriptor(e, i, t);
-      r !== void 0 && et(this.prototype, e, r);
+      const i = /* @__PURE__ */ Symbol(), a = this.getPropertyDescriptor(e, i, t);
+      a !== void 0 && et(this.prototype, e, a);
     }
   }
   static getPropertyDescriptor(e, t, i) {
-    const { get: r, set: n } = tt(this.prototype, e) ?? { get() {
+    const { get: a, set: n } = tt(this.prototype, e) ?? { get() {
       return this[t];
     }, set(s) {
       this[t] = s;
     } };
-    return { get: r, set(s) {
-      const l = r?.call(this);
+    return { get: a, set(s) {
+      const l = a?.call(this);
       n?.call(this, s), this.requestUpdate(e, l, i);
     }, configurable: !0, enumerable: !0 };
   }
@@ -101,17 +101,17 @@ let U = class extends HTMLElement {
     if (this.hasOwnProperty(F("finalized"))) return;
     if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(F("properties"))) {
       const t = this.properties, i = [...it(t), ...at(t)];
-      for (const r of i) this.createProperty(r, t[r]);
+      for (const a of i) this.createProperty(a, t[a]);
     }
     const e = this[Symbol.metadata];
     if (e !== null) {
       const t = litPropertyMetadata.get(e);
-      if (t !== void 0) for (const [i, r] of t) this.elementProperties.set(i, r);
+      if (t !== void 0) for (const [i, a] of t) this.elementProperties.set(i, a);
     }
     this._$Eh = /* @__PURE__ */ new Map();
     for (const [t, i] of this.elementProperties) {
-      const r = this._$Eu(t, i);
-      r !== void 0 && this._$Eh.set(r, t);
+      const a = this._$Eu(t, i);
+      a !== void 0 && this._$Eh.set(a, t);
     }
     this.elementStyles = this.finalizeStyles(this.styles);
   }
@@ -119,7 +119,7 @@ let U = class extends HTMLElement {
     const t = [];
     if (Array.isArray(e)) {
       const i = new Set(e.flat(1 / 0).reverse());
-      for (const r of i) t.unshift($e(r));
+      for (const a of i) t.unshift($e(a));
     } else e !== void 0 && t.push($e(e));
     return t;
   }
@@ -160,31 +160,31 @@ let U = class extends HTMLElement {
     this._$AK(e, i);
   }
   _$ET(e, t) {
-    const i = this.constructor.elementProperties.get(e), r = this.constructor._$Eu(e, i);
-    if (r !== void 0 && i.reflect === !0) {
+    const i = this.constructor.elementProperties.get(e), a = this.constructor._$Eu(e, i);
+    if (a !== void 0 && i.reflect === !0) {
       const n = (i.converter?.toAttribute !== void 0 ? i.converter : le).toAttribute(t, i.type);
-      this._$Em = e, n == null ? this.removeAttribute(r) : this.setAttribute(r, n), this._$Em = null;
+      this._$Em = e, n == null ? this.removeAttribute(a) : this.setAttribute(a, n), this._$Em = null;
     }
   }
   _$AK(e, t) {
-    const i = this.constructor, r = i._$Eh.get(e);
-    if (r !== void 0 && this._$Em !== r) {
-      const n = i.getPropertyOptions(r), s = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : le;
-      this._$Em = r;
+    const i = this.constructor, a = i._$Eh.get(e);
+    if (a !== void 0 && this._$Em !== a) {
+      const n = i.getPropertyOptions(a), s = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : le;
+      this._$Em = a;
       const l = s.fromAttribute(t, n.type);
-      this[r] = l ?? this._$Ej?.get(r) ?? l, this._$Em = null;
+      this[a] = l ?? this._$Ej?.get(a) ?? l, this._$Em = null;
     }
   }
-  requestUpdate(e, t, i, r = !1, n) {
+  requestUpdate(e, t, i, a = !1, n) {
     if (e !== void 0) {
       const s = this.constructor;
-      if (r === !1 && (n = this[e]), i ??= s.getPropertyOptions(e), !((i.hasChanged ?? Ne)(n, t) || i.useDefault && i.reflect && n === this._$Ej?.get(e) && !this.hasAttribute(s._$Eu(e, i)))) return;
+      if (a === !1 && (n = this[e]), i ??= s.getPropertyOptions(e), !((i.hasChanged ?? Le)(n, t) || i.useDefault && i.reflect && n === this._$Ej?.get(e) && !this.hasAttribute(s._$Eu(e, i)))) return;
       this.C(e, t, i);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
   }
-  C(e, t, { useDefault: i, reflect: r, wrapped: n }, s) {
-    i && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(e) && (this._$Ej.set(e, s ?? t ?? this[e]), n !== !0 || s !== void 0) || (this._$AL.has(e) || (this.hasUpdated || i || (t = void 0), this._$AL.set(e, t)), r === !0 && this._$Em !== e && (this._$Eq ??= /* @__PURE__ */ new Set()).add(e));
+  C(e, t, { useDefault: i, reflect: a, wrapped: n }, s) {
+    i && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(e) && (this._$Ej.set(e, s ?? t ?? this[e]), n !== !0 || s !== void 0) || (this._$AL.has(e) || (this.hasUpdated || i || (t = void 0), this._$AL.set(e, t)), a === !0 && this._$Em !== e && (this._$Eq ??= /* @__PURE__ */ new Set()).add(e));
   }
   async _$EP() {
     this.isUpdatePending = !0;
@@ -203,13 +203,13 @@ let U = class extends HTMLElement {
     if (!this.isUpdatePending) return;
     if (!this.hasUpdated) {
       if (this.renderRoot ??= this.createRenderRoot(), this._$Ep) {
-        for (const [r, n] of this._$Ep) this[r] = n;
+        for (const [a, n] of this._$Ep) this[a] = n;
         this._$Ep = void 0;
       }
       const i = this.constructor.elementProperties;
-      if (i.size > 0) for (const [r, n] of i) {
-        const { wrapped: s } = n, l = this[r];
-        s !== !0 || this._$AL.has(r) || l === void 0 || this.C(r, void 0, n, l);
+      if (i.size > 0) for (const [a, n] of i) {
+        const { wrapped: s } = n, l = this[a];
+        s !== !0 || this._$AL.has(a) || l === void 0 || this.C(a, void 0, n, l);
       }
     }
     let e = !1;
@@ -246,54 +246,54 @@ let U = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-U.elementStyles = [], U.shadowRootOptions = { mode: "open" }, U[F("elementProperties")] = /* @__PURE__ */ new Map(), U[F("finalized")] = /* @__PURE__ */ new Map(), st?.({ ReactiveElement: U }), (re.reactiveElementVersions ??= []).push("2.1.2");
-const fe = globalThis, Se = (a) => a, X = fe.trustedTypes, ze = X ? X.createPolicy("lit-html", { createHTML: (a) => a }) : void 0, Le = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, Re = "?" + C, ot = `<${Re}>`, I = document, Z = () => I.createComment(""), j = (a) => a === null || typeof a != "object" && typeof a != "function", be = Array.isArray, lt = (a) => be(a) || typeof a?.[Symbol.iterator] == "function", oe = `[ 	
-\f\r]`, H = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ce = /-->/g, Ae = />/g, T = RegExp(`>|${oe}(?:([^\\s"'>=/]+)(${oe}*=${oe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Ee = /"/g, He = /^(?:script|style|textarea|title)$/i, qe = (a) => (e, ...t) => ({ _$litType$: a, strings: e, values: t }), c = qe(1), E = qe(2), N = /* @__PURE__ */ Symbol.for("lit-noChange"), h = /* @__PURE__ */ Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), D = I.createTreeWalker(I, 129);
-function Fe(a, e) {
-  if (!be(a) || !a.hasOwnProperty("raw")) throw Error("invalid template strings array");
+U.elementStyles = [], U.shadowRootOptions = { mode: "open" }, U[F("elementProperties")] = /* @__PURE__ */ new Map(), U[F("finalized")] = /* @__PURE__ */ new Map(), st?.({ ReactiveElement: U }), (ne.reactiveElementVersions ??= []).push("2.1.2");
+const fe = globalThis, Se = (r) => r, ee = fe.trustedTypes, ze = ee ? ee.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, Ne = "?" + C, ot = `<${Ne}>`, I = document, j = () => I.createComment(""), G = (r) => r === null || typeof r != "object" && typeof r != "function", be = Array.isArray, lt = (r) => be(r) || typeof r?.[Symbol.iterator] == "function", oe = `[ 	
+\f\r]`, q = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ce = /-->/g, Ae = />/g, T = RegExp(`>|${oe}(?:([^\\s"'>=/]+)(${oe}*=${oe}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Ee = /"/g, Re = /^(?:script|style|textarea|title)$/i, qe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), c = qe(1), E = qe(2), L = /* @__PURE__ */ Symbol.for("lit-noChange"), h = /* @__PURE__ */ Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), D = I.createTreeWalker(I, 129);
+function Ze(r, e) {
+  if (!be(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return ze !== void 0 ? ze.createHTML(e) : e;
 }
-const ct = (a, e) => {
-  const t = a.length - 1, i = [];
-  let r, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", s = H;
+const ct = (r, e) => {
+  const t = r.length - 1, i = [];
+  let a, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", s = q;
   for (let l = 0; l < t; l++) {
-    const o = a[l];
+    const o = r[l];
     let p, g, d = -1, v = 0;
-    for (; v < o.length && (s.lastIndex = v, g = s.exec(o), g !== null); ) v = s.lastIndex, s === H ? g[1] === "!--" ? s = Ce : g[1] !== void 0 ? s = Ae : g[2] !== void 0 ? (He.test(g[2]) && (r = RegExp("</" + g[2], "g")), s = T) : g[3] !== void 0 && (s = T) : s === T ? g[0] === ">" ? (s = r ?? H, d = -1) : g[1] === void 0 ? d = -2 : (d = s.lastIndex - g[2].length, p = g[1], s = g[3] === void 0 ? T : g[3] === '"' ? Ee : Te) : s === Ee || s === Te ? s = T : s === Ce || s === Ae ? s = H : (s = T, r = void 0);
-    const b = s === T && a[l + 1].startsWith("/>") ? " " : "";
-    n += s === H ? o + ot : d >= 0 ? (i.push(p), o.slice(0, d) + Le + o.slice(d) + C + b) : o + C + (d === -2 ? l : b);
+    for (; v < o.length && (s.lastIndex = v, g = s.exec(o), g !== null); ) v = s.lastIndex, s === q ? g[1] === "!--" ? s = Ce : g[1] !== void 0 ? s = Ae : g[2] !== void 0 ? (Re.test(g[2]) && (a = RegExp("</" + g[2], "g")), s = T) : g[3] !== void 0 && (s = T) : s === T ? g[0] === ">" ? (s = a ?? q, d = -1) : g[1] === void 0 ? d = -2 : (d = s.lastIndex - g[2].length, p = g[1], s = g[3] === void 0 ? T : g[3] === '"' ? Ee : Te) : s === Ee || s === Te ? s = T : s === Ce || s === Ae ? s = q : (s = T, a = void 0);
+    const b = s === T && r[l + 1].startsWith("/>") ? " " : "";
+    n += s === q ? o + ot : d >= 0 ? (i.push(p), o.slice(0, d) + He + o.slice(d) + C + b) : o + C + (d === -2 ? l : b);
   }
-  return [Fe(a, n + (a[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
+  return [Ze(r, n + (r[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
 };
-class G {
+class B {
   constructor({ strings: e, _$litType$: t }, i) {
-    let r;
+    let a;
     this.parts = [];
     let n = 0, s = 0;
     const l = e.length - 1, o = this.parts, [p, g] = ct(e, t);
-    if (this.el = G.createElement(p, i), D.currentNode = this.el.content, t === 2 || t === 3) {
+    if (this.el = B.createElement(p, i), D.currentNode = this.el.content, t === 2 || t === 3) {
       const d = this.el.content.firstChild;
       d.replaceWith(...d.childNodes);
     }
-    for (; (r = D.nextNode()) !== null && o.length < l; ) {
-      if (r.nodeType === 1) {
-        if (r.hasAttributes()) for (const d of r.getAttributeNames()) if (d.endsWith(Le)) {
-          const v = g[s++], b = r.getAttribute(d).split(C), S = /([.?@])?(.*)/.exec(v);
-          o.push({ type: 1, index: n, name: S[2], strings: b, ctor: S[1] === "." ? ut : S[1] === "?" ? pt : S[1] === "@" ? ht : ne }), r.removeAttribute(d);
-        } else d.startsWith(C) && (o.push({ type: 6, index: n }), r.removeAttribute(d));
-        if (He.test(r.tagName)) {
-          const d = r.textContent.split(C), v = d.length - 1;
+    for (; (a = D.nextNode()) !== null && o.length < l; ) {
+      if (a.nodeType === 1) {
+        if (a.hasAttributes()) for (const d of a.getAttributeNames()) if (d.endsWith(He)) {
+          const v = g[s++], b = a.getAttribute(d).split(C), S = /([.?@])?(.*)/.exec(v);
+          o.push({ type: 1, index: n, name: S[2], strings: b, ctor: S[1] === "." ? ut : S[1] === "?" ? pt : S[1] === "@" ? ht : se }), a.removeAttribute(d);
+        } else d.startsWith(C) && (o.push({ type: 6, index: n }), a.removeAttribute(d));
+        if (Re.test(a.tagName)) {
+          const d = a.textContent.split(C), v = d.length - 1;
           if (v > 0) {
-            r.textContent = X ? X.emptyScript : "";
-            for (let b = 0; b < v; b++) r.append(d[b], Z()), D.nextNode(), o.push({ type: 2, index: ++n });
-            r.append(d[v], Z());
+            a.textContent = ee ? ee.emptyScript : "";
+            for (let b = 0; b < v; b++) a.append(d[b], j()), D.nextNode(), o.push({ type: 2, index: ++n });
+            a.append(d[v], j());
           }
         }
-      } else if (r.nodeType === 8) if (r.data === Re) o.push({ type: 2, index: n });
+      } else if (a.nodeType === 8) if (a.data === Ne) o.push({ type: 2, index: n });
       else {
         let d = -1;
-        for (; (d = r.data.indexOf(C, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += C.length - 1;
+        for (; (d = a.data.indexOf(C, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += C.length - 1;
       }
       n++;
     }
@@ -303,11 +303,11 @@ class G {
     return i.innerHTML = e, i;
   }
 }
-function L(a, e, t = a, i) {
-  if (e === N) return e;
-  let r = i !== void 0 ? t._$Co?.[i] : t._$Cl;
-  const n = j(e) ? void 0 : e._$litDirective$;
-  return r?.constructor !== n && (r?._$AO?.(!1), n === void 0 ? r = void 0 : (r = new n(a), r._$AT(a, t, i)), i !== void 0 ? (t._$Co ??= [])[i] = r : t._$Cl = r), r !== void 0 && (e = L(a, r._$AS(a, e.values), r, i)), e;
+function H(r, e, t = r, i) {
+  if (e === L) return e;
+  let a = i !== void 0 ? t._$Co?.[i] : t._$Cl;
+  const n = G(e) ? void 0 : e._$litDirective$;
+  return a?.constructor !== n && (a?._$AO?.(!1), n === void 0 ? a = void 0 : (a = new n(r), a._$AT(r, t, i)), i !== void 0 ? (t._$Co ??= [])[i] = a : t._$Cl = a), a !== void 0 && (e = H(r, a._$AS(r, e.values), a, i)), e;
 }
 class dt {
   constructor(e, t) {
@@ -320,8 +320,8 @@ class dt {
     return this._$AM._$AU;
   }
   u(e) {
-    const { el: { content: t }, parts: i } = this._$AD, r = (e?.creationScope ?? I).importNode(t, !0);
-    D.currentNode = r;
+    const { el: { content: t }, parts: i } = this._$AD, a = (e?.creationScope ?? I).importNode(t, !0);
+    D.currentNode = a;
     let n = D.nextNode(), s = 0, l = 0, o = i[0];
     for (; o !== void 0; ) {
       if (s === o.index) {
@@ -330,7 +330,7 @@ class dt {
       }
       s !== o?.index && (n = D.nextNode(), s++);
     }
-    return D.currentNode = I, r;
+    return D.currentNode = I, a;
   }
   p(e) {
     let t = 0;
@@ -341,8 +341,8 @@ class V {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
-  constructor(e, t, i, r) {
-    this.type = 2, this._$AH = h, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = i, this.options = r, this._$Cv = r?.isConnected ?? !0;
+  constructor(e, t, i, a) {
+    this.type = 2, this._$AH = h, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = i, this.options = a, this._$Cv = a?.isConnected ?? !0;
   }
   get parentNode() {
     let e = this._$AA.parentNode;
@@ -356,7 +356,7 @@ class V {
     return this._$AB;
   }
   _$AI(e, t = this) {
-    e = L(this, e, t), j(e) ? e === h || e == null || e === "" ? (this._$AH !== h && this._$AR(), this._$AH = h) : e !== this._$AH && e !== N && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : lt(e) ? this.k(e) : this._(e);
+    e = H(this, e, t), G(e) ? e === h || e == null || e === "" ? (this._$AH !== h && this._$AR(), this._$AH = h) : e !== this._$AH && e !== L && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : lt(e) ? this.k(e) : this._(e);
   }
   O(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -365,26 +365,26 @@ class V {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== h && j(this._$AH) ? this._$AA.nextSibling.data = e : this.T(I.createTextNode(e)), this._$AH = e;
+    this._$AH !== h && G(this._$AH) ? this._$AA.nextSibling.data = e : this.T(I.createTextNode(e)), this._$AH = e;
   }
   $(e) {
-    const { values: t, _$litType$: i } = e, r = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = G.createElement(Fe(i.h, i.h[0]), this.options)), i);
-    if (this._$AH?._$AD === r) this._$AH.p(t);
+    const { values: t, _$litType$: i } = e, a = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = B.createElement(Ze(i.h, i.h[0]), this.options)), i);
+    if (this._$AH?._$AD === a) this._$AH.p(t);
     else {
-      const n = new dt(r, this), s = n.u(this.options);
+      const n = new dt(a, this), s = n.u(this.options);
       n.p(t), this.T(s), this._$AH = n;
     }
   }
   _$AC(e) {
     let t = De.get(e.strings);
-    return t === void 0 && De.set(e.strings, t = new G(e)), t;
+    return t === void 0 && De.set(e.strings, t = new B(e)), t;
   }
   k(e) {
     be(this._$AH) || (this._$AH = [], this._$AR());
     const t = this._$AH;
-    let i, r = 0;
-    for (const n of e) r === t.length ? t.push(i = new V(this.O(Z()), this.O(Z()), this, this.options)) : i = t[r], i._$AI(n), r++;
-    r < t.length && (this._$AR(i && i._$AB.nextSibling, r), t.length = r);
+    let i, a = 0;
+    for (const n of e) a === t.length ? t.push(i = new V(this.O(j()), this.O(j()), this, this.options)) : i = t[a], i._$AI(n), a++;
+    a < t.length && (this._$AR(i && i._$AB.nextSibling, a), t.length = a);
   }
   _$AR(e = this._$AA.nextSibling, t) {
     for (this._$AP?.(!1, !0, t); e !== this._$AB; ) {
@@ -396,32 +396,32 @@ class V {
     this._$AM === void 0 && (this._$Cv = e, this._$AP?.(e));
   }
 }
-class ne {
+class se {
   get tagName() {
     return this.element.tagName;
   }
   get _$AU() {
     return this._$AM._$AU;
   }
-  constructor(e, t, i, r, n) {
-    this.type = 1, this._$AH = h, this._$AN = void 0, this.element = e, this.name = t, this._$AM = r, this.options = n, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = h;
+  constructor(e, t, i, a, n) {
+    this.type = 1, this._$AH = h, this._$AN = void 0, this.element = e, this.name = t, this._$AM = a, this.options = n, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = h;
   }
-  _$AI(e, t = this, i, r) {
+  _$AI(e, t = this, i, a) {
     const n = this.strings;
     let s = !1;
-    if (n === void 0) e = L(this, e, t, 0), s = !j(e) || e !== this._$AH && e !== N, s && (this._$AH = e);
+    if (n === void 0) e = H(this, e, t, 0), s = !G(e) || e !== this._$AH && e !== L, s && (this._$AH = e);
     else {
       const l = e;
       let o, p;
-      for (e = n[0], o = 0; o < n.length - 1; o++) p = L(this, l[i + o], t, o), p === N && (p = this._$AH[o]), s ||= !j(p) || p !== this._$AH[o], p === h ? e = h : e !== h && (e += (p ?? "") + n[o + 1]), this._$AH[o] = p;
+      for (e = n[0], o = 0; o < n.length - 1; o++) p = H(this, l[i + o], t, o), p === L && (p = this._$AH[o]), s ||= !G(p) || p !== this._$AH[o], p === h ? e = h : e !== h && (e += (p ?? "") + n[o + 1]), this._$AH[o] = p;
     }
-    s && !r && this.j(e);
+    s && !a && this.j(e);
   }
   j(e) {
     e === h ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
-class ut extends ne {
+class ut extends se {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -429,7 +429,7 @@ class ut extends ne {
     this.element[this.name] = e === h ? void 0 : e;
   }
 }
-class pt extends ne {
+class pt extends se {
   constructor() {
     super(...arguments), this.type = 4;
   }
@@ -437,14 +437,14 @@ class pt extends ne {
     this.element.toggleAttribute(this.name, !!e && e !== h);
   }
 }
-class ht extends ne {
-  constructor(e, t, i, r, n) {
-    super(e, t, i, r, n), this.type = 5;
+class ht extends se {
+  constructor(e, t, i, a, n) {
+    super(e, t, i, a, n), this.type = 5;
   }
   _$AI(e, t = this) {
-    if ((e = L(this, e, t, 0) ?? h) === N) return;
-    const i = this._$AH, r = e === h && i !== h || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive, n = e !== h && (i === h || r);
-    r && this.element.removeEventListener(this.name, this, i), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
+    if ((e = H(this, e, t, 0) ?? h) === L) return;
+    const i = this._$AH, a = e === h && i !== h || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive, n = e !== h && (i === h || a);
+    a && this.element.removeEventListener(this.name, this, i), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
   handleEvent(e) {
     typeof this._$AH == "function" ? this._$AH.call(this.options?.host ?? this.element, e) : this._$AH.handleEvent(e);
@@ -458,21 +458,21 @@ class gt {
     return this._$AM._$AU;
   }
   _$AI(e) {
-    L(this, e);
+    H(this, e);
   }
 }
 const mt = fe.litHtmlPolyfillSupport;
-mt?.(G, V), (fe.litHtmlVersions ??= []).push("3.3.3");
-const vt = (a, e, t) => {
+mt?.(B, V), (fe.litHtmlVersions ??= []).push("3.3.3");
+const vt = (r, e, t) => {
   const i = t?.renderBefore ?? e;
-  let r = i._$litPart$;
-  if (r === void 0) {
+  let a = i._$litPart$;
+  if (a === void 0) {
     const n = t?.renderBefore ?? null;
-    i._$litPart$ = r = new V(e.insertBefore(Z(), n), n, void 0, t ?? {});
+    i._$litPart$ = a = new V(e.insertBefore(j(), n), n, void 0, t ?? {});
   }
-  return r._$AI(a), r;
+  return a._$AI(r), a;
 };
-const ye = globalThis;
+const _e = globalThis;
 class P extends U {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
@@ -492,13 +492,13 @@ class P extends U {
     super.disconnectedCallback(), this._$Do?.setConnected(!1);
   }
   render() {
-    return N;
+    return L;
   }
 }
-P._$litElement$ = !0, P.finalized = !0, ye.litElementHydrateSupport?.({ LitElement: P });
-const ft = ye.litElementPolyfillSupport;
+P._$litElement$ = !0, P.finalized = !0, _e.litElementHydrateSupport?.({ LitElement: P });
+const ft = _e.litElementPolyfillSupport;
 ft?.({ LitElement: P });
-(ye.litElementVersions ??= []).push("4.2.2");
+(_e.litElementVersions ??= []).push("4.2.2");
 const bt = {
   observing: {
     label: "Observe Only",
@@ -573,33 +573,33 @@ const bt = {
     automationOff: !1
   }
 };
-function yt(a) {
-  return bt[a] ?? {
-    label: a.replaceAll("_", " "),
+function _t(r) {
+  return bt[r] ?? {
+    label: r.replaceAll("_", " "),
     icon: "●",
     tone: "neutral",
     automationOff: !1
   };
 }
-function ce(a, e, t) {
-  if (a === null)
+function ce(r, e, t) {
+  if (r === null)
     return "Unavailable";
-  const i = e === "°F" ? a * 9 / 5 + 32 : a;
+  const i = e === "°F" ? r * 9 / 5 + 32 : r;
   return `${new Intl.NumberFormat(t, { maximumFractionDigits: 1 }).format(i)}${e}`;
 }
-function q(a, e, t) {
+function Z(r, e, t) {
   return new Intl.DateTimeFormat(e, {
     hour: "numeric",
     minute: "2-digit",
     month: "short",
     day: "numeric",
     ...t === void 0 ? {} : { timeZone: t }
-  }).format(new Date(a));
+  }).format(new Date(r));
 }
-function Y(a) {
-  return a.split("_").filter((e) => e.length > 0).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
+function Y(r) {
+  return r.split("_").filter((e) => e.length > 0).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
 }
-const x = 1, _t = [
+const $ = 1, yt = [
   "monday",
   "tuesday",
   "wednesday",
@@ -629,75 +629,75 @@ const $t = /* @__PURE__ */ new Set([
   "predicted",
   "planned"
 ]);
-function m(a, e) {
-  if (typeof a != "object" || a === null || Array.isArray(a))
+function m(r, e) {
+  if (typeof r != "object" || r === null || Array.isArray(r))
     throw new f(e, "expected object");
-  return a;
+  return r;
 }
-function $(a, e) {
-  if (!Array.isArray(a))
+function w(r, e) {
+  if (!Array.isArray(r))
     throw new f(e, "expected array");
-  return a;
+  return r;
 }
-function u(a, e) {
-  if (typeof a != "string" || a.length === 0)
+function u(r, e) {
+  if (typeof r != "string" || r.length === 0)
     throw new f(e, "expected non-empty string");
-  return a;
+  return r;
 }
-function se(a, e) {
-  return a === null ? null : u(a, e);
+function W(r, e) {
+  return r === null ? null : u(r, e);
 }
-function k(a, e) {
-  if (typeof a != "boolean")
+function y(r, e) {
+  if (typeof r != "boolean")
     throw new f(e, "expected boolean");
-  return a;
+  return r;
 }
-function O(a, e) {
-  if (typeof a != "number" || !Number.isFinite(a))
+function O(r, e) {
+  if (typeof r != "number" || !Number.isFinite(r))
     throw new f(e, "expected finite number");
-  return a;
+  return r;
 }
-function _(a, e) {
-  const t = O(a, e);
+function x(r, e) {
+  const t = O(r, e);
   if (!Number.isInteger(t) || t < 0)
     throw new f(e, "expected non-negative integer");
   return t;
 }
-function A(a, e) {
-  return a === null ? null : O(a, e);
+function A(r, e) {
+  return r === null ? null : O(r, e);
 }
-function y(a, e) {
-  const t = u(a, e);
+function _(r, e) {
+  const t = u(r, e);
   if (!Number.isFinite(Date.parse(t)))
     throw new f(e, "expected ISO timestamp");
   return t;
 }
-function Ze(a, e) {
-  const t = u(a, e);
+function Fe(r, e) {
+  const t = u(r, e);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t))
     throw new f(e, "expected YYYY-MM-DD local date");
   return t;
 }
-function je(a, e) {
-  const t = u(a, e);
+function je(r, e) {
+  const t = u(r, e);
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))
     throw new f(e, "expected HH:MM local time");
   return t;
 }
-function z(a, e) {
-  if (a.api_version !== x)
+function z(r, e) {
+  if (r.api_version !== $)
     throw new f(
       `${e}.api_version`,
-      `expected ${String(x)}`
+      `expected ${String($)}`
     );
 }
-function B(a, e) {
-  return $(a, e).map(
+function N(r, e) {
+  return w(r, e).map(
     (t, i) => u(t, `${e}[${String(i)}]`)
   );
 }
-function de(a, e) {
-  const t = m(a, e), i = u(t.kind, `${e}.kind`);
+function de(r, e) {
+  const t = m(r, e), i = u(t.kind, `${e}.kind`);
   if (i !== "single" && i !== "range")
     throw new f(`${e}.kind`, "expected single or range");
   return {
@@ -713,8 +713,8 @@ function de(a, e) {
     )
   };
 }
-function wt(a, e) {
-  const t = m(a, e), i = u(t.occupancy_label, `${e}.occupancy_label`);
+function wt(r, e) {
+  const t = m(r, e), i = u(t.occupancy_label, `${e}.occupancy_label`);
   if (!xt.has(i))
     throw new f(
       `${e}.occupancy_label`,
@@ -729,11 +729,11 @@ function wt(a, e) {
     tolerance_c: O(t.tolerance_c, `${e}.tolerance_c`)
   };
 }
-function kt(a, e) {
-  const t = m(a, e), i = m(t.days, `${e}.days`), r = Object.fromEntries(
-    _t.map((n) => [
+function kt(r, e) {
+  const t = m(r, e), i = m(t.days, `${e}.days`), a = Object.fromEntries(
+    yt.map((n) => [
       n,
-      $(i[n], `${e}.days.${n}`).map(
+      w(i[n], `${e}.days.${n}`).map(
         (s, l) => wt(s, `${e}.days.${n}[${String(l)}]`)
       )
     ])
@@ -741,28 +741,28 @@ function kt(a, e) {
   return {
     profile_id: u(t.profile_id, `${e}.profile_id`),
     name: u(t.name, `${e}.name`),
-    enabled: k(t.enabled, `${e}.enabled`),
-    days: r
+    enabled: y(t.enabled, `${e}.enabled`),
+    days: a
   };
 }
-function Ge(a, e) {
-  const t = m(a, e);
+function Ge(r, e) {
+  const t = m(r, e);
   if (t.schedule_schema_version !== 1)
     throw new f(
       `${e}.schedule_schema_version`,
       "expected 1"
     );
-  const i = m(t.zones, `${e}.zones`), r = {};
+  const i = m(t.zones, `${e}.zones`), a = {};
   for (const [n, s] of Object.entries(i)) {
     const l = `${e}.zones.${n}`, o = m(s, l);
-    r[n] = {
+    a[n] = {
       zone_id: u(o.zone_id, `${l}.zone_id`),
-      enabled: k(o.enabled, `${l}.enabled`),
+      enabled: y(o.enabled, `${l}.enabled`),
       selected_profile_id: u(
         o.selected_profile_id,
         `${l}.selected_profile_id`
       ),
-      profiles: $(o.profiles, `${l}.profiles`).map(
+      profiles: w(o.profiles, `${l}.profiles`).map(
         (p, g) => kt(p, `${l}.profiles[${String(g)}]`)
       )
     };
@@ -775,92 +775,92 @@ function Ge(a, e) {
       `${e}.equipment_group_id`
     ),
     time_zone: u(t.time_zone, `${e}.time_zone`),
-    revision: _(t.revision, `${e}.revision`),
-    zones: r,
-    saved_at_utc: y(t.saved_at_utc, `${e}.saved_at_utc`)
+    revision: x(t.revision, `${e}.revision`),
+    zones: a,
+    saved_at_utc: _(t.saved_at_utc, `${e}.saved_at_utc`)
   };
 }
-function St(a) {
-  const e = m(a, "schedule");
+function St(r) {
+  const e = m(r, "schedule");
   return z(e, "schedule"), {
-    api_version: x,
-    revision: _(e.revision, "schedule.revision"),
+    api_version: $,
+    revision: x(e.revision, "schedule.revision"),
     schedule: e.schedule === null ? null : Ge(e.schedule, "schedule.schedule")
   };
 }
-function zt(a) {
-  const e = m(a, "schedule_validation");
+function zt(r) {
+  const e = m(r, "schedule_validation");
   if (z(e, "schedule_validation"), e.valid !== !0)
     throw new f(
       "schedule_validation.valid",
       "expected true"
     );
   return {
-    api_version: x,
+    api_version: $,
     valid: !0,
-    revision: _(
+    revision: x(
       e.revision,
       "schedule_validation.revision"
     )
   };
 }
-function Ct(a, e) {
-  const t = m(a, e);
+function Ct(r, e) {
+  const t = m(r, e);
   return {
     zone_id: u(t.zone_id, `${e}.zone_id`),
     profile_id: u(t.profile_id, `${e}.profile_id`),
     period_id: u(t.period_id, `${e}.period_id`),
     target: de(t.target, `${e}.target`),
     next_target: t.next_target === null ? null : de(t.next_target, `${e}.next_target`),
-    next_boundary_utc: y(
+    next_boundary_utc: _(
       t.next_boundary_utc,
       `${e}.next_boundary_utc`
     ),
-    next_material_transition_utc: t.next_material_transition_utc === null ? null : y(
+    next_material_transition_utc: t.next_material_transition_utc === null ? null : _(
       t.next_material_transition_utc,
       `${e}.next_material_transition_utc`
     ),
-    inherited_from_previous_day: k(
+    inherited_from_previous_day: y(
       t.inherited_from_previous_day,
       `${e}.inherited_from_previous_day`
     )
   };
 }
-function At(a, e) {
-  const t = m(a, e), i = u(t.kind, `${e}.kind`);
+function At(r, e) {
+  const t = m(r, e), i = u(t.kind, `${e}.kind`);
   if (i !== "gap" && i !== "fold")
     throw new f(`${e}.kind`, "expected gap or fold");
   return {
     zone_id: u(t.zone_id, `${e}.zone_id`),
     profile_id: u(t.profile_id, `${e}.profile_id`),
     period_id: u(t.period_id, `${e}.period_id`),
-    local_date: Ze(t.local_date, `${e}.local_date`),
+    local_date: Fe(t.local_date, `${e}.local_date`),
     local_start: je(t.local_start, `${e}.local_start`),
     kind: i,
-    occurs_at_utc: y(t.occurs_at_utc, `${e}.occurs_at_utc`),
+    occurs_at_utc: _(t.occurs_at_utc, `${e}.occurs_at_utc`),
     explanation: u(t.explanation, `${e}.explanation`)
   };
 }
-function Tt(a) {
-  const e = m(a, "schedule_preview");
+function Tt(r) {
+  const e = m(r, "schedule_preview");
   if (z(e, "schedule_preview"), e.authoritative !== !1)
     throw new f(
       "schedule_preview.authoritative",
       "preview must be nonauthoritative"
     );
   return {
-    api_version: x,
+    api_version: $,
     authoritative: !1,
-    at_utc: y(e.at_utc, "schedule_preview.at_utc"),
+    at_utc: _(e.at_utc, "schedule_preview.at_utc"),
     time_zone: u(e.time_zone, "schedule_preview.time_zone"),
-    preview_week_start_local: Ze(
+    preview_week_start_local: Fe(
       e.preview_week_start_local,
       "schedule_preview.preview_week_start_local"
     ),
-    zones: $(e.zones, "schedule_preview.zones").map(
+    zones: w(e.zones, "schedule_preview.zones").map(
       (t, i) => Ct(t, `schedule_preview.zones[${String(i)}]`)
     ),
-    dst_warnings: $(
+    dst_warnings: w(
       e.dst_warnings,
       "schedule_preview.dst_warnings"
     ).map(
@@ -868,27 +868,27 @@ function Tt(a) {
     )
   };
 }
-function Et(a) {
-  const e = m(a, "schedule_save");
+function Et(r) {
+  const e = m(r, "schedule_save");
   return z(e, "schedule_save"), {
-    api_version: x,
-    revision: _(e.revision, "schedule_save.revision"),
+    api_version: $,
+    revision: x(e.revision, "schedule_save.revision"),
     schedule: Ge(e.schedule, "schedule_save.schedule")
   };
 }
-function Dt(a, e) {
-  const t = m(a, e), i = (n, s) => $(n, s).map((l, o) => {
+function Dt(r, e) {
+  const t = m(r, e), i = (n, s) => w(n, s).map((l, o) => {
     const p = `${s}[${String(o)}]`, g = m(l, p);
     return {
       entity_id: u(g.entity_id, `${p}.entity_id`),
-      enabled: k(g.enabled, `${p}.enabled`)
+      enabled: y(g.enabled, `${p}.enabled`)
     };
-  }), r = (n, s) => $(n, s).map((l, o) => {
+  }), a = (n, s) => w(n, s).map((l, o) => {
     const p = `${s}[${String(o)}]`, g = m(l, p);
     return {
       entity_id: u(g.entity_id, `${p}.entity_id`),
-      enabled: k(g.enabled, `${p}.enabled`),
-      reviewed: k(g.reviewed, `${p}.reviewed`)
+      enabled: y(g.enabled, `${p}.enabled`),
+      reviewed: y(g.reviewed, `${p}.reviewed`)
     };
   });
   return {
@@ -903,35 +903,35 @@ function Dt(a, e) {
       t.humidity_sources,
       `${e}.humidity_sources`
     ),
-    window_door_entity_ids: r(
+    window_door_entity_ids: a(
       t.window_door_entity_ids,
       `${e}.window_door_entity_ids`
     ),
-    occupancy_entity_ids: r(
+    occupancy_entity_ids: a(
       t.occupancy_entity_ids,
       `${e}.occupancy_entity_ids`
     ),
-    stage_entity_ids: B(
+    stage_entity_ids: N(
       t.stage_entity_ids,
       `${e}.stage_entity_ids`
     ),
-    fan_entity_ids: r(t.fan_entity_ids, `${e}.fan_entity_ids`)
+    fan_entity_ids: a(t.fan_entity_ids, `${e}.fan_entity_ids`)
   };
 }
-function Pt(a) {
-  const e = m(a, "config");
+function Pt(r) {
+  const e = m(r, "config");
   return z(e, "config"), {
-    api_version: x,
+    api_version: $,
     config: m(e.config, "config.config"),
     options: m(e.options, "config.options"),
-    active_repairs: B(e.active_repairs, "config.active_repairs"),
-    zones: $(e.zones, "config.zones").map(
+    active_repairs: N(e.active_repairs, "config.active_repairs"),
+    zones: w(e.zones, "config.zones").map(
       (t, i) => Dt(t, `config.zones[${String(i)}]`)
     )
   };
 }
-function It(a, e) {
-  const t = m(a, e);
+function It(r, e) {
+  const t = m(r, e);
   return {
     zone_id: u(t.zone_id, `${e}.zone_id`),
     effective_temperature_c: A(
@@ -942,50 +942,66 @@ function It(a, e) {
       t.effective_humidity_pct,
       `${e}.effective_humidity_pct`
     ),
-    sensor_data_degraded: k(
+    thermostat_hvac_mode: W(
+      t.thermostat_hvac_mode,
+      `${e}.thermostat_hvac_mode`
+    ),
+    supported_hvac_modes: N(
+      t.supported_hvac_modes,
+      `${e}.supported_hvac_modes`
+    ),
+    supports_single_target: y(
+      t.supports_single_target,
+      `${e}.supports_single_target`
+    ),
+    supports_target_range: y(
+      t.supports_target_range,
+      `${e}.supports_target_range`
+    ),
+    sensor_data_degraded: y(
       t.sensor_data_degraded,
       `${e}.sensor_data_degraded`
     ),
-    thermostat_data_degraded: k(
+    thermostat_data_degraded: y(
       t.thermostat_data_degraded,
       `${e}.thermostat_data_degraded`
     )
   };
 }
-function Pe(a) {
-  const e = m(a, "snapshot");
+function Pe(r) {
+  const e = m(r, "snapshot");
   return z(e, "snapshot"), {
-    api_version: x,
+    api_version: $,
     entry_id: u(e.entry_id, "snapshot.entry_id"),
-    observation_revision: _(
+    observation_revision: x(
       e.observation_revision,
       "snapshot.observation_revision"
     ),
-    calculated_at_utc: y(
+    calculated_at_utc: _(
       e.calculated_at_utc,
       "snapshot.calculated_at_utc"
     ),
     control_state: u(e.control_state, "snapshot.control_state"),
-    reason_code: se(e.reason_code, "snapshot.reason_code"),
-    zones: $(e.zones, "snapshot.zones").map(
+    reason_code: W(e.reason_code, "snapshot.reason_code"),
+    zones: w(e.zones, "snapshot.zones").map(
       (t, i) => It(t, `snapshot.zones[${String(i)}]`)
     )
   };
 }
-function Mt(a, e) {
-  const t = m(a, e);
+function Mt(r, e) {
+  const t = m(r, e);
   return {
     record_id: u(t.record_id, `${e}.record_id`),
-    zone_id: se(t.zone_id, `${e}.zone_id`),
-    timestamp_utc: y(t.timestamp_utc, `${e}.timestamp_utc`),
+    zone_id: W(t.zone_id, `${e}.zone_id`),
+    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
     activity_type: u(t.activity_type, `${e}.activity_type`),
     reason_code: u(t.reason_code, `${e}.reason_code`),
     severity: u(t.severity, `${e}.severity`),
     explanation: u(t.explanation, `${e}.explanation`)
   };
 }
-function Ut(a) {
-  const e = m(a, "activity");
+function Ut(r) {
+  const e = m(r, "activity");
   z(e, "activity");
   const t = u(e.order, "activity.order");
   if (t !== "newest" && t !== "oldest")
@@ -994,19 +1010,19 @@ function Ut(a) {
       "expected newest or oldest"
     );
   return {
-    api_version: x,
-    total: _(e.total, "activity.total"),
-    offset: _(e.offset, "activity.offset"),
+    api_version: $,
+    total: x(e.total, "activity.total"),
+    offset: x(e.offset, "activity.offset"),
     order: t,
-    records: $(e.records, "activity.records").map(
-      (i, r) => Mt(i, `activity.records[${String(r)}]`)
+    records: w(e.records, "activity.records").map(
+      (i, a) => Mt(i, `activity.records[${String(a)}]`)
     )
   };
 }
-function Ot(a, e) {
-  const t = m(a, e);
+function Ot(r, e) {
+  const t = m(r, e);
   return {
-    ready: k(t.ready, `${e}.ready`),
+    ready: y(t.ready, `${e}.ready`),
     qualification_percent: O(
       t.qualification_percent,
       `${e}.qualification_percent`
@@ -1016,84 +1032,84 @@ function Ot(a, e) {
       `${e}.valid_evaluation_percent`
     ),
     elapsed_hours: O(t.elapsed_hours, `${e}.elapsed_hours`),
-    evaluated_decisions: _(
+    evaluated_decisions: x(
       t.evaluated_decisions,
       `${e}.evaluated_decisions`
     ),
-    valid_evaluations: _(
+    valid_evaluations: x(
       t.valid_evaluations,
       `${e}.valid_evaluations`
     ),
-    minimum_material_transitions: _(
+    minimum_material_transitions: x(
       t.minimum_material_transitions,
       `${e}.minimum_material_transitions`
     ),
-    blocking_reasons: B(
+    blocking_reasons: N(
       t.blocking_reasons,
       `${e}.blocking_reasons`
     ),
-    blocking_faults: B(
+    blocking_faults: N(
       t.blocking_faults,
       `${e}.blocking_faults`
     )
   };
 }
-function Nt(a) {
-  const e = m(a, "shadow");
+function Lt(r) {
+  const e = m(r, "shadow");
   return z(e, "shadow"), {
-    api_version: x,
+    api_version: $,
     readiness: e.readiness === null ? null : Ot(e.readiness, "shadow.readiness"),
-    history: $(e.history, "shadow.history").map((t, i) => {
-      const r = `shadow.history[${String(i)}]`, n = m(t, r);
+    history: w(e.history, "shadow.history").map((t, i) => {
+      const a = `shadow.history[${String(i)}]`, n = m(t, a);
       return {
         safety_evaluation_id: u(
           n.safety_evaluation_id,
-          `${r}.safety_evaluation_id`
+          `${a}.safety_evaluation_id`
         ),
-        evaluated_at_utc: y(
+        evaluated_at_utc: _(
           n.evaluated_at_utc,
-          `${r}.evaluated_at_utc`
+          `${a}.evaluated_at_utc`
         ),
-        outcome: u(n.outcome, `${r}.outcome`),
-        reason_code: u(n.reason_code, `${r}.reason_code`),
-        would_command: k(
+        outcome: u(n.outcome, `${a}.outcome`),
+        reason_code: u(n.reason_code, `${a}.reason_code`),
+        would_command: y(
           n.would_command,
-          `${r}.would_command`
+          `${a}.would_command`
         )
       };
     })
   };
 }
-function Lt(a) {
-  const e = m(a, "observation");
+function Ht(r) {
+  const e = m(r, "observation");
   if (z(e, "observation"), e.model_ready_history_available !== !1)
     throw new f(
       "observation.model_ready_history_available",
       "Phase 2 must not claim model-ready history"
     );
   return {
-    api_version: x,
-    collection_active: k(
+    api_version: $,
+    collection_active: y(
       e.collection_active,
       "observation.collection_active"
     ),
-    observation_revision: _(
+    observation_revision: x(
       e.observation_revision,
       "observation.observation_revision"
     ),
-    calculated_at_utc: y(
+    calculated_at_utc: _(
       e.calculated_at_utc,
       "observation.calculated_at_utc"
     ),
-    usable_temperature_sources: _(
+    usable_temperature_sources: x(
       e.usable_temperature_sources,
       "observation.usable_temperature_sources"
     ),
-    degraded_zone_count: _(
+    degraded_zone_count: x(
       e.degraded_zone_count,
       "observation.degraded_zone_count"
     ),
-    presentation_history_hours: _(
+    presentation_history_hours: x(
       e.presentation_history_hours,
       "observation.presentation_history_hours"
     ),
@@ -1104,27 +1120,27 @@ function Lt(a) {
     )
   };
 }
-function Rt(a, e) {
-  const t = m(a, e);
+function Nt(r, e) {
+  const t = m(r, e);
   return {
-    start_utc: y(t.start_utc, `${e}.start_utc`),
-    end_utc: y(t.end_utc, `${e}.end_utc`)
+    start_utc: _(t.start_utc, `${e}.start_utc`),
+    end_utc: _(t.end_utc, `${e}.end_utc`)
   };
 }
-function Ht(a, e) {
-  const t = m(a, e), i = t.value;
+function Rt(r, e) {
+  const t = m(r, e), i = t.value;
   if ((typeof i != "string" || i.length === 0) && (typeof i != "number" || !Number.isFinite(i)))
     throw new f(
       `${e}.value`,
       "expected finite number or text"
     );
   return {
-    timestamp_utc: y(t.timestamp_utc, `${e}.timestamp_utc`),
+    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
     value: i
   };
 }
-function qt(a, e) {
-  const t = m(a, e), i = u(t.value_kind, `${e}.value_kind`);
+function qt(r, e) {
+  const t = m(r, e), i = u(t.value_kind, `${e}.value_kind`);
   if (!$t.has(i))
     throw new f(
       `${e}.value_kind`,
@@ -1138,32 +1154,32 @@ function qt(a, e) {
   return {
     kind: u(t.kind, `${e}.kind`),
     value_kind: i,
-    unit: se(t.unit, `${e}.unit`),
+    unit: W(t.unit, `${e}.unit`),
     source_quality: u(t.source_quality, `${e}.source_quality`),
-    coverage_start_utc: y(
+    coverage_start_utc: _(
       t.coverage_start_utc,
       `${e}.coverage_start_utc`
     ),
-    coverage_end_utc: y(
+    coverage_end_utc: _(
       t.coverage_end_utc,
       `${e}.coverage_end_utc`
     ),
-    missing_intervals: $(
+    missing_intervals: w(
       t.missing_intervals,
       `${e}.missing_intervals`
     ).map(
-      (r, n) => Rt(r, `${e}.missing_intervals[${String(n)}]`)
+      (a, n) => Nt(a, `${e}.missing_intervals[${String(n)}]`)
     ),
-    samples: $(t.samples, `${e}.samples`).map(
-      (r, n) => Ht(r, `${e}.samples[${String(n)}]`)
+    samples: w(t.samples, `${e}.samples`).map(
+      (a, n) => Rt(a, `${e}.samples[${String(n)}]`)
     )
   };
 }
-function Ft(a, e) {
-  const t = m(a, e);
+function Zt(r, e) {
+  const t = m(r, e);
   return {
     annotation_id: u(t.annotation_id, `${e}.annotation_id`),
-    timestamp_utc: y(t.timestamp_utc, `${e}.timestamp_utc`),
+    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
     reason_code: u(t.reason_code, `${e}.reason_code`),
     activity_record_id: u(
       t.activity_record_id,
@@ -1171,22 +1187,22 @@ function Ft(a, e) {
     )
   };
 }
-function Zt(a) {
-  const e = m(a, "timeline");
+function Ft(r) {
+  const e = m(r, "timeline");
   if (z(e, "timeline"), e.indoor_prediction_available !== !1)
     throw new f(
       "timeline.indoor_prediction_available",
       "Phase 2 must not claim indoor prediction"
     );
   return {
-    api_version: x,
+    api_version: $,
     entry_id: u(e.entry_id, "timeline.entry_id"),
     zone_id: u(e.zone_id, "timeline.zone_id"),
     time_zone: u(e.time_zone, "timeline.time_zone"),
     local_date: u(e.local_date, "timeline.local_date"),
-    day_start_utc: y(e.day_start_utc, "timeline.day_start_utc"),
-    day_end_utc: y(e.day_end_utc, "timeline.day_end_utc"),
-    generated_at_utc: y(
+    day_start_utc: _(e.day_start_utc, "timeline.day_start_utc"),
+    day_end_utc: _(e.day_end_utc, "timeline.day_end_utc"),
+    generated_at_utc: _(
       e.generated_at_utc,
       "timeline.generated_at_utc"
     ),
@@ -1195,19 +1211,19 @@ function Zt(a) {
       e.capability_statement,
       "timeline.capability_statement"
     ),
-    series: $(e.series, "timeline.series").map(
+    series: w(e.series, "timeline.series").map(
       (t, i) => qt(t, `timeline.series[${String(i)}]`)
     ),
-    annotations: $(e.annotations, "timeline.annotations").map(
-      (t, i) => Ft(t, `timeline.annotations[${String(i)}]`)
+    annotations: w(e.annotations, "timeline.annotations").map(
+      (t, i) => Zt(t, `timeline.annotations[${String(i)}]`)
     )
   };
 }
-function jt(a) {
-  const e = m(a, "narrative");
+function jt(r) {
+  const e = m(r, "narrative");
   return z(e, "narrative"), {
-    api_version: x,
-    template_version: _(
+    api_version: $,
+    template_version: x(
       e.template_version,
       "narrative.template_version"
     ),
@@ -1219,7 +1235,7 @@ function jt(a) {
       e.temperature_c,
       "narrative.temperature_c"
     ),
-    hvac_action: se(e.hvac_action, "narrative.hvac_action"),
+    hvac_action: W(e.hvac_action, "narrative.hvac_action"),
     scheduled_target_c: A(
       e.scheduled_target_c,
       "narrative.scheduled_target_c"
@@ -1228,19 +1244,19 @@ function jt(a) {
       e.effective_target_c,
       "narrative.effective_target_c"
     ),
-    next_transition_utc: e.next_transition_utc === null ? null : y(
+    next_transition_utc: e.next_transition_utc === null ? null : _(
       e.next_transition_utc,
       "narrative.next_transition_utc"
     ),
-    source_degraded: k(
+    source_degraded: y(
       e.source_degraded,
       "narrative.source_degraded"
     ),
-    context_forecast_available: k(
+    context_forecast_available: y(
       e.context_forecast_available,
       "narrative.context_forecast_available"
     ),
-    included_categories: B(
+    included_categories: N(
       e.included_categories,
       "narrative.included_categories"
     ),
@@ -1253,13 +1269,13 @@ class Gt {
       throw new Error("entryId is required");
   }
   async request(e, t, i = {}) {
-    const r = await this.hass.callWS({
+    const a = await this.hass.callWS({
       type: e,
-      api_version: x,
+      api_version: $,
       entry_id: this.entryId,
       ...i
     });
-    return t(r);
+    return t(a);
   }
   configuration() {
     return this.request(
@@ -1280,19 +1296,19 @@ class Gt {
   shadowStatus() {
     return this.request(
       "intelligent_climate/shadow/status",
-      Nt
+      Lt
     );
   }
   observationStatus() {
     return this.request(
       "intelligent_climate/observation/status",
-      Lt
+      Ht
     );
   }
   todayTimeline(e) {
     return this.request(
       "intelligent_climate/timeline/today",
-      Zt,
+      Ft,
       { zone_id: e }
     );
   }
@@ -1331,27 +1347,27 @@ class Gt {
     );
   }
   async dashboardData() {
-    const [e, t, i, r, n] = await Promise.all([
+    const [e, t, i, a, n] = await Promise.all([
       this.configuration(),
       this.snapshot(),
       this.activity(),
       this.shadowStatus(),
       this.observationStatus()
     ]);
-    return { configuration: e, snapshot: t, activity: i, shadow: r, observation: n };
+    return { configuration: e, snapshot: t, activity: i, shadow: a, observation: n };
   }
   async subscribe(e) {
     return this.hass.connection.subscribeMessage(
       (t) => e(Pe(t)),
       {
         type: "intelligent_climate/subscribe",
-        api_version: x,
+        api_version: $,
         entry_id: this.entryId
       }
     );
   }
 }
-const Be = ae`
+const Be = re`
   :host {
     color: var(--primary-text-color, #1f2937);
     background: var(
@@ -1422,10 +1438,10 @@ const Be = ae`
     }
   }
 `;
-function Ve(a = globalThis.crypto) {
-  if (typeof a.randomUUID == "function")
-    return a.randomUUID();
-  const e = a.getRandomValues(new Uint8Array(16));
+function Ve(r = globalThis.crypto) {
+  if (typeof r.randomUUID == "function")
+    return r.randomUUID();
+  const e = r.getRandomValues(new Uint8Array(16));
   e[6] = (e[6] ?? 0) & 15 | 64, e[8] = (e[8] ?? 0) & 63 | 128;
   const t = Array.from(
     e,
@@ -1441,7 +1457,7 @@ const M = [
   "friday",
   "saturday",
   "sunday"
-], w = {
+], k = {
   monday: "Monday",
   tuesday: "Tuesday",
   wednesday: "Wednesday",
@@ -1456,9 +1472,9 @@ const M = [
   awayCoolC: 26.7,
   sleepHeatC: 19.4,
   sleepCoolC: 23.9
-}, ee = class ee extends P {
+}, te = class te extends P {
   constructor() {
-    super(...arguments), this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Bt }, this.zoneChanged = (e) => {
+    super(...arguments), this.zoneSnapshots = [], this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Bt }, this.zoneChanged = (e) => {
       const t = e.currentTarget;
       if (!(t instanceof HTMLSelectElement)) return;
       this.selectedZoneId = t.value;
@@ -1469,16 +1485,16 @@ const M = [
       if (!(t instanceof HTMLSelectElement)) return;
       this.selectedProfileId = t.value;
       const i = this.selectedZoneId;
-      this.updateDocument((r) => {
-        const n = r.zones[i];
+      this.updateDocument((a) => {
+        const n = a.zones[i];
         n !== void 0 && (n.selected_profile_id = t.value);
       });
     }, this.zoneEnabledChanged = (e) => {
       const t = e.currentTarget;
       if (!(t instanceof HTMLInputElement)) return;
       const i = this.selectedZoneId;
-      this.updateDocument((r) => {
-        const n = r.zones[i];
+      this.updateDocument((a) => {
+        const n = a.zones[i];
         n !== void 0 && (n.enabled = t.checked);
       });
     }, this.profileEnabledChanged = (e) => {
@@ -1499,9 +1515,9 @@ const M = [
     }, this.copyDay = () => {
       const e = this.copySource, t = [...this.copyTargets];
       this.updateProfile((i) => {
-        const r = i.days[e];
+        const a = i.days[e];
         for (const n of t)
-          i.days[n] = r.map((s) => ({
+          i.days[n] = a.map((s) => ({
             ...structuredClone(s),
             period_id: this.uuid()
           }));
@@ -1522,7 +1538,7 @@ const M = [
       t.includes(this.selectedZoneId) || (this.selectedZoneId = t[0] ?? "");
       const i = this.document.zones[this.selectedZoneId];
       i !== void 0 && !i.profiles.some(
-        (r) => r.profile_id === this.selectedProfileId
+        (a) => a.profile_id === this.selectedProfileId
       ) && (this.selectedProfileId = i.selected_profile_id);
     }
   }
@@ -1580,6 +1596,8 @@ const M = [
         </label>
       </section>
 
+      ${this.renderModeGuidance()}
+
       <section class="template-tools" aria-labelledby="template-heading">
         <div class="template-intro">
           <h3 id="template-heading">Starter schedule</h3>
@@ -1608,7 +1626,7 @@ const M = [
         <span>Day to edit</span>
         <select .value=${this.mobileDay} @change=${this.mobileDayChanged}>
           ${M.map(
-      (i) => c`<option value=${i}>${w[i]}</option>`
+      (i) => c`<option value=${i}>${k[i]}</option>`
     )}
         </select>
       </label>
@@ -1633,7 +1651,7 @@ const M = [
           <span>Copy from</span>
           <select .value=${this.copySource} @change=${this.copySourceChanged}>
             ${M.map(
-      (i) => c`<option value=${i}>${w[i]}</option>`
+      (i) => c`<option value=${i}>${k[i]}</option>`
     )}
           </select>
         </label>
@@ -1642,11 +1660,11 @@ const M = [
       (i) => c`<label>
                 <input
                   type="checkbox"
-                  aria-label=${`Copy ${w[this.copySource]} to ${w[i]}`}
+                  aria-label=${`Copy ${k[this.copySource]} to ${k[i]}`}
                   .checked=${this.copyTargets.includes(i)}
-                  @change=${(r) => this.copyTargetChanged(i, r)}
+                  @change=${(a) => this.copyTargetChanged(i, a)}
                 />
-                ${w[i]}
+                ${k[i]}
               </label>`
     )}
         </div>
@@ -1689,11 +1707,11 @@ const M = [
     `;
   }
   renderDay(e, t) {
-    const i = e.days[t], r = t === this.mobileDay ? "" : "mobile-hidden";
-    return c`<article class="day-column ${r}">
+    const i = e.days[t], a = t === this.mobileDay ? "" : "mobile-hidden";
+    return c`<article class="day-column ${a}">
       <header>
         <div>
-          <h3>${w[t]}</h3>
+          <h3>${k[t]}</h3>
           <span
             >${i.length}
             ${i.length === 1 ? "period" : "periods"}</span
@@ -1702,7 +1720,7 @@ const M = [
         <div class="day-actions">
           <button
             type="button"
-            aria-label=${`Copy ${w[t]}`}
+            aria-label=${`Copy ${k[t]}`}
             @click=${() => this.selectCopySource(t)}
           >
             Copy
@@ -1710,7 +1728,7 @@ const M = [
           <button
             type="button"
             class="add"
-            aria-label=${`Add ${w[t]} period`}
+            aria-label=${`Add ${k[t]} period`}
             @click=${() => this.addPeriod(t)}
           >
             + Add
@@ -1719,7 +1737,7 @@ const M = [
             type="button"
             class="danger"
             ?disabled=${i.length === 0}
-            aria-label=${`Clear ${w[t]}`}
+            aria-label=${`Clear ${k[t]}`}
             @click=${() => this.requestClearDay(t)}
           >
             Clear
@@ -1728,7 +1746,7 @@ const M = [
       </header>
       ${this.clearPendingDay === t ? c`<div class="clear-confirmation" role="alert">
               <p>
-                Clear every ${w[t]} period? The final settings from
+                Clear every ${k[t]} period? The final settings from
                 the prior configured day will continue until the next period.
               </p>
               <div>
@@ -1738,10 +1756,10 @@ const M = [
                 <button
                   type="button"
                   class="danger"
-                  aria-label=${`Confirm clear ${w[t]}`}
+                  aria-label=${`Confirm clear ${k[t]}`}
                   @click=${() => this.confirmClearDay(t)}
                 >
-                  Clear ${w[t]}
+                  Clear ${k[t]}
                 </button>
               </div>
             </div>` : h}
@@ -1757,20 +1775,20 @@ const M = [
     </article>`;
   }
   renderPeriod(e, t, i) {
-    const r = this.preview?.zones.some(
+    const a = this.preview?.zones.some(
       (l) => l.period_id === t.period_id
     ), n = `days.${e}[${String(i)}]`, s = this.validationMessage.includes(n);
     return c`<li
-      class="period ${r ? "current" : ""} ${s ? "invalid" : ""}"
+      class="period ${a ? "current" : ""} ${s ? "invalid" : ""}"
     >
       <div class="period-heading">
         <strong
-          >${r ? "● Current period" : `Period ${String(i + 1)}`}</strong
+          >${a ? "● Current period" : `Period ${String(i + 1)}`}</strong
         >
         <div>
           <button
             type="button"
-            aria-label=${`Duplicate ${w[e]} period ${String(i + 1)}`}
+            aria-label=${`Duplicate ${k[e]} period ${String(i + 1)}`}
             @click=${() => this.duplicatePeriod(e, i)}
           >
             Duplicate
@@ -1778,7 +1796,7 @@ const M = [
           <button
             type="button"
             class="danger"
-            aria-label=${`Delete ${w[e]} period ${String(i + 1)}`}
+            aria-label=${`Delete ${k[e]} period ${String(i + 1)}`}
             @click=${() => this.deletePeriod(e, i)}
           >
             Delete
@@ -1852,12 +1870,13 @@ const M = [
           />
         </label>
       </div>
+      ${this.targetModeWarning(t)}
       ${s ? c`<p class="field-error">Review this period and the validation summary.</p>` : h}
     </li>`;
   }
-  temperatureInput(e, t, i, r, n) {
+  temperatureInput(e, t, i, a, n) {
     return c`<label>
-      <span>${r} (${this.temperatureUnit})</span>
+      <span>${a} (${this.temperatureUnit})</span>
       <input
         type="number"
         step=${this.temperatureUnit === "°F" ? "0.5" : "0.1"}
@@ -1878,7 +1897,7 @@ const M = [
       </section>`;
     const i = t.zones.find(
       (n) => n.zone_id === e.zone_id
-    ), r = t.dst_warnings.filter(
+    ), a = t.dst_warnings.filter(
       (n) => n.zone_id === e.zone_id
     );
     return c`<section class="preview-card" aria-labelledby="preview-heading">
@@ -1915,11 +1934,11 @@ const M = [
                 </dd>
               </div>
             </dl>`}
-      ${r.length === 0 ? c`<p class="no-warning">
+      ${a.length === 0 ? c`<p class="no-warning">
               ✓ No scheduled boundary crosses a DST gap or repeated hour in this
               preview week.
             </p>` : c`<ul class="dst-warnings">
-              ${r.map(
+              ${a.map(
       (n) => c`<li>
                     <strong
                       >${n.kind === "gap" ? "Spring-forward gap" : "Repeated-hour fold"}</strong
@@ -1953,8 +1972,8 @@ const M = [
   }
   updateProfile(e) {
     const t = this.selectedZoneId, i = this.selectedProfileId;
-    this.updateDocument((r) => {
-      const n = r.zones[t]?.profiles.find(
+    this.updateDocument((a) => {
+      const n = a.zones[t]?.profiles.find(
         (s) => s.profile_id === i
       );
       n !== void 0 && e(n);
@@ -1964,19 +1983,19 @@ const M = [
     this.updateProfile((t) => {
       const i = t.days[e];
       i.push(this.newPeriod(this.nextAvailableTime(i))), i.sort(
-        (r, n) => r.local_start.localeCompare(n.local_start)
+        (a, n) => a.local_start.localeCompare(n.local_start)
       );
     });
   }
   duplicatePeriod(e, t) {
     this.updateProfile((i) => {
-      const r = i.days[e][t];
-      r !== void 0 && (i.days[e].push({
-        ...structuredClone(r),
+      const a = i.days[e][t];
+      a !== void 0 && (i.days[e].push({
+        ...structuredClone(a),
         period_id: this.uuid(),
         local_start: this.nextAvailableTime(
           i.days[e],
-          r.local_start
+          a.local_start
         )
       }), i.days[e].sort(
         (n, s) => n.local_start.localeCompare(s.local_start)
@@ -1994,8 +2013,8 @@ const M = [
       t.days[e] = [];
     }), this.clearPendingDay = void 0;
   }
-  periodTextChanged(e, t, i, r) {
-    const n = r.currentTarget;
+  periodTextChanged(e, t, i, a) {
+    const n = a.currentTarget;
     (n instanceof HTMLInputElement || n instanceof HTMLSelectElement) && this.updateProfile((s) => {
       const l = s.days[e][t];
       l !== void 0 && (i === "occupancy_label" ? l.occupancy_label = n.value : l[i] = n.value, s.days[e].sort(
@@ -2004,10 +2023,10 @@ const M = [
     });
   }
   targetKindChanged(e, t, i) {
-    const r = i.currentTarget;
-    r instanceof HTMLSelectElement && this.updateProfile((n) => {
+    const a = i.currentTarget;
+    a instanceof HTMLSelectElement && this.updateProfile((n) => {
       const s = n.days[e][t];
-      s !== void 0 && (s.target = r.value === "range" ? {
+      s !== void 0 && (s.target = a.value === "range" ? {
         kind: "range",
         target_c: null,
         heat_target_c: 20,
@@ -2020,8 +2039,8 @@ const M = [
       });
     });
   }
-  targetValueChanged(e, t, i, r) {
-    const n = r.currentTarget;
+  targetValueChanged(e, t, i, a) {
+    const n = a.currentTarget;
     if (!(n instanceof HTMLInputElement) || n.value.length === 0)
       return;
     const s = Number(n.value);
@@ -2031,9 +2050,9 @@ const M = [
     });
   }
   toleranceChanged(e, t, i) {
-    const r = i.currentTarget;
-    if (!(r instanceof HTMLInputElement)) return;
-    const n = Number(r.value);
+    const a = i.currentTarget;
+    if (!(a instanceof HTMLInputElement)) return;
+    const n = Number(a.value);
     Number.isFinite(n) && this.updateProfile((s) => {
       const l = s.days[e][t];
       l !== void 0 && (l.tolerance_c = this.celsiusDelta(n));
@@ -2041,7 +2060,7 @@ const M = [
   }
   copyTargetChanged(e, t) {
     const i = t.currentTarget;
-    i instanceof HTMLInputElement && (this.copyTargets = i.checked ? [...this.copyTargets, e] : this.copyTargets.filter((r) => r !== e));
+    i instanceof HTMLInputElement && (this.copyTargets = i.checked ? [...this.copyTargets, e] : this.copyTargets.filter((a) => a !== e));
   }
   selectCopySource(e) {
     this.copySource = e, this.copyTargets = this.copyTargets.filter((i) => i !== e);
@@ -2058,9 +2077,9 @@ const M = [
       ["08:00", "Morning", "homeHeatC", "homeCoolC"],
       ["23:00", "Sleep", "sleepHeatC", "sleepCoolC"]
     ];
-    this.updateProfile((r) => {
+    this.updateProfile((a) => {
       for (const n of t)
-        r.days[n] = i.map(([s, l, o, p]) => ({
+        a.days[n] = i.map(([s, l, o, p]) => ({
           ...this.newPeriod(s),
           label: l,
           occupancy_label: l === "Sleep" ? "sleep" : l === "Away" ? "away" : "home",
@@ -2096,10 +2115,10 @@ const M = [
   starterTargetChanged(e, t) {
     const i = t.currentTarget;
     if (!(i instanceof HTMLInputElement)) return;
-    const r = Number(i.value);
-    Number.isFinite(r) && (this.starterTargets = {
+    const a = Number(i.value);
+    Number.isFinite(a) && (this.starterTargets = {
       ...this.starterTargets,
-      [e]: this.celsiusTemperature(r)
+      [e]: this.celsiusTemperature(a)
     });
   }
   newPeriod(e) {
@@ -2108,23 +2127,18 @@ const M = [
       local_start: e,
       label: "",
       occupancy_label: "none",
-      target: {
-        kind: "single",
-        target_c: 22,
-        heat_target_c: null,
-        cool_target_c: null
-      },
+      target: this.defaultTarget(),
       tolerance_c: 0.5
     };
   }
   nextAvailableTime(e, t = "05:30") {
     const i = new Set(e.map((n) => n.local_start));
-    let r = this.timeMinutes(t) + 30;
+    let a = this.timeMinutes(t) + 30;
     for (let n = 0; n < 48; n += 1) {
-      r %= 1440;
-      const s = `${String(Math.floor(r / 60)).padStart(2, "0")}:${String(r % 60).padStart(2, "0")}`;
+      a %= 1440;
+      const s = `${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
       if (!i.has(s)) return s;
-      r += 30;
+      a += 30;
     }
     return "00:00";
   }
@@ -2137,6 +2151,60 @@ const M = [
   }
   zoneName(e) {
     return this.zones.find((t) => t.zone_id === e)?.name ?? e;
+  }
+  currentZoneSnapshot() {
+    return this.zoneSnapshots.find(
+      (e) => e.zone_id === this.selectedZoneId
+    );
+  }
+  defaultTarget() {
+    return this.currentZoneSnapshot()?.supports_target_range === !0 ? {
+      kind: "range",
+      target_c: null,
+      heat_target_c: this.starterTargets.homeHeatC,
+      cool_target_c: this.starterTargets.homeCoolC
+    } : {
+      kind: "single",
+      target_c: 22,
+      heat_target_c: null,
+      cool_target_c: null
+    };
+  }
+  renderModeGuidance() {
+    const t = this.currentZoneSnapshot()?.thermostat_hvac_mode, i = t == null ? "Unavailable" : this.modeLabel(t);
+    let a;
+    return t === "heat_cool" || t === "auto" ? a = "Use heat / cool ranges. A single target is ambiguous in this mode and Scheduled Control will remain blocked for that period." : t === "heat" ? a = "A single target is interpreted as heating. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "cool" ? a = "A single target is interpreted as cooling. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "off" ? a = "Schedules remain editable, but Scheduled Control is blocked while the thermostat is Off." : a = "Schedules remain editable, but Scheduled Control is blocked until the thermostat reports an unambiguous Heat, Cool, or Heat/Cool mode.", c`<section
+      class="mode-guidance"
+      aria-labelledby="mode-guidance-heading"
+    >
+      <div>
+        <span>Current thermostat mode</span>
+        <strong id="mode-guidance-heading">${i}</strong>
+      </div>
+      <p>${a}</p>
+      <small>The schedule never changes HVAC mode automatically.</small>
+    </section>`;
+  }
+  targetModeWarning(e) {
+    const t = this.currentZoneSnapshot(), i = t?.thermostat_hvac_mode;
+    if (!(e.target.kind === "single" ? t?.supports_single_target === !0 : t?.supports_target_range === !0)) {
+      const o = e.target.kind === "single" ? "Single targets are" : "Heat / cool ranges are";
+      return c`<p class="mode-warning" role="status">
+        ${o} not supported by the current command-authority
+        thermostat. This period remains visible, but it cannot be used for
+        Scheduled Control.
+      </p>`;
+    }
+    if (e.target.kind === "single" && (i === "heat" || i === "cool") || e.target.kind === "range" && (i === "heat_cool" || i === "auto")) return h;
+    const s = e.target.kind === "single" ? "Single target" : "Heat / cool range", l = i == null ? "an unavailable mode" : this.modeLabel(i);
+    return c`<p class="mode-warning" role="status">
+      ${s} cannot be used for Scheduled Control while the thermostat
+      reports ${l}. It remains saved and visible; control will fail
+      closed.
+    </p>`;
+  }
+  modeLabel(e) {
+    return e === "heat_cool" ? "Heat/Cool" : e === "auto" ? "Auto" : this.titleCase(e);
   }
   displayTemperature(e) {
     return this.temperatureUnit === "°F" ? e * 9 / 5 + 32 : e;
@@ -2167,9 +2235,10 @@ const M = [
     return e.charAt(0).toUpperCase() + e.slice(1);
   }
 };
-ee.properties = {
+te.properties = {
   document: { attribute: !1 },
   zones: { attribute: !1 },
+  zoneSnapshots: { attribute: !1 },
   preview: { attribute: !1 },
   validationMessage: { type: String },
   saving: { type: Boolean },
@@ -2183,9 +2252,9 @@ ee.properties = {
   copyTargets: { state: !0 },
   clearPendingDay: { state: !0 },
   starterTargets: { state: !0 }
-}, ee.styles = [
+}, te.styles = [
   Be,
-  ae`
+  re`
       :host {
         display: block;
       }
@@ -2270,6 +2339,7 @@ ee.properties = {
         line-height: 1.35;
       }
       .template-tools,
+      .mode-guidance,
       .copy-tool,
       .preview-card,
       .save-bar {
@@ -2278,6 +2348,33 @@ ee.properties = {
         background: var(--ic-surface);
         padding: 16px;
         margin-block: 16px;
+      }
+      .mode-guidance {
+        display: grid;
+        grid-template-columns: minmax(150px, auto) 1fr;
+        gap: 8px 20px;
+        border: 1px solid var(--ic-border);
+        border-inline-start: 4px solid var(--info-color, #039be5);
+        border-radius: 12px;
+        background: var(--ic-surface);
+        padding: 14px 16px;
+      }
+      .mode-guidance div {
+        display: grid;
+      }
+      .mode-guidance span,
+      .mode-guidance small {
+        color: var(--secondary-text-color);
+        font-size: 0.78rem;
+      }
+      .mode-guidance small {
+        grid-column: 1 / -1;
+      }
+      .mode-warning {
+        margin-block-start: 10px;
+        border-inline-start: 3px solid var(--warning-color, #f9a825);
+        padding-inline-start: 10px;
+        font-size: 0.82rem;
       }
       .template-tools {
         display: grid;
@@ -2569,7 +2666,7 @@ ee.properties = {
       }
     `
 ];
-let ue = ee;
+let ue = te;
 customElements.define("ic-schedule-editor", ue);
 const Vt = {
   effective_temperature: "Indoor temperature",
@@ -2585,7 +2682,7 @@ const Vt = {
   fan_action: "Fan-only circulation",
   contact_state: "Window / door",
   control_context: "Control context"
-}, Yt = {
+}, Wt = {
   off: "Off",
   idle: "Idle",
   heating: "Heating",
@@ -2605,23 +2702,23 @@ const Vt = {
   safe_fallback: "Safe fallback",
   paused: "Paused",
   degraded: "Degraded"
-}, Q = 30, J = 155, Wt = J - Q, Ie = [30, 61.25, 92.5, 123.75, 155], Kt = 300 * 1e3, Qt = 900 * 1e3;
-function Ye(a) {
-  return Vt[a] ?? a.replaceAll("_", " ");
+}, J = 30, X = 155, Yt = X - J, Ie = [30, 61.25, 92.5, 123.75, 155], Kt = 300 * 1e3, Qt = 900 * 1e3;
+function We(r) {
+  return Vt[r] ?? r.replaceAll("_", " ");
 }
-function We(a) {
-  return typeof a == "string" ? Yt[a] ?? Ye(a) : String(a);
+function Ye(r) {
+  return typeof r == "string" ? Wt[r] ?? We(r) : String(r);
 }
-function Jt(a) {
-  return a.filter(
-    (e, t) => t === 0 || a[t - 1]?.value !== e.value
+function Jt(r) {
+  return r.filter(
+    (e, t) => t === 0 || r[t - 1]?.value !== e.value
   );
 }
-function Xt(a) {
-  return typeof a.value == "string";
+function Xt(r) {
+  return typeof r.value == "string";
 }
-function ei(a) {
-  switch (a) {
+function ei(r) {
+  switch (r) {
     case "heating":
       return "Running with heating";
     case "cooling":
@@ -2634,26 +2731,26 @@ function ei(a) {
     case "idle":
       return "Not running";
     default:
-      return We(a);
+      return Ye(r);
   }
 }
-function W(a) {
-  return a.samples.filter(
+function K(r) {
+  return r.samples.filter(
     (e) => typeof e.value == "number"
   );
 }
-function ti(a, e) {
-  if (a.length === 0)
+function ti(r, e) {
+  if (r.length === 0)
     return "";
-  const t = a[0];
+  const t = r[0];
   if (t === void 0)
     return "";
   let i = `M ${t.x.toFixed(2)} ${t.y.toFixed(2)}`;
-  for (const r of a.slice(1))
-    i += e ? ` H ${r.x.toFixed(2)} V ${r.y.toFixed(2)}` : ` L ${r.x.toFixed(2)} ${r.y.toFixed(2)}`;
+  for (const a of r.slice(1))
+    i += e ? ` H ${a.x.toFixed(2)} V ${a.y.toFixed(2)}` : ` L ${a.x.toFixed(2)} ${a.y.toFixed(2)}`;
   return i;
 }
-const te = class te extends P {
+const ie = class ie extends P {
   constructor() {
     super(...arguments), this.locale = "en-US", this.temperatureUnit = "°C";
   }
@@ -2668,12 +2765,12 @@ const te = class te extends P {
       return c`<div class="empty" role="status">
         Today’s timeline is not available yet. Observation continues normally.
       </div>`;
-    const e = this.timeline, t = this.temperatureRange(e), i = this.chartWindow(e), r = this.renderedSeries(e, t, i), n = r.find(
+    const e = this.timeline, t = this.temperatureRange(e), i = this.chartWindow(e), a = this.renderedSeries(e, t, i), n = a.find(
       (d) => d.kind === "effective_temperature"
     ), s = n?.sampleCount ?? 0, l = s >= 2, o = this.stateLanes(e, i), p = this.currentCursor(i), g = this.axisTimes(i, e);
     return c`
       <div class="legend" aria-label="Timeline legend">
-        ${r.map(
+        ${a.map(
       (d) => c`<span class="legend-item">
               <span
                 class="swatch ${d.className}"
@@ -2684,7 +2781,7 @@ const te = class te extends P {
             </span>`
     )}
       </div>
-      ${r.length === 0 ? c`<div class="empty" role="status">
+      ${a.length === 0 ? c`<div class="empty" role="status">
               No numeric observations yet.
             </div>` : l ? c`<div class="chart-wrap">
                 <svg
@@ -2708,8 +2805,8 @@ const te = class te extends P {
       (d) => E`<line
                           x1=${d}
                           x2=${d}
-                          y1=${Q}
-                          y2=${J}
+                          y1=${J}
+                          y2=${X}
                         ></line>`
     )}
                   </g>
@@ -2725,7 +2822,7 @@ const te = class te extends P {
                       </text>`;
     })}
                   </g>
-                  ${r.map(
+                  ${a.map(
       (d) => E`<g class="series-group ${d.className}">
                         <path
                           class="series ${d.className}"
@@ -2745,8 +2842,8 @@ const te = class te extends P {
                           class="now"
                           x1=${p}
                           x2=${p}
-                          y1=${Q - 5}
-                          y2=${J + 5}
+                          y1=${J - 5}
+                          y2=${X + 5}
                         ></line>`}
                   ${e.annotations.map((d) => {
       const v = this.xPosition(
@@ -2755,7 +2852,7 @@ const te = class te extends P {
       );
       return E`<g class="annotation" aria-hidden="true">
                       <circle cx=${v} cy="15" r="6"></circle>
-                      <line x1=${v} x2=${v} y1="21" y2=${Q + 6}></line>
+                      <line x1=${v} x2=${v} y1="21" y2=${J + 6}></line>
                     </g>`;
     })}
                   <g class="axis-labels" aria-hidden="true">
@@ -2805,7 +2902,7 @@ const te = class te extends P {
               </tr>
             </thead>
             <tbody>
-              ${r.map(
+              ${a.map(
       (d) => c`<tr>
                     <th scope="row">${d.label}</th>
                     <td>${d.valueKind}</td>
@@ -2822,9 +2919,9 @@ const te = class te extends P {
   }
   renderedSeries(e, t, i) {
     return e.series.filter(
-      (n) => W(n).length > 0 && n.unit !== "%"
+      (n) => K(n).length > 0 && n.unit !== "%"
     ).map((n) => {
-      const s = W(n), l = s.map((p) => ({
+      const s = K(n), l = s.map((p) => ({
         x: this.xPosition(Date.parse(p.timestamp_utc), i),
         y: this.yPosition(p.value, t)
       })), o = s.at(-1);
@@ -2833,18 +2930,18 @@ const te = class te extends P {
       return {
         kind: n.kind,
         valueKind: n.value_kind,
-        label: Ye(n.kind),
+        label: We(n.kind),
         className: `${n.value_kind} ${n.kind}`,
         path: ti(l, n.value_kind !== "measured"),
         points: l,
         latest: o.value,
         latestTimestamp: o.timestamp_utc,
         sampleCount: s.length,
-        coverage: `${q(
+        coverage: `${Z(
           n.coverage_start_utc,
           this.locale,
           e.time_zone
-        )} – ${q(
+        )} – ${Z(
           n.coverage_end_utc,
           this.locale,
           e.time_zone
@@ -2856,14 +2953,14 @@ const te = class te extends P {
   temperatureRange(e) {
     return this.range(
       e.series.filter((t) => t.unit === "°C").flatMap(
-        (t) => W(t).map((i) => i.value)
+        (t) => K(t).map((i) => i.value)
       )
     );
   }
   sampleSummary(e) {
     return e === void 0 ? h : c`<p class="sample-summary">
       Latest sample
-      ${q(
+      ${Z(
       e.latestTimestamp,
       this.locale,
       this.timeline?.time_zone
@@ -2874,7 +2971,7 @@ const te = class te extends P {
   stateLanes(e, t) {
     const i = e.series.find(
       (o) => o.kind === "hvac_action"
-    ), r = e.series.find((o) => o.kind === "fan_action"), n = e.series.find(
+    ), a = e.series.find((o) => o.kind === "fan_action"), n = e.series.find(
       (o) => o.kind === "contact_state"
     ), s = e.series.find(
       (o) => o.kind === "control_context"
@@ -2905,11 +3002,11 @@ const te = class te extends P {
         (o) => ["heating", "cooling", "drying", "fan"].includes(o),
         ei
       )
-    ), r !== void 0 && l.splice(
+    ), a !== void 0 && l.splice(
       Math.min(2, l.length),
       0,
       this.buildStateLane(
-        r,
+        a,
         t,
         "Fan only",
         "Explicit circulation without heating or cooling",
@@ -2938,7 +3035,7 @@ const te = class te extends P {
       )
     ), l;
   }
-  buildStateLane(e, t, i, r, n, s, l = We) {
+  buildStateLane(e, t, i, a, n, s, l = Ye) {
     const o = Jt(e.samples).filter(Xt), p = Math.min(
       t.end,
       Date.parse(e.coverage_end_utc)
@@ -2952,11 +3049,11 @@ const te = class te extends P {
         S === void 0 ? p : Date.parse(S.timestamp_utc)
       );
       if (R <= b) return [];
-      const _e = t.end - t.start;
+      const ye = t.end - t.start;
       return [
         {
-          left: (b - t.start) / _e * 100,
-          width: (R - b) / _e * 100,
+          left: (b - t.start) / ye * 100,
+          width: (R - b) / ye * 100,
           value: d.value,
           label: l(d.value),
           className: `${n} ${d.value}`,
@@ -2965,7 +3062,7 @@ const te = class te extends P {
         }
       ];
     });
-    return { label: i, detail: r, className: n, segments: g };
+    return { label: i, detail: a, className: n, segments: g };
   }
   renderStateLane(e) {
     return c`<div class="lane-row ${e.className}">
@@ -2988,34 +3085,34 @@ const te = class te extends P {
     </div>`;
   }
   stateTimestamp(e) {
-    return q(e, this.locale, this.timeline?.time_zone);
+    return Z(e, this.locale, this.timeline?.time_zone);
   }
   range(e) {
     if (e.length === 0)
       return [0, 1];
-    const t = Math.min(...e), i = Math.max(...e), r = Math.max((i - t) * 0.15, 0.5);
-    return [t - r, i + r];
+    const t = Math.min(...e), i = Math.max(...e), a = Math.max((i - t) * 0.15, 0.5);
+    return [t - a, i + a];
   }
   xPosition(e, t) {
     return 80 + (e - t.start) / (t.end - t.start) * 890;
   }
   yPosition(e, t) {
-    const [i, r] = t;
-    return J - (e - i) / (r - i) * Wt;
+    const [i, a] = t;
+    return X - (e - i) / (a - i) * Yt;
   }
   currentCursor(e) {
     const t = Date.now();
     return t < e.start || t > e.end ? null : this.xPosition(t, e);
   }
   chartWindow(e) {
-    const t = Date.parse(e.day_start_utc), i = Date.parse(e.day_end_utc), r = e.series.filter((b) => b.unit !== "%").flatMap(
-      (b) => W(b).map(
+    const t = Date.parse(e.day_start_utc), i = Date.parse(e.day_end_utc), a = e.series.filter((b) => b.unit !== "%").flatMap(
+      (b) => K(b).map(
         (S) => Date.parse(S.timestamp_utc)
       )
     ).filter((b) => Number.isFinite(b));
-    if (r.length === 0)
+    if (a.length === 0)
       return { start: t, end: i };
-    const n = Math.min(...r), s = Math.max(...r), l = i - t, o = Math.max(
+    const n = Math.min(...a), s = Math.max(...a), l = i - t, o = Math.max(
       Qt,
       s - n + Kt * 2
     ), p = Math.min(l, o), g = (n + s) / 2;
@@ -3038,11 +3135,11 @@ const te = class te extends P {
     return typeof e.latest != "number" ? e.latest : ce(e.latest, this.temperatureUnit, this.locale);
   }
 };
-te.properties = {
+ie.properties = {
   timeline: { attribute: !1 },
   locale: { type: String },
   temperatureUnit: { type: String, attribute: "temperature-unit" }
-}, te.styles = ae`
+}, ie.styles = re`
     :host {
       display: block;
     }
@@ -3282,26 +3379,26 @@ te.properties = {
       }
     }
   `;
-let pe = te;
+let pe = ie;
 customElements.get("ic-today-timeline") || customElements.define("ic-today-timeline", pe);
 const he = "intelligent-climate.temperature-unit";
 function ii() {
   try {
-    const a = window.localStorage.getItem(he);
-    if (a === "fahrenheit" || a === "celsius")
-      return a;
+    const r = window.localStorage.getItem(he);
+    if (r === "fahrenheit" || r === "celsius")
+      return r;
   } catch {
   }
   return "home_assistant";
 }
-function ai(a) {
+function ai(r) {
   try {
-    a === "home_assistant" ? window.localStorage.removeItem(he) : window.localStorage.setItem(he, a);
+    r === "home_assistant" ? window.localStorage.removeItem(he) : window.localStorage.setItem(he, r);
   } catch {
   }
 }
-function ri(a, e) {
-  return a === "fahrenheit" ? "°F" : a === "celsius" ? "°C" : e;
+function ri(r, e) {
+  return r === "fahrenheit" ? "°F" : r === "celsius" ? "°C" : e;
 }
 const ni = [
   "monday",
@@ -3312,11 +3409,11 @@ const ni = [
   "saturday",
   "sunday"
 ];
-function si(a, e, t = /* @__PURE__ */ new Date()) {
+function si(r, e, t = /* @__PURE__ */ new Date()) {
   const i = li(
     e.config.equipment_group,
     "config.equipment_group"
-  ), r = Ue(
+  ), a = Ue(
     i.equipment_group_id,
     "config.equipment_group.equipment_group_id"
   ), n = Ue(
@@ -3334,37 +3431,37 @@ function si(a, e, t = /* @__PURE__ */ new Date()) {
   }
   return {
     schedule_schema_version: 1,
-    entry_id: a,
-    equipment_group_id: r,
+    entry_id: r,
+    equipment_group_id: a,
     time_zone: n,
     revision: 0,
     zones: s,
     saved_at_utc: t.toISOString()
   };
 }
-function Me(a, e = /* @__PURE__ */ new Date()) {
-  return { ...structuredClone(a), saved_at_utc: e.toISOString() };
+function Me(r, e = /* @__PURE__ */ new Date()) {
+  return { ...structuredClone(r), saved_at_utc: e.toISOString() };
 }
-function oi(a) {
+function oi(r) {
   const e = {};
   for (const t of ni)
     e[t] = [];
   return {
-    profile_id: a,
+    profile_id: r,
     name: "Normal",
     enabled: !0,
     days: e
   };
 }
-function li(a, e) {
-  if (typeof a != "object" || a === null || Array.isArray(a))
+function li(r, e) {
+  if (typeof r != "object" || r === null || Array.isArray(r))
     throw new Error(`${e} is unavailable`);
-  return a;
+  return r;
 }
-function Ue(a, e) {
-  if (typeof a != "string" || a.length === 0)
+function Ue(r, e) {
+  if (typeof r != "string" || r.length === 0)
     throw new Error(`${e} is unavailable`);
-  return a;
+  return r;
 }
 const Ke = [
   { id: "overview", label: "Overview", icon: "⌂" },
@@ -3373,10 +3470,10 @@ const Ke = [
   { id: "activity", label: "Activity", icon: "↯" },
   { id: "settings", label: "Settings", icon: "⚙" }
 ];
-function ci(a) {
-  return Ke.some((e) => e.id === a);
+function ci(r) {
+  return Ke.some((e) => e.id === r);
 }
-const ie = class ie extends P {
+const ae = class ae extends P {
   constructor() {
     super(...arguments), this.narrow = !1, this.activeRoute = "overview", this.selectedEntryId = "", this.selectedZoneId = "", this.loading = !0, this.errorMessage = "", this.activityFilter = "all", this.temperatureUnitPreference = ii(), this.activityLoadingOlder = !1, this.scheduleLoading = !1, this.scheduleSaving = !1, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.loadGeneration = 0, this.detailLoadGeneration = 0, this.entryChanged = (e) => {
       const t = e.currentTarget;
@@ -3403,11 +3500,11 @@ const ie = class ie extends P {
         );
         if (t !== this.loadGeneration)
           return;
-        const r = new Set(
+        const a = new Set(
           e.activity.records.map((s) => s.record_id)
         ), n = [
           ...e.activity.records,
-          ...i.records.filter((s) => !r.has(s.record_id))
+          ...i.records.filter((s) => !a.has(s.record_id))
         ];
         this.data = {
           ...e,
@@ -3590,6 +3687,7 @@ const ie = class ie extends P {
                 <ic-schedule-editor
                   .document=${this.scheduleDocument}
                   .zones=${e.configuration.zones}
+                  .zoneSnapshots=${e.snapshot.zones}
                   .preview=${this.schedulePreview}
                   .validationMessage=${this.scheduleMessage}
                   .saving=${this.scheduleSaving}
@@ -3603,7 +3701,7 @@ const ie = class ie extends P {
     `;
   }
   renderOverview() {
-    const e = this.requireData(), t = yt(e.snapshot.control_state), i = e.shadow.readiness, r = [
+    const e = this.requireData(), t = _t(e.snapshot.control_state), i = e.shadow.readiness, a = [
       "shadow_qualifying",
       "shadow_ready"
     ].includes(e.snapshot.control_state), n = this.selectedZone();
@@ -3714,10 +3812,10 @@ const ie = class ie extends P {
             <span
               class="readiness-state ${i?.ready === !0 ? "ready" : "waiting"}"
             >
-              ${i?.ready === !0 ? "✓ Ready" : r ? "◌ Qualifying" : "○ Not started"}
+              ${i?.ready === !0 ? "✓ Ready" : a ? "◌ Qualifying" : "○ Not started"}
             </span>
           </div>
-          ${r ? i === null ? c`<p class="muted">
+          ${a ? i === null ? c`<p class="muted">
                     Scheduled Shadow is starting. Qualification evidence will
                     appear after its first valid evaluation.
                   </p>` : c`<div class="progress-row">
@@ -3860,15 +3958,15 @@ const ie = class ie extends P {
         ${e.configuration.zones.map((t) => {
       const i = e.snapshot.zones.find(
         (n) => n.zone_id === t.zone_id
-      ), r = i?.sensor_data_degraded === !0 || i?.thermostat_data_degraded === !0;
+      ), a = i?.sensor_data_degraded === !0 || i?.thermostat_data_degraded === !0;
       return c`<article class="card zone-health-card">
             <div class="card-heading">
               <div>
                 <span class="eyebrow">Zone</span>
                 <h3>${t.name}</h3>
               </div>
-              <span class="health-pill ${r ? "warning" : "healthy"}"
-                >${r ? "⚠ Review" : "✓ Healthy"}</span
+              <span class="health-pill ${a ? "warning" : "healthy"}"
+                >${a ? "⚠ Review" : "✓ Healthy"}</span
               >
             </div>
             <div class="sensor-reading">
@@ -3972,7 +4070,7 @@ const ie = class ie extends P {
       </div>` : c`<ol class="activity-list">
       ${e.map((t) => {
       const i = this.data?.configuration.zones.find(
-        (r) => r.zone_id === t.zone_id
+        (a) => a.zone_id === t.zone_id
       );
       return c`<li>
           <span
@@ -4106,11 +4204,14 @@ const ie = class ie extends P {
             </div>
             <span aria-hidden="true">→</span></a
           >
-          <a href="/developer-tools/yaml"
+          <a href="/config/integrations/integration/intelligent_climate"
             ><span aria-hidden="true">⇩</span>
             <div>
-              <strong>Diagnostics</strong
-              ><small>Download from the integration device page</small>
+              <strong>Download diagnostics</strong
+              ><small
+                >Open the integration page, then use the entry menu to download
+                diagnostics</small
+              >
             </div>
             <span aria-hidden="true">→</span></a
           >
@@ -4170,7 +4271,7 @@ const ie = class ie extends P {
     return t ? e === null ? "Unavailable" : `${new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 1 }).format(e)}%` : "Not configured";
   }
   time(e) {
-    return q(e, this.locale(), this.timeline?.time_zone);
+    return Z(e, this.locale(), this.timeline?.time_zone);
   }
   enabledSourceCount(e) {
     return e.filter((t) => t.enabled).length;
@@ -4193,11 +4294,11 @@ const ie = class ie extends P {
         degraded: "Observation is continuing with degraded data.",
         reconciling: "Live state is being checked after startup."
       }[e.control_state] ?? `Current status: ${Y(e.control_state)}.`
-    ], r = e.effective_target_c ?? e.scheduled_target_c;
-    if (r !== null) {
+    ], a = e.effective_target_c ?? e.scheduled_target_c;
+    if (a !== null) {
       const n = e.next_transition_utc === null ? "" : ` until ${this.time(e.next_transition_utc)}`;
       i.push(
-        `The current target is ${this.temperature(r)}${n}.`
+        `The current target is ${this.temperature(a)}${n}.`
       );
     }
     if (e.temperature_c !== null) {
@@ -4234,20 +4335,20 @@ const ie = class ie extends P {
     const i = new Gt(this.hass, e);
     this.client = i;
     try {
-      const r = await i.dashboardData();
+      const a = await i.dashboardData();
       if (t !== this.loadGeneration)
         return;
-      this.data = r;
-      const n = r.configuration.zones[0];
+      this.data = a;
+      const n = a.configuration.zones[0];
       if (this.selectedZoneId = n?.zone_id ?? "", this.selectedZoneId.length > 0 && await this.loadZoneDetails(t), this.activeRoute === "schedule" && await this.loadSchedule(t), t !== this.loadGeneration)
         return;
       this.unsubscribe = await i.subscribe((s) => {
         this.applySnapshot(s);
       });
-    } catch (r) {
+    } catch (a) {
       if (t !== this.loadGeneration)
         return;
-      this.errorMessage = this.describeError(r);
+      this.errorMessage = this.describeError(a);
     } finally {
       t === this.loadGeneration && (this.loading = !1);
     }
@@ -4270,11 +4371,11 @@ const ie = class ie extends P {
   async loadZoneDetails(e) {
     if (this.client === void 0 || this.selectedZoneId.length === 0)
       return;
-    const t = ++this.detailLoadGeneration, [i, r] = await Promise.allSettled([
+    const t = ++this.detailLoadGeneration, [i, a] = await Promise.allSettled([
       this.client.todayTimeline(this.selectedZoneId),
       this.client.narrative(this.selectedZoneId)
     ]);
-    e !== this.loadGeneration || t !== this.detailLoadGeneration || (this.timeline = i.status === "fulfilled" ? i.value : void 0, this.narrative = r.status === "fulfilled" ? r.value : void 0);
+    e !== this.loadGeneration || t !== this.detailLoadGeneration || (this.timeline = i.status === "fulfilled" ? i.value : void 0, this.narrative = a.status === "fulfilled" ? a.value : void 0);
   }
   applySnapshot(e) {
     this.data === void 0 || e.entry_id !== this.selectedEntryId || (this.data = { ...this.data, snapshot: e }, this.loadZoneDetails(this.loadGeneration));
@@ -4289,7 +4390,7 @@ const ie = class ie extends P {
     this.selectedZoneId = e, this.loadZoneDetails(this.loadGeneration);
   }
   confirmDiscard(e) {
-    return !this.scheduleDirty || e === "schedule" || window.confirm("Discard unsaved schedule changes?");
+    return !this.scheduleDirty || e === "schedule" ? !0 : window.confirm("Discard unsaved schedule changes?") ? (this.scheduleDocument = void 0, this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, !0) : !1;
   }
   errorCode(e) {
     if (typeof e != "object" || e === null) return;
@@ -4300,7 +4401,7 @@ const ie = class ie extends P {
     return this.errorCode(e) === "revision_conflict" ? "The schedule changed in another editor. Your draft was not saved." : this.describeError(e);
   }
 };
-ie.properties = {
+ae.properties = {
   hass: { attribute: !1 },
   panel: { attribute: !1 },
   route: { attribute: !1 },
@@ -4323,9 +4424,9 @@ ie.properties = {
   scheduleDirty: { state: !0 },
   scheduleMessage: { state: !0 },
   scheduleConflict: { state: !0 }
-}, ie.styles = [
+}, ae.styles = [
   Be,
-  ae`
+  re`
       :host {
         display: block;
         min-block-size: 100%;
@@ -5220,5 +5321,5 @@ ie.properties = {
       }
     `
 ];
-let ge = ie;
+let ge = ae;
 customElements.get("intelligent-climate-panel") || customElements.define("intelligent-climate-panel", ge);

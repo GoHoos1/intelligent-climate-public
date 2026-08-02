@@ -112,6 +112,18 @@ describe("frontend schema contracts", () => {
       }),
     ).toThrow("expected boolean");
     expect(() =>
+      validateSnapshot({
+        ...snapshot,
+        zones: [{ ...snapshot.zones[0], supported_hvac_modes: "heat" }],
+      }),
+    ).toThrow("expected array");
+    expect(() =>
+      validateSnapshot({
+        ...snapshot,
+        zones: [{ ...snapshot.zones[0], supports_target_range: "yes" }],
+      }),
+    ).toThrow("expected boolean");
+    expect(() =>
       validateConfiguration({
         ...configuration,
         zones: [{ ...configuration.zones[0], temperature_sources: null }],

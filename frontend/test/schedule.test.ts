@@ -5,7 +5,7 @@ import {
   createEmptyScheduleDraft,
   prepareScheduleWrite,
 } from "../src/schedule/draft";
-import type { ScheduleDocument } from "../src/types/contracts";
+import type { ScheduleDocument, ZoneSnapshot } from "../src/types/contracts";
 import {
   ENTRY_ID,
   NOW,
@@ -13,16 +13,19 @@ import {
   configuration,
   scheduleDocument,
   schedulePreview,
+  snapshot,
 } from "./fixtures";
 
 afterEach(() => document.body.replaceChildren());
 
 async function renderEditor(
   documentValue: ScheduleDocument = structuredClone(scheduleDocument),
+  zoneSnapshots: ZoneSnapshot[] = structuredClone(snapshot.zones),
 ) {
   const editor = document.createElement("ic-schedule-editor");
   editor.document = documentValue;
   editor.zones = configuration.zones;
+  editor.zoneSnapshots = zoneSnapshots;
   editor.preview = schedulePreview;
   editor.temperatureUnit = "°F";
   editor.locale = "en-US";
@@ -105,11 +108,72 @@ describe("Task 23 schedule editor", () => {
     expect(editor.shadowRoot?.textContent).toContain(
       "A profile is a complete weekly schedule",
     );
+    expect(editor.shadowRoot?.textContent.replaceAll(/\s+/g, " ")).toContain(
+      "Current thermostat mode Heat/Cool",
+    );
+    expect(editor.shadowRoot?.textContent).toContain(
+      "single target is ambiguous in this mode",
+    );
+    expect(editor.shadowRoot?.textContent).toContain(
+      "The schedule never changes HVAC mode automatically",
+    );
     expect(
       editor.shadowRoot?.querySelector(
         "select[aria-describedby='profile-help']",
       ),
     ).toBeNull();
+  });
+
+  it("defaults capable zones to ranges and flags mode-incompatible targets", async () => {
+    const editor = await renderEditor();
+    const changes: ScheduleDocument[] = [];
+    editor.addEventListener("schedule-change", (event) => {
+      const detail = (event as CustomEvent<{ document: ScheduleDocument }>)
+        .detail;
+      changes.push(detail.document);
+      editor.document = detail.document;
+    });
+
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Add Tuesday period"]',
+      )
+      ?.click();
+    await editor.updateComplete;
+
+    expect(
+      changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.tuesday[0]?.target,
+    ).toMatchObject({
+      kind: "range",
+      heat_target_c: 20.6,
+      cool_target_c: 23.9,
+    });
+
+    const fixtureSnapshot = snapshot.zones[0];
+    if (fixtureSnapshot === undefined) throw new Error("zone snapshot missing");
+    const heatOnly = await renderEditor(structuredClone(scheduleDocument), [
+      {
+        ...structuredClone(fixtureSnapshot),
+        thermostat_hvac_mode: "heat",
+        supported_hvac_modes: ["off", "heat"],
+        supports_target_range: false,
+      },
+    ]);
+    const heatChanges: ScheduleDocument[] = [];
+    heatOnly.addEventListener("schedule-change", (event) => {
+      heatChanges.push(
+        (event as CustomEvent<{ document: ScheduleDocument }>).detail.document,
+      );
+    });
+    heatOnly.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Add Tuesday period"]',
+      )
+      ?.click();
+    expect(
+      heatChanges.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.tuesday[0]?.target
+        .kind,
+    ).toBe("single");
   });
 
   it("adds, duplicates, deletes, copies, and templates periods with new IDs", async () => {

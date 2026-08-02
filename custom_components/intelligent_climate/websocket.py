@@ -42,6 +42,7 @@ _BASE: dict[str | vol.Marker, Any] = {
 
 if TYPE_CHECKING:
     from .coordinator import IntelligentClimateCoordinator
+    from .models.runtime import EntryObservationSnapshot, ZoneObservation
     from .runtime import Phase2CoordinatorRuntime
 
 
@@ -595,12 +596,72 @@ def _snapshot_json(
                 "zone_id": str(item.zone_id),
                 "effective_temperature_c": item.effective_temperature_c,
                 "effective_humidity_pct": item.effective_humidity_pct,
+                "thermostat_hvac_mode": _zone_hvac_mode(item),
+                "supported_hvac_modes": _zone_supported_hvac_modes(observation, item),
+                "supports_single_target": _zone_supports_target_kind(
+                    observation, item, range_target=False
+                ),
+                "supports_target_range": _zone_supports_target_kind(
+                    observation, item, range_target=True
+                ),
                 "sensor_data_degraded": item.sensor_data_degraded,
                 "thermostat_data_degraded": item.thermostat_data_degraded,
             }
             for item in observation.zones
         ],
     }
+
+
+def _zone_hvac_mode(zone: ZoneObservation) -> str | None:
+    """Return one unambiguous available mode without exposing thermostat IDs."""
+    modes = {
+        state.hvac_mode.value
+        for state in zone.thermostat_states
+        if state.available and state.hvac_mode is not None
+    }
+    return next(iter(modes)) if len(modes) == 1 else None
+
+
+def _zone_supported_hvac_modes(
+    observation: EntryObservationSnapshot,
+    zone: ZoneObservation,
+) -> list[str]:
+    """Return the common advertised mode set for the zone's thermostats."""
+    thermostat_ids = {state.entity_id for state in zone.thermostat_states}
+    supported: list[set[str]] = []
+    for thermostat in observation.thermostats:
+        if thermostat.entity_id not in thermostat_ids:
+            continue
+        capabilities = thermostat.capability_discovery.capabilities
+        if capabilities is None:
+            return []
+        supported.append({mode.value for mode in capabilities.hvac_modes})
+    if not supported:
+        return []
+    common = set.intersection(*supported)
+    return sorted(common)
+
+
+def _zone_supports_target_kind(
+    observation: EntryObservationSnapshot,
+    zone: ZoneObservation,
+    *,
+    range_target: bool,
+) -> bool:
+    """Require every zone thermostat to advertise the requested target shape."""
+    thermostat_ids = {state.entity_id for state in zone.thermostat_states}
+    capabilities = [
+        thermostat.capability_discovery.capabilities
+        for thermostat in observation.thermostats
+        if thermostat.entity_id in thermostat_ids
+    ]
+    if not capabilities or any(item is None for item in capabilities):
+        return False
+    return all(
+        item.target_temperature_range if range_target else item.target_temperature
+        for item in capabilities
+        if item is not None
+    )
 
 
 def _target_json(value: TargetSpec) -> dict[str, object]:

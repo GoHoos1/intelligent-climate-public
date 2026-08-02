@@ -298,6 +298,7 @@ export class IntelligentClimatePanel extends LitElement {
                 <ic-schedule-editor
                   .document=${this.scheduleDocument}
                   .zones=${data.configuration.zones}
+                  .zoneSnapshots=${data.snapshot.zones}
                   .preview=${this.schedulePreview}
                   .validationMessage=${this.scheduleMessage}
                   .saving=${this.scheduleSaving}
@@ -875,11 +876,14 @@ export class IntelligentClimatePanel extends LitElement {
             </div>
             <span aria-hidden="true">→</span></a
           >
-          <a href="/developer-tools/yaml"
+          <a href="/config/integrations/integration/intelligent_climate"
             ><span aria-hidden="true">⇩</span>
             <div>
-              <strong>Diagnostics</strong
-              ><small>Download from the integration device page</small>
+              <strong>Download diagnostics</strong
+              ><small
+                >Open the integration page, then use the entry menu to download
+                diagnostics</small
+              >
             </div>
             <span aria-hidden="true">→</span></a
           >
@@ -1318,11 +1322,14 @@ export class IntelligentClimatePanel extends LitElement {
   };
 
   private confirmDiscard(nextRoute: PanelRoute): boolean {
-    return (
-      !this.scheduleDirty ||
-      nextRoute === "schedule" ||
-      window.confirm("Discard unsaved schedule changes?")
-    );
+    if (!this.scheduleDirty || nextRoute === "schedule") return true;
+    if (!window.confirm("Discard unsaved schedule changes?")) return false;
+    this.scheduleDocument = undefined;
+    this.schedulePreview = undefined;
+    this.scheduleDirty = false;
+    this.scheduleMessage = "";
+    this.scheduleConflict = false;
+    return true;
   }
 
   private beforeUnload = (event: BeforeUnloadEvent): void => {

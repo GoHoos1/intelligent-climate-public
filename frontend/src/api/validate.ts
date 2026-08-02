@@ -457,6 +457,22 @@ function zoneSnapshot(value: unknown, path: string): ZoneSnapshot {
       root["effective_humidity_pct"],
       `${path}.effective_humidity_pct`,
     ),
+    thermostat_hvac_mode: optionalString(
+      root["thermostat_hvac_mode"],
+      `${path}.thermostat_hvac_mode`,
+    ),
+    supported_hvac_modes: strings(
+      root["supported_hvac_modes"],
+      `${path}.supported_hvac_modes`,
+    ),
+    supports_single_target: boolean(
+      root["supports_single_target"],
+      `${path}.supports_single_target`,
+    ),
+    supports_target_range: boolean(
+      root["supports_target_range"],
+      `${path}.supports_target_range`,
+    ),
     sensor_data_degraded: boolean(
       root["sensor_data_degraded"],
       `${path}.sensor_data_degraded`,

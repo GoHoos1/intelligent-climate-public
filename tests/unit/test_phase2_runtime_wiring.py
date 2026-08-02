@@ -72,6 +72,7 @@ from custom_components.intelligent_climate.models.policy_runtime import (
     Phase2PolicySnapshot,
     ZonePolicySnapshot,
 )
+from custom_components.intelligent_climate.models.safety import SafetyReasonCode
 from custom_components.intelligent_climate.presentation_trace import (
     PresentationTraceRuntime,
     _fan_only_action,
@@ -124,18 +125,22 @@ def _aggregation(value: float | None) -> SourceAggregationResult:
 def _thermostat(
     *,
     available: bool = True,
+    hvac_mode: HVACMode | None = HVACMode.HEAT,
+    supported_hvac_modes: frozenset[HVACMode] | None = None,
     hvac_action: HVACAction | None = HVACAction.HEATING,
     fan_mode: str | None = None,
+    target_low_c: float | None = None,
+    target_high_c: float | None = None,
 ) -> ThermostatRuntimeSnapshot:
     state = NormalizedClimateState(
         entity_id=THERMOSTAT,
         available=available,
-        hvac_mode=HVACMode.HEAT,
+        hvac_mode=hvac_mode,
         hvac_action=hvac_action,
         current_temperature_c=19.0,
         target_temperature_c=19.0,
-        target_low_c=None,
-        target_high_c=None,
+        target_low_c=target_low_c,
+        target_high_c=target_high_c,
         current_humidity_pct=None,
         fan_mode=fan_mode,
         preset_mode=None,
@@ -146,10 +151,25 @@ def _thermostat(
     )
     capabilities = ThermostatCapabilities(
         entity_id=THERMOSTAT,
-        hvac_modes=frozenset({HVACMode.HEAT}),
-        supported_features=ClimateEntityFeature.TARGET_TEMPERATURE,
+        hvac_modes=(
+            supported_hvac_modes
+            if supported_hvac_modes is not None
+            else frozenset({HVACMode.HEAT})
+        ),
+        supported_features=(
+            ClimateEntityFeature.TARGET_TEMPERATURE
+            | (
+                ClimateEntityFeature.TARGET_TEMPERATURE_RANGE
+                if supported_hvac_modes is not None
+                and ({HVACMode.HEAT_COOL, HVACMode.AUTO} & supported_hvac_modes)
+                else ClimateEntityFeature(0)
+            )
+        ),
         target_temperature=True,
-        target_temperature_range=False,
+        target_temperature_range=(
+            supported_hvac_modes is not None
+            and bool({HVACMode.HEAT_COOL, HVACMode.AUTO} & supported_hvac_modes)
+        ),
         fan_modes=(),
         preset_modes=(),
         current_temperature_available=True,
@@ -173,13 +193,21 @@ def _observation(
     revision: int = 1,
     temperature: float = 19.0,
     thermostat_available: bool = True,
+    hvac_mode: HVACMode | None = HVACMode.HEAT,
+    supported_hvac_modes: frozenset[HVACMode] | None = None,
     hvac_action: HVACAction | None = HVACAction.HEATING,
     fan_mode: str | None = None,
+    target_low_c: float | None = None,
+    target_high_c: float | None = None,
 ) -> EntryObservationSnapshot:
     thermostat = _thermostat(
         available=thermostat_available,
+        hvac_mode=hvac_mode,
+        supported_hvac_modes=supported_hvac_modes,
         hvac_action=hvac_action,
         fan_mode=fan_mode,
+        target_low_c=target_low_c,
+        target_high_c=target_high_c,
     )
     return EntryObservationSnapshot(
         entry_id=ENTRY_ID,
@@ -254,13 +282,14 @@ def test_presentation_distinguishes_unavailable_and_not_reported() -> None:
     assert _fan_only_action(not_reported) is PresentationFanAction.NOT_REPORTED
 
 
-def _schedule() -> ScheduleDocument:
+def _schedule(target: TargetSpec | None = None) -> ScheduleDocument:
+    target = target or TargetSpec(TargetKind.SINGLE, 21.0, None, None)
     period = SchedulePeriod(
         period_id=PERIOD_ID,
         local_start=LocalTime(0, 0),
         label="Home",
         occupancy_label=ScheduleOccupancyLabel.HOME,
-        target=TargetSpec(TargetKind.SINGLE, 21.0, None, None),
+        target=target,
         tolerance_c=0.3,
     )
     profile = WeeklyScheduleProfile(
@@ -410,6 +439,77 @@ async def test_scheduled_shadow_runs_complete_safety_path_without_service_call(
     assert runtime.qualification.valid_evaluations == 1
     assert len(runtime.shadow_sink.history) == 1
     assert trace.calls[-1][1] is snapshot
+    service_call.assert_not_called()
+
+
+async def test_single_target_is_blocked_in_ambiguous_heat_cool_mode(
+    hass: HomeAssistant,
+) -> None:
+    """A single target must never be guessed as heating in Heat/Cool mode."""
+    runtime = Phase2CoordinatorRuntime(
+        migration=_migration(),
+        schedule_store=cast(ScheduleStore, _ScheduleStore(_schedule())),
+        presentation_trace=cast(PresentationTraceRuntime, _Trace()),
+        started_at_utc=NOW - timedelta(seconds=121),
+    )
+    modes = frozenset({HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.HEAT_COOL})
+
+    with patch.object(type(hass.services), "async_call") as service_call:
+        snapshot = await runtime.async_process_snapshot(
+            _observation(
+                hvac_mode=HVACMode.HEAT_COOL,
+                supported_hvac_modes=modes,
+            )
+        )
+
+    decision = snapshot.zones[0].safety_decision
+    assert decision is not None
+    assert decision.reason_code is SafetyReasonCode.HVAC_MODE_UNSUPPORTED
+    assert not snapshot.zones[0].would_command
+    assert runtime.qualification.valid_evaluations == 0
+    service_call.assert_not_called()
+
+
+async def test_range_target_requires_heat_cool_mode_for_shadow_plan(
+    hass: HomeAssistant,
+) -> None:
+    """Range targets remain data in Heat mode but cannot produce a plan."""
+    target = TargetSpec(TargetKind.RANGE, None, 20.0, 24.0)
+    modes = frozenset({HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.HEAT_COOL})
+    blocked = Phase2CoordinatorRuntime(
+        migration=_migration(),
+        schedule_store=cast(ScheduleStore, _ScheduleStore(_schedule(target))),
+        presentation_trace=cast(PresentationTraceRuntime, _Trace()),
+        started_at_utc=NOW - timedelta(seconds=121),
+    )
+    allowed = Phase2CoordinatorRuntime(
+        migration=_migration(),
+        schedule_store=cast(ScheduleStore, _ScheduleStore(_schedule(target))),
+        presentation_trace=cast(PresentationTraceRuntime, _Trace()),
+        started_at_utc=NOW - timedelta(seconds=121),
+    )
+
+    with patch.object(type(hass.services), "async_call") as service_call:
+        blocked_snapshot = await blocked.async_process_snapshot(
+            _observation(hvac_mode=HVACMode.HEAT, supported_hvac_modes=modes)
+        )
+        allowed_snapshot = await allowed.async_process_snapshot(
+            _observation(
+                hvac_mode=HVACMode.HEAT_COOL,
+                supported_hvac_modes=modes,
+                target_low_c=19.0,
+                target_high_c=23.0,
+            )
+        )
+
+    blocked_decision = blocked_snapshot.zones[0].safety_decision
+    allowed_decision = allowed_snapshot.zones[0].safety_decision
+    assert blocked_decision is not None
+    assert blocked_decision.reason_code is SafetyReasonCode.HVAC_MODE_UNSUPPORTED
+    assert not blocked_snapshot.zones[0].would_command
+    assert allowed_decision is not None
+    assert allowed_decision.reason_code is SafetyReasonCode.SHADOW_ONLY
+    assert allowed_snapshot.zones[0].would_command
     service_call.assert_not_called()
 
 
