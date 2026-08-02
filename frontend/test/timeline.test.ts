@@ -29,6 +29,9 @@ describe("accessible Today timeline", () => {
     expect(root?.textContent).toContain("measured");
     expect(root?.textContent).toContain("74.7°F");
     expect(root?.querySelectorAll(".y-axis-labels text")).toHaveLength(5);
+    expect(
+      root?.querySelectorAll(".axis-labels text").length,
+    ).toBeGreaterThanOrEqual(4);
     expect(root?.textContent).toContain("Source: effective zone temperature");
     expect(root?.textContent).toContain("Heating");
     expect(root?.textContent).toContain("Cooling");
@@ -75,6 +78,29 @@ describe("accessible Today timeline", () => {
           samples: samples.map((sample) => ({ ...sample, value: 24 })),
         },
         {
+          kind: "effective_heat_target",
+          value_kind: "calculated",
+          unit: "°C",
+          source_quality: "available",
+          coverage_start_utc: samples[0]?.timestamp_utc ?? NOW,
+          coverage_end_utc: samples[1]?.timestamp_utc ?? NOW,
+          missing_intervals: [],
+          samples,
+        },
+        {
+          kind: "effective_cool_target",
+          value_kind: "calculated",
+          unit: "°C",
+          source_quality: "available",
+          coverage_start_utc: samples[0]?.timestamp_utc ?? NOW,
+          coverage_end_utc: samples[1]?.timestamp_utc ?? NOW,
+          missing_intervals: [],
+          samples: samples.map((sample, index) => ({
+            ...sample,
+            value: index === 0 ? 24 : 23.5,
+          })),
+        },
+        {
           kind: "contact_state",
           value_kind: "measured",
           unit: null,
@@ -113,6 +139,8 @@ describe("accessible Today timeline", () => {
     const root = element.shadowRoot;
     expect(root?.querySelector("path.scheduled_heat_target")).not.toBeNull();
     expect(root?.querySelector("path.scheduled_cool_target")).not.toBeNull();
+    expect(root?.querySelector("path.effective_heat_target")).toBeNull();
+    expect(root?.querySelector("path.effective_cool_target")).not.toBeNull();
     expect(root?.textContent).toContain("Window / door");
     expect(root?.textContent).toContain("Control context");
     expect(root?.querySelectorAll(".lane-segment.contact.open")).toHaveLength(

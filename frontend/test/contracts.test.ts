@@ -98,6 +98,58 @@ describe("frontend schema contracts", () => {
     expect(() =>
       validateActivity({ ...activity, records: "not-a-list" }),
     ).toThrow("expected array");
+    expect(() =>
+      validateActivity({
+        ...activity,
+        records: [
+          {
+            ...activity.records[0],
+            detail: { entity_id: "climate.private" },
+          },
+        ],
+      }),
+    ).toThrow("unexpected detail field");
+    expect(() =>
+      validateActivity({
+        ...activity,
+        records: [
+          { ...activity.records[0], detail: { new_quality: ["valid"] } },
+        ],
+      }),
+    ).toThrow("expected scalar detail");
+    expect(() =>
+      validateActivity({
+        ...activity,
+        records: [
+          {
+            ...activity.records[0],
+            detail: { new_target_temperature_c: Number.NaN },
+          },
+        ],
+      }),
+    ).toThrow("expected finite detail");
+    expect(() => validateActivity({ ...activity, order: "sideways" })).toThrow(
+      "expected newest or oldest",
+    );
+    expect(
+      validateActivity({
+        ...activity,
+        records: [
+          {
+            ...activity.records[0],
+            detail: {
+              previous_target_temperature_c: null,
+              new_target_temperature_c: 22,
+              new_state: true,
+            },
+          },
+        ],
+      }).records[0]?.detail,
+    ).toEqual({
+      previous_target_temperature_c: null,
+      new_target_temperature_c: 22,
+      new_state: true,
+    });
     expect(() => validateSnapshot(null)).toThrow("expected object");
     expect(() =>
       validateSnapshot({ ...snapshot, observation_revision: -1 }),

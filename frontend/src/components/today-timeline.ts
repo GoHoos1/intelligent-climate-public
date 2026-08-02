@@ -17,6 +17,13 @@ interface ChartWindow {
   end: number;
 }
 
+interface TimeTick {
+  label: string;
+  timestamp: number;
+  x: number;
+  anchor: "start" | "middle" | "end";
+}
+
 interface RenderedSeries {
   kind: string;
   valueKind: string;
@@ -199,7 +206,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     const hasChartHistory = collectedSamples >= 2;
     const stateLanes = this.stateLanes(timeline, chartWindow);
     const cursor = this.currentCursor(chartWindow);
-    const axisTimes = this.axisTimes(chartWindow, timeline);
+    const timeTicks = this.timeTicks(chartWindow, timeline);
     return html`
       <div class="legend" aria-label="Timeline legend">
         ${rendered.map(
@@ -249,11 +256,11 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                       (y) =>
                         svg`<line x1="80" x2="970" y1=${y} y2=${y}></line>`,
                     )}
-                    ${[80, 303, 525, 748, 970].map(
-                      (x) =>
+                    ${timeTicks.map(
+                      (tick) =>
                         svg`<line
-                          x1=${x}
-                          x2=${x}
+                          x1=${tick.x}
+                          x2=${tick.x}
                           y1=${PLOT_TOP}
                           y2=${PLOT_BOTTOM}
                         ></line>`,
@@ -317,13 +324,14 @@ export class IntelligentClimateTodayTimeline extends LitElement {
                     </g>`;
                   })}
                   <g class="axis-labels" aria-hidden="true">
-                    <text x="80" y="198">${axisTimes[0]}</text>
-                    <text x="525" y="198" text-anchor="middle">
-                      ${axisTimes[1]}
-                    </text>
-                    <text x="970" y="198" text-anchor="end">
-                      ${axisTimes[2]}
-                    </text>
+                    ${timeTicks.map(
+                      (tick) =>
+                        svg`<text
+                          x=${tick.x}
+                          y="198"
+                          text-anchor=${tick.anchor}
+                        >${tick.label}</text>`,
+                    )}
                   </g>
                 </svg>
                 ${this.sampleSummary(indoorSeries)}
@@ -381,7 +389,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     chartRange: readonly [number, number],
     chartWindow: ChartWindow,
   ): RenderedSeries[] {
-    const numeric = timeline.series.filter(
+    const numeric = this.visibleNumericSeries(timeline).filter(
       (series) => numericSamples(series).length > 0 && series.unit !== "%",
     );
     return numeric.map((series) => {
@@ -416,6 +424,44 @@ export class IntelligentClimateTodayTimeline extends LitElement {
         gaps: series.missing_intervals.length,
       };
     });
+  }
+
+  private visibleNumericSeries(
+    timeline: TodayTimelineResponse,
+  ): TimelineSeries[] {
+    const scheduledByEffective: Record<string, string> = {
+      effective_target: "scheduled_target",
+      effective_heat_target: "scheduled_heat_target",
+      effective_cool_target: "scheduled_cool_target",
+    };
+    return timeline.series.filter((series) => {
+      const scheduledKind = scheduledByEffective[series.kind];
+      if (scheduledKind === undefined) return true;
+      const scheduled = timeline.series.find(
+        (candidate) => candidate.kind === scheduledKind,
+      );
+      return (
+        scheduled === undefined || !this.sameNumericSeries(series, scheduled)
+      );
+    });
+  }
+
+  private sameNumericSeries(
+    first: TimelineSeries,
+    second: TimelineSeries,
+  ): boolean {
+    const firstSamples = numericSamples(first);
+    const secondSamples = numericSamples(second);
+    return (
+      firstSamples.length === secondSamples.length &&
+      firstSamples.every((sample, index) => {
+        const other = secondSamples[index];
+        return (
+          sample.timestamp_utc === other?.timestamp_utc &&
+          sample.value === other.value
+        );
+      })
+    );
   }
 
   private temperatureRange(
@@ -679,20 +725,53 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     return { start, end };
   }
 
-  private axisTimes(
+  private timeTicks(
     chartWindow: ChartWindow,
     timeline: TodayTimelineResponse,
-  ): readonly [string, string, string] {
+  ): TimeTick[] {
+    const duration = chartWindow.end - chartWindow.start;
+    const intervals = [
+      5 * 60_000,
+      15 * 60_000,
+      30 * 60_000,
+      60 * 60_000,
+      2 * 60 * 60_000,
+      3 * 60 * 60_000,
+      4 * 60 * 60_000,
+      6 * 60 * 60_000,
+    ];
+    const interval =
+      intervals.find((candidate) => duration / candidate <= 7) ??
+      intervals.at(-1) ??
+      duration;
+    const timestamps = [chartWindow.start];
+    for (
+      let timestamp = Math.ceil(chartWindow.start / interval) * interval;
+      timestamp < chartWindow.end;
+      timestamp += interval
+    ) {
+      if (timestamp > chartWindow.start + 60_000) timestamps.push(timestamp);
+    }
+    const lastTimestamp = timestamps.at(-1) ?? chartWindow.start;
+    if (chartWindow.end - lastTimestamp > 60_000) {
+      timestamps.push(chartWindow.end);
+    }
     const formatter = new Intl.DateTimeFormat(this.locale, {
       hour: "numeric",
       minute: "2-digit",
       timeZone: timeline.time_zone,
     });
-    return [
-      formatter.format(new Date(chartWindow.start)),
-      formatter.format(new Date((chartWindow.start + chartWindow.end) / 2)),
-      formatter.format(new Date(chartWindow.end)),
-    ];
+    return timestamps.map((timestamp, index) => ({
+      timestamp,
+      x: this.xPosition(timestamp, chartWindow),
+      label: formatter.format(new Date(timestamp)),
+      anchor:
+        index === 0
+          ? "start"
+          : index === timestamps.length - 1
+            ? "end"
+            : "middle",
+    }));
   }
 
   private latestValue(series: RenderedSeries): string {
@@ -731,6 +810,14 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     .swatch.calculated {
       border-block-start-style: dotted;
+    }
+    .swatch.scheduled_heat_target,
+    .swatch.effective_heat_target {
+      border-block-start-color: var(--warning-color, #d97706);
+    }
+    .swatch.scheduled_cool_target,
+    .swatch.effective_cool_target {
+      border-block-start-color: var(--info-color, #1976d2);
     }
     .chart-wrap {
       overflow: hidden;
@@ -794,7 +881,7 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     }
     .axis-labels {
       fill: var(--secondary-text-color, #667085);
-      font-size: 24px;
+      font-size: 16px;
     }
     .y-axis-labels {
       fill: var(--secondary-text-color, #667085);

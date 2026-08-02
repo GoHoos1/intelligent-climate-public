@@ -23,11 +23,19 @@ _DETAIL_KEYS = frozenset(
     {
         "issue_code",
         "new_exclusion_reason",
+        "new_hvac_mode",
         "new_quality",
         "new_state",
+        "new_target_high_c",
+        "new_target_low_c",
+        "new_target_temperature_c",
         "previous_exclusion_reason",
+        "previous_hvac_mode",
         "previous_quality",
         "previous_state",
+        "previous_target_high_c",
+        "previous_target_low_c",
+        "previous_target_temperature_c",
         "source_id",
     }
 )

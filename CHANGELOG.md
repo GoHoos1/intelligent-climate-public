@@ -7,6 +7,29 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.18 - 2026-08-02
+
+### Changed
+
+- Made the Today chart easier to scan with adaptive clock ticks, distinct
+  measured/heat/cool styling, and automatic suppression of effective-target
+  lines while they are identical to their scheduled counterparts.
+- Added privacy-bounded before/after facts to the Activity panel for runtime
+  state, thermostat mode and target, and source-quality transitions. Existing
+  historical records without those facts remain valid and render normally.
+
+### Fixed
+
+- Public releases are now published with matching semantic GitHub release tags,
+  so HACS update entities report release versions rather than short commit
+  hashes.
+
+### Security
+
+- Activity details use a strict scalar allowlist and exclude internal source
+  and entity identifiers before data reaches the browser. This release adds no
+  Home Assistant service call or physical-control authority.
+
 ## 0.0.17 - 2026-08-02
 
 ### Changed

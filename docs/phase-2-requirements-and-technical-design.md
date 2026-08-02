@@ -1248,6 +1248,14 @@ Activity types/reasons expand while retaining schema-strict compatibility. Mater
 
 The sidebar Activity route may request paginated bounded history. Default retention remains 500 records/30 days unless the user changes existing bounds; command journal uses an independent maximum of 100 entries/14 days.
 
+The Activity route includes only the presentation-safe subset of the persisted
+strict scalar-detail allowlist; internal source identifiers are removed before
+transport.
+The frontend may present those facts as before/after state, thermostat mode,
+thermostat target, or source-quality transitions. It does not display source
+identifiers, entity IDs, raw command payloads, or inferred causes. Historical
+records with no applicable detail remain concise and valid.
+
 The Today timeline references material activity records by stable typed identifiers; it does not duplicate full activity payloads into every sample. Presentation-trace sampling is not activity and cannot create a public Home Assistant event by itself.
 
 ## 14.5 Diagnostics

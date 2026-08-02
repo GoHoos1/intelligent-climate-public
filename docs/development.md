@@ -128,6 +128,16 @@ GitHub Actions are the authoritative validation path for Home Assistant-backed
 tests, HACS validation, and hassfest until a supported local Python 3.14
 environment is available.
 
+## Public Release Versions
+
+Every synchronized public version must be published as a semantic GitHub
+release whose tag matches `custom_components/intelligent_climate/manifest.json`
+(for example, `0.0.18`). HACS otherwise tracks the default branch by commit and
+Home Assistant displays short commit hashes as the installed and latest
+versions. Creating the public release is part of synchronization, after the
+exact public commit passes its release gates; private development commits are
+never tagged as public releases.
+
 ## Native Windows Limitations
 
 - Python 3.14 may not be installed by default.
@@ -136,4 +146,3 @@ environment is available.
   fixtures, hassfest internals, or compiled dependencies.
 - Do not work around dependency problems by lowering the documented Home
   Assistant Python requirement.
-

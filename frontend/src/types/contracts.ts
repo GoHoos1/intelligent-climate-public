@@ -61,6 +61,7 @@ export interface ActivityRecord {
   reason_code: string;
   severity: string;
   explanation: string;
+  detail: Record<string, string | number | boolean | null>;
 }
 
 export interface ActivityResponse {

@@ -39,6 +39,25 @@ _ZONE = vol.Required("zone_id")
 _BASE: dict[str | vol.Marker, Any] = {
     vol.Required("api_version"): vol.In([API_VERSION])
 }
+_ACTIVITY_PRESENTATION_DETAIL_KEYS = frozenset(
+    {
+        "issue_code",
+        "new_exclusion_reason",
+        "new_hvac_mode",
+        "new_quality",
+        "new_state",
+        "new_target_high_c",
+        "new_target_low_c",
+        "new_target_temperature_c",
+        "previous_exclusion_reason",
+        "previous_hvac_mode",
+        "previous_quality",
+        "previous_state",
+        "previous_target_high_c",
+        "previous_target_low_c",
+        "previous_target_temperature_c",
+    }
+)
 
 if TYPE_CHECKING:
     from .coordinator import IntelligentClimateCoordinator
@@ -378,6 +397,11 @@ async def websocket_activity_list(
                     "reason_code": item.reason_code.value,
                     "severity": item.severity.value,
                     "explanation": item.explanation,
+                    "detail": {
+                        key: value
+                        for key, value in item.detail.items()
+                        if key in _ACTIVITY_PRESENTATION_DETAIL_KEYS
+                    },
                 }
                 for item in selected
             ],

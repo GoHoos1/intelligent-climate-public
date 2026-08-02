@@ -1,4 +1,4 @@
-const Q = globalThis, me = Q.ShadowRoot && (Q.ShadyCSS === void 0 || Q.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ve = /* @__PURE__ */ Symbol(), xe = /* @__PURE__ */ new WeakMap();
+const Q = globalThis, me = Q.ShadowRoot && (Q.ShadyCSS === void 0 || Q.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, ve = /* @__PURE__ */ Symbol(), $e = /* @__PURE__ */ new WeakMap();
 let Oe = class {
   constructor(e, t, i) {
     if (this._$cssResult$ = !0, i !== ve) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
@@ -9,7 +9,7 @@ let Oe = class {
     const t = this.t;
     if (me && e === void 0) {
       const i = t !== void 0 && t.length === 1;
-      i && (e = xe.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && xe.set(t, e));
+      i && (e = $e.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && $e.set(t, e));
     }
     return e;
   }
@@ -17,7 +17,7 @@ let Oe = class {
     return this.cssText;
   }
 };
-const Qe = (r) => new Oe(typeof r == "string" ? r : r + "", void 0, ve), re = (r, ...e) => {
+const Qe = (r) => new Oe(typeof r == "string" ? r : r + "", void 0, ve), ne = (r, ...e) => {
   const t = r.length === 1 ? r[0] : e.reduce((i, a, n) => i + ((s) => {
     if (s._$cssResult$ === !0) return s.cssText;
     if (typeof s == "number") return s;
@@ -30,12 +30,12 @@ const Qe = (r) => new Oe(typeof r == "string" ? r : r + "", void 0, ve), re = (r
     const i = document.createElement("style"), a = Q.litNonce;
     a !== void 0 && i.setAttribute("nonce", a), i.textContent = t.cssText, r.appendChild(i);
   }
-}, $e = me ? (r) => r : (r) => r instanceof CSSStyleSheet ? ((e) => {
+}, xe = me ? (r) => r : (r) => r instanceof CSSStyleSheet ? ((e) => {
   let t = "";
   for (const i of e.cssRules) t += i.cssText;
   return Qe(t);
 })(r) : r;
-const { is: Xe, defineProperty: et, getOwnPropertyDescriptor: tt, getOwnPropertyNames: it, getOwnPropertySymbols: at, getPrototypeOf: rt } = Object, ne = globalThis, we = ne.trustedTypes, nt = we ? we.emptyScript : "", st = ne.reactiveElementPolyfillSupport, F = (r, e) => r, le = { toAttribute(r, e) {
+const { is: Xe, defineProperty: et, getOwnPropertyDescriptor: tt, getOwnPropertyNames: it, getOwnPropertySymbols: at, getPrototypeOf: rt } = Object, se = globalThis, we = se.trustedTypes, nt = we ? we.emptyScript : "", st = se.reactiveElementPolyfillSupport, G = (r, e) => r, ce = { toAttribute(r, e) {
   switch (e) {
     case Boolean:
       r = r ? nt : null;
@@ -63,9 +63,9 @@ const { is: Xe, defineProperty: et, getOwnPropertyDescriptor: tt, getOwnProperty
       }
   }
   return t;
-} }, Le = (r, e) => !Xe(r, e), ke = { attribute: !0, type: String, converter: le, reflect: !1, useDefault: !1, hasChanged: Le };
-Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), ne.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-let U = class extends HTMLElement {
+} }, Le = (r, e) => !Xe(r, e), ke = { attribute: !0, type: String, converter: ce, reflect: !1, useDefault: !1, hasChanged: Le };
+Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), se.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+let L = class extends HTMLElement {
   static addInitializer(e) {
     this._$Ei(), (this.l ??= []).push(e);
   }
@@ -93,13 +93,13 @@ let U = class extends HTMLElement {
     return this.elementProperties.get(e) ?? ke;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(F("elementProperties"))) return;
+    if (this.hasOwnProperty(G("elementProperties"))) return;
     const e = rt(this);
     e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(F("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(F("properties"))) {
+    if (this.hasOwnProperty(G("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(G("properties"))) {
       const t = this.properties, i = [...it(t), ...at(t)];
       for (const a of i) this.createProperty(a, t[a]);
     }
@@ -119,8 +119,8 @@ let U = class extends HTMLElement {
     const t = [];
     if (Array.isArray(e)) {
       const i = new Set(e.flat(1 / 0).reverse());
-      for (const a of i) t.unshift($e(a));
-    } else e !== void 0 && t.push($e(e));
+      for (const a of i) t.unshift(xe(a));
+    } else e !== void 0 && t.push(xe(e));
     return t;
   }
   static _$Eu(e, t) {
@@ -162,14 +162,14 @@ let U = class extends HTMLElement {
   _$ET(e, t) {
     const i = this.constructor.elementProperties.get(e), a = this.constructor._$Eu(e, i);
     if (a !== void 0 && i.reflect === !0) {
-      const n = (i.converter?.toAttribute !== void 0 ? i.converter : le).toAttribute(t, i.type);
+      const n = (i.converter?.toAttribute !== void 0 ? i.converter : ce).toAttribute(t, i.type);
       this._$Em = e, n == null ? this.removeAttribute(a) : this.setAttribute(a, n), this._$Em = null;
     }
   }
   _$AK(e, t) {
     const i = this.constructor, a = i._$Eh.get(e);
     if (a !== void 0 && this._$Em !== a) {
-      const n = i.getPropertyOptions(a), s = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : le;
+      const n = i.getPropertyOptions(a), s = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : ce;
       this._$Em = a;
       const l = s.fromAttribute(t, n.type);
       this[a] = l ?? this._$Ej?.get(a) ?? l, this._$Em = null;
@@ -246,54 +246,54 @@ let U = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-U.elementStyles = [], U.shadowRootOptions = { mode: "open" }, U[F("elementProperties")] = /* @__PURE__ */ new Map(), U[F("finalized")] = /* @__PURE__ */ new Map(), st?.({ ReactiveElement: U }), (ne.reactiveElementVersions ??= []).push("2.1.2");
-const fe = globalThis, Se = (r) => r, ee = fe.trustedTypes, ze = ee ? ee.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, He = "$lit$", C = `lit$${Math.random().toFixed(9).slice(2)}$`, Ne = "?" + C, ot = `<${Ne}>`, I = document, j = () => I.createComment(""), G = (r) => r === null || typeof r != "object" && typeof r != "function", be = Array.isArray, lt = (r) => be(r) || typeof r?.[Symbol.iterator] == "function", oe = `[ 	
-\f\r]`, q = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ce = /-->/g, Ae = />/g, T = RegExp(`>|${oe}(?:([^\\s"'>=/]+)(${oe}*=${oe}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Ee = /"/g, Re = /^(?:script|style|textarea|title)$/i, qe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), c = qe(1), E = qe(2), L = /* @__PURE__ */ Symbol.for("lit-noChange"), h = /* @__PURE__ */ Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), D = I.createTreeWalker(I, 129);
-function Ze(r, e) {
-  if (!be(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
+L.elementStyles = [], L.shadowRootOptions = { mode: "open" }, L[G("elementProperties")] = /* @__PURE__ */ new Map(), L[G("finalized")] = /* @__PURE__ */ new Map(), st?.({ ReactiveElement: L }), (se.reactiveElementVersions ??= []).push("2.1.2");
+const fe = globalThis, Se = (r) => r, ee = fe.trustedTypes, ze = ee ? ee.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, He = "$lit$", A = `lit$${Math.random().toFixed(9).slice(2)}$`, Ne = "?" + A, ot = `<${Ne}>`, I = document, B = () => I.createComment(""), V = (r) => r === null || typeof r != "object" && typeof r != "function", _e = Array.isArray, lt = (r) => _e(r) || typeof r?.[Symbol.iterator] == "function", le = `[ 	
+\f\r]`, Z = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ce = /-->/g, Ae = />/g, E = RegExp(`>|${le}(?:([^\\s"'>=/]+)(${le}*=${le}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Te = /'/g, Ee = /"/g, Re = /^(?:script|style|textarea|title)$/i, qe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), c = qe(1), C = qe(2), N = /* @__PURE__ */ Symbol.for("lit-noChange"), h = /* @__PURE__ */ Symbol.for("lit-nothing"), De = /* @__PURE__ */ new WeakMap(), D = I.createTreeWalker(I, 129);
+function Fe(r, e) {
+  if (!_e(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return ze !== void 0 ? ze.createHTML(e) : e;
 }
 const ct = (r, e) => {
   const t = r.length - 1, i = [];
-  let a, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", s = q;
+  let a, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", s = Z;
   for (let l = 0; l < t; l++) {
     const o = r[l];
-    let p, g, d = -1, v = 0;
-    for (; v < o.length && (s.lastIndex = v, g = s.exec(o), g !== null); ) v = s.lastIndex, s === q ? g[1] === "!--" ? s = Ce : g[1] !== void 0 ? s = Ae : g[2] !== void 0 ? (Re.test(g[2]) && (a = RegExp("</" + g[2], "g")), s = T) : g[3] !== void 0 && (s = T) : s === T ? g[0] === ">" ? (s = a ?? q, d = -1) : g[1] === void 0 ? d = -2 : (d = s.lastIndex - g[2].length, p = g[1], s = g[3] === void 0 ? T : g[3] === '"' ? Ee : Te) : s === Ee || s === Te ? s = T : s === Ce || s === Ae ? s = q : (s = T, a = void 0);
-    const b = s === T && r[l + 1].startsWith("/>") ? " " : "";
-    n += s === q ? o + ot : d >= 0 ? (i.push(p), o.slice(0, d) + He + o.slice(d) + C + b) : o + C + (d === -2 ? l : b);
+    let u, g, d = -1, f = 0;
+    for (; f < o.length && (s.lastIndex = f, g = s.exec(o), g !== null); ) f = s.lastIndex, s === Z ? g[1] === "!--" ? s = Ce : g[1] !== void 0 ? s = Ae : g[2] !== void 0 ? (Re.test(g[2]) && (a = RegExp("</" + g[2], "g")), s = E) : g[3] !== void 0 && (s = E) : s === E ? g[0] === ">" ? (s = a ?? Z, d = -1) : g[1] === void 0 ? d = -2 : (d = s.lastIndex - g[2].length, u = g[1], s = g[3] === void 0 ? E : g[3] === '"' ? Ee : Te) : s === Ee || s === Te ? s = E : s === Ce || s === Ae ? s = Z : (s = E, a = void 0);
+    const _ = s === E && r[l + 1].startsWith("/>") ? " " : "";
+    n += s === Z ? o + ot : d >= 0 ? (i.push(u), o.slice(0, d) + He + o.slice(d) + A + _) : o + A + (d === -2 ? l : _);
   }
-  return [Ze(r, n + (r[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
+  return [Fe(r, n + (r[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
 };
-class B {
+class Y {
   constructor({ strings: e, _$litType$: t }, i) {
     let a;
     this.parts = [];
     let n = 0, s = 0;
-    const l = e.length - 1, o = this.parts, [p, g] = ct(e, t);
-    if (this.el = B.createElement(p, i), D.currentNode = this.el.content, t === 2 || t === 3) {
+    const l = e.length - 1, o = this.parts, [u, g] = ct(e, t);
+    if (this.el = Y.createElement(u, i), D.currentNode = this.el.content, t === 2 || t === 3) {
       const d = this.el.content.firstChild;
       d.replaceWith(...d.childNodes);
     }
     for (; (a = D.nextNode()) !== null && o.length < l; ) {
       if (a.nodeType === 1) {
         if (a.hasAttributes()) for (const d of a.getAttributeNames()) if (d.endsWith(He)) {
-          const v = g[s++], b = a.getAttribute(d).split(C), S = /([.?@])?(.*)/.exec(v);
-          o.push({ type: 1, index: n, name: S[2], strings: b, ctor: S[1] === "." ? ut : S[1] === "?" ? pt : S[1] === "@" ? ht : se }), a.removeAttribute(d);
-        } else d.startsWith(C) && (o.push({ type: 6, index: n }), a.removeAttribute(d));
+          const f = g[s++], _ = a.getAttribute(d).split(A), S = /([.?@])?(.*)/.exec(f);
+          o.push({ type: 1, index: n, name: S[2], strings: _, ctor: S[1] === "." ? ut : S[1] === "?" ? pt : S[1] === "@" ? ht : oe }), a.removeAttribute(d);
+        } else d.startsWith(A) && (o.push({ type: 6, index: n }), a.removeAttribute(d));
         if (Re.test(a.tagName)) {
-          const d = a.textContent.split(C), v = d.length - 1;
-          if (v > 0) {
+          const d = a.textContent.split(A), f = d.length - 1;
+          if (f > 0) {
             a.textContent = ee ? ee.emptyScript : "";
-            for (let b = 0; b < v; b++) a.append(d[b], j()), D.nextNode(), o.push({ type: 2, index: ++n });
-            a.append(d[v], j());
+            for (let _ = 0; _ < f; _++) a.append(d[_], B()), D.nextNode(), o.push({ type: 2, index: ++n });
+            a.append(d[f], B());
           }
         }
       } else if (a.nodeType === 8) if (a.data === Ne) o.push({ type: 2, index: n });
       else {
         let d = -1;
-        for (; (d = a.data.indexOf(C, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += C.length - 1;
+        for (; (d = a.data.indexOf(A, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += A.length - 1;
       }
       n++;
     }
@@ -303,11 +303,11 @@ class B {
     return i.innerHTML = e, i;
   }
 }
-function H(r, e, t = r, i) {
-  if (e === L) return e;
+function R(r, e, t = r, i) {
+  if (e === N) return e;
   let a = i !== void 0 ? t._$Co?.[i] : t._$Cl;
-  const n = G(e) ? void 0 : e._$litDirective$;
-  return a?.constructor !== n && (a?._$AO?.(!1), n === void 0 ? a = void 0 : (a = new n(r), a._$AT(r, t, i)), i !== void 0 ? (t._$Co ??= [])[i] = a : t._$Cl = a), a !== void 0 && (e = H(r, a._$AS(r, e.values), a, i)), e;
+  const n = V(e) ? void 0 : e._$litDirective$;
+  return a?.constructor !== n && (a?._$AO?.(!1), n === void 0 ? a = void 0 : (a = new n(r), a._$AT(r, t, i)), i !== void 0 ? (t._$Co ??= [])[i] = a : t._$Cl = a), a !== void 0 && (e = R(r, a._$AS(r, e.values), a, i)), e;
 }
 class dt {
   constructor(e, t) {
@@ -325,8 +325,8 @@ class dt {
     let n = D.nextNode(), s = 0, l = 0, o = i[0];
     for (; o !== void 0; ) {
       if (s === o.index) {
-        let p;
-        o.type === 2 ? p = new V(n, n.nextSibling, this, e) : o.type === 1 ? p = new o.ctor(n, o.name, o.strings, this, e) : o.type === 6 && (p = new gt(n, this, e)), this._$AV.push(p), o = i[++l];
+        let u;
+        o.type === 2 ? u = new K(n, n.nextSibling, this, e) : o.type === 1 ? u = new o.ctor(n, o.name, o.strings, this, e) : o.type === 6 && (u = new gt(n, this, e)), this._$AV.push(u), o = i[++l];
       }
       s !== o?.index && (n = D.nextNode(), s++);
     }
@@ -337,7 +337,7 @@ class dt {
     for (const i of this._$AV) i !== void 0 && (i.strings !== void 0 ? (i._$AI(e, i, t), t += i.strings.length - 2) : i._$AI(e[t])), t++;
   }
 }
-class V {
+class K {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
@@ -356,7 +356,7 @@ class V {
     return this._$AB;
   }
   _$AI(e, t = this) {
-    e = H(this, e, t), G(e) ? e === h || e == null || e === "" ? (this._$AH !== h && this._$AR(), this._$AH = h) : e !== this._$AH && e !== L && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : lt(e) ? this.k(e) : this._(e);
+    e = R(this, e, t), V(e) ? e === h || e == null || e === "" ? (this._$AH !== h && this._$AR(), this._$AH = h) : e !== this._$AH && e !== N && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : lt(e) ? this.k(e) : this._(e);
   }
   O(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -365,10 +365,10 @@ class V {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== h && G(this._$AH) ? this._$AA.nextSibling.data = e : this.T(I.createTextNode(e)), this._$AH = e;
+    this._$AH !== h && V(this._$AH) ? this._$AA.nextSibling.data = e : this.T(I.createTextNode(e)), this._$AH = e;
   }
   $(e) {
-    const { values: t, _$litType$: i } = e, a = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = B.createElement(Ze(i.h, i.h[0]), this.options)), i);
+    const { values: t, _$litType$: i } = e, a = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = Y.createElement(Fe(i.h, i.h[0]), this.options)), i);
     if (this._$AH?._$AD === a) this._$AH.p(t);
     else {
       const n = new dt(a, this), s = n.u(this.options);
@@ -377,13 +377,13 @@ class V {
   }
   _$AC(e) {
     let t = De.get(e.strings);
-    return t === void 0 && De.set(e.strings, t = new B(e)), t;
+    return t === void 0 && De.set(e.strings, t = new Y(e)), t;
   }
   k(e) {
-    be(this._$AH) || (this._$AH = [], this._$AR());
+    _e(this._$AH) || (this._$AH = [], this._$AR());
     const t = this._$AH;
     let i, a = 0;
-    for (const n of e) a === t.length ? t.push(i = new V(this.O(j()), this.O(j()), this, this.options)) : i = t[a], i._$AI(n), a++;
+    for (const n of e) a === t.length ? t.push(i = new K(this.O(B()), this.O(B()), this, this.options)) : i = t[a], i._$AI(n), a++;
     a < t.length && (this._$AR(i && i._$AB.nextSibling, a), t.length = a);
   }
   _$AR(e = this._$AA.nextSibling, t) {
@@ -396,7 +396,7 @@ class V {
     this._$AM === void 0 && (this._$Cv = e, this._$AP?.(e));
   }
 }
-class se {
+class oe {
   get tagName() {
     return this.element.tagName;
   }
@@ -409,11 +409,11 @@ class se {
   _$AI(e, t = this, i, a) {
     const n = this.strings;
     let s = !1;
-    if (n === void 0) e = H(this, e, t, 0), s = !G(e) || e !== this._$AH && e !== L, s && (this._$AH = e);
+    if (n === void 0) e = R(this, e, t, 0), s = !V(e) || e !== this._$AH && e !== N, s && (this._$AH = e);
     else {
       const l = e;
-      let o, p;
-      for (e = n[0], o = 0; o < n.length - 1; o++) p = H(this, l[i + o], t, o), p === L && (p = this._$AH[o]), s ||= !G(p) || p !== this._$AH[o], p === h ? e = h : e !== h && (e += (p ?? "") + n[o + 1]), this._$AH[o] = p;
+      let o, u;
+      for (e = n[0], o = 0; o < n.length - 1; o++) u = R(this, l[i + o], t, o), u === N && (u = this._$AH[o]), s ||= !V(u) || u !== this._$AH[o], u === h ? e = h : e !== h && (e += (u ?? "") + n[o + 1]), this._$AH[o] = u;
     }
     s && !a && this.j(e);
   }
@@ -421,7 +421,7 @@ class se {
     e === h ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
-class ut extends se {
+class ut extends oe {
   constructor() {
     super(...arguments), this.type = 3;
   }
@@ -429,7 +429,7 @@ class ut extends se {
     this.element[this.name] = e === h ? void 0 : e;
   }
 }
-class pt extends se {
+class pt extends oe {
   constructor() {
     super(...arguments), this.type = 4;
   }
@@ -437,12 +437,12 @@ class pt extends se {
     this.element.toggleAttribute(this.name, !!e && e !== h);
   }
 }
-class ht extends se {
+class ht extends oe {
   constructor(e, t, i, a, n) {
     super(e, t, i, a, n), this.type = 5;
   }
   _$AI(e, t = this) {
-    if ((e = H(this, e, t, 0) ?? h) === L) return;
+    if ((e = R(this, e, t, 0) ?? h) === N) return;
     const i = this._$AH, a = e === h && i !== h || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive, n = e !== h && (i === h || a);
     a && this.element.removeEventListener(this.name, this, i), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
@@ -458,22 +458,22 @@ class gt {
     return this._$AM._$AU;
   }
   _$AI(e) {
-    H(this, e);
+    R(this, e);
   }
 }
 const mt = fe.litHtmlPolyfillSupport;
-mt?.(B, V), (fe.litHtmlVersions ??= []).push("3.3.3");
+mt?.(Y, K), (fe.litHtmlVersions ??= []).push("3.3.3");
 const vt = (r, e, t) => {
   const i = t?.renderBefore ?? e;
   let a = i._$litPart$;
   if (a === void 0) {
     const n = t?.renderBefore ?? null;
-    i._$litPart$ = a = new V(e.insertBefore(j(), n), n, void 0, t ?? {});
+    i._$litPart$ = a = new K(e.insertBefore(B(), n), n, void 0, t ?? {});
   }
   return a._$AI(r), a;
 };
-const _e = globalThis;
-class P extends U {
+const be = globalThis;
+class P extends L {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -492,14 +492,14 @@ class P extends U {
     super.disconnectedCallback(), this._$Do?.setConnected(!1);
   }
   render() {
-    return L;
+    return N;
   }
 }
-P._$litElement$ = !0, P.finalized = !0, _e.litElementHydrateSupport?.({ LitElement: P });
-const ft = _e.litElementPolyfillSupport;
+P._$litElement$ = !0, P.finalized = !0, be.litElementHydrateSupport?.({ LitElement: P });
+const ft = be.litElementPolyfillSupport;
 ft?.({ LitElement: P });
-(_e.litElementVersions ??= []).push("4.2.2");
-const bt = {
+(be.litElementVersions ??= []).push("4.2.2");
+const _t = {
   observing: {
     label: "Observe Only",
     icon: "◉",
@@ -573,21 +573,21 @@ const bt = {
     automationOff: !1
   }
 };
-function _t(r) {
-  return bt[r] ?? {
+function bt(r) {
+  return _t[r] ?? {
     label: r.replaceAll("_", " "),
     icon: "●",
     tone: "neutral",
     automationOff: !1
   };
 }
-function ce(r, e, t) {
+function te(r, e, t) {
   if (r === null)
     return "Unavailable";
   const i = e === "°F" ? r * 9 / 5 + 32 : r;
   return `${new Intl.NumberFormat(t, { maximumFractionDigits: 1 }).format(i)}${e}`;
 }
-function Z(r, e, t) {
+function j(r, e, t) {
   return new Intl.DateTimeFormat(e, {
     hour: "numeric",
     minute: "2-digit",
@@ -596,10 +596,10 @@ function Z(r, e, t) {
     ...t === void 0 ? {} : { timeZone: t }
   }).format(new Date(r));
 }
-function Y(r) {
+function M(r) {
   return r.split("_").filter((e) => e.length > 0).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
 }
-const $ = 1, yt = [
+const x = 1, yt = [
   "monday",
   "tuesday",
   "wednesday",
@@ -607,7 +607,7 @@ const $ = 1, yt = [
   "friday",
   "saturday",
   "sunday"
-], xt = /* @__PURE__ */ new Set([
+], $t = /* @__PURE__ */ new Set([
   "none",
   "home",
   "away",
@@ -616,131 +616,147 @@ const $ = 1, yt = [
   "guest",
   "custom"
 ]);
-class f extends Error {
+class v extends Error {
   constructor(e, t) {
     super(`${e}: ${t}`), this.name = "FrontendContractError";
   }
 }
-const $t = /* @__PURE__ */ new Set([
+const xt = /* @__PURE__ */ new Set([
   "measured",
   "configured",
   "calculated",
   "forecast",
   "predicted",
   "planned"
+]), wt = /* @__PURE__ */ new Set([
+  "issue_code",
+  "new_exclusion_reason",
+  "new_hvac_mode",
+  "new_quality",
+  "new_state",
+  "new_target_high_c",
+  "new_target_low_c",
+  "new_target_temperature_c",
+  "previous_exclusion_reason",
+  "previous_hvac_mode",
+  "previous_quality",
+  "previous_state",
+  "previous_target_high_c",
+  "previous_target_low_c",
+  "previous_target_temperature_c"
 ]);
 function m(r, e) {
   if (typeof r != "object" || r === null || Array.isArray(r))
-    throw new f(e, "expected object");
+    throw new v(e, "expected object");
   return r;
 }
 function w(r, e) {
   if (!Array.isArray(r))
-    throw new f(e, "expected array");
+    throw new v(e, "expected array");
   return r;
 }
-function u(r, e) {
+function p(r, e) {
   if (typeof r != "string" || r.length === 0)
-    throw new f(e, "expected non-empty string");
+    throw new v(e, "expected non-empty string");
   return r;
 }
 function W(r, e) {
-  return r === null ? null : u(r, e);
+  return r === null ? null : p(r, e);
 }
 function y(r, e) {
   if (typeof r != "boolean")
-    throw new f(e, "expected boolean");
+    throw new v(e, "expected boolean");
   return r;
 }
-function O(r, e) {
+function H(r, e) {
   if (typeof r != "number" || !Number.isFinite(r))
-    throw new f(e, "expected finite number");
+    throw new v(e, "expected finite number");
   return r;
 }
-function x(r, e) {
-  const t = O(r, e);
+function $(r, e) {
+  const t = H(r, e);
   if (!Number.isInteger(t) || t < 0)
-    throw new f(e, "expected non-negative integer");
+    throw new v(e, "expected non-negative integer");
   return t;
 }
-function A(r, e) {
-  return r === null ? null : O(r, e);
+function T(r, e) {
+  return r === null ? null : H(r, e);
 }
-function _(r, e) {
-  const t = u(r, e);
+function b(r, e) {
+  const t = p(r, e);
   if (!Number.isFinite(Date.parse(t)))
-    throw new f(e, "expected ISO timestamp");
+    throw new v(e, "expected ISO timestamp");
   return t;
 }
-function Fe(r, e) {
-  const t = u(r, e);
+function Ze(r, e) {
+  const t = p(r, e);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t))
-    throw new f(e, "expected YYYY-MM-DD local date");
+    throw new v(e, "expected YYYY-MM-DD local date");
   return t;
 }
 function je(r, e) {
-  const t = u(r, e);
+  const t = p(r, e);
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))
-    throw new f(e, "expected HH:MM local time");
+    throw new v(e, "expected HH:MM local time");
   return t;
 }
 function z(r, e) {
-  if (r.api_version !== $)
-    throw new f(
+  if (r.api_version !== x)
+    throw new v(
       `${e}.api_version`,
-      `expected ${String($)}`
+      `expected ${String(x)}`
     );
 }
-function N(r, e) {
+function q(r, e) {
   return w(r, e).map(
-    (t, i) => u(t, `${e}[${String(i)}]`)
+    (t, i) => p(t, `${e}[${String(i)}]`)
   );
 }
 function de(r, e) {
-  const t = m(r, e), i = u(t.kind, `${e}.kind`);
+  const t = m(r, e), i = p(t.kind, `${e}.kind`);
   if (i !== "single" && i !== "range")
-    throw new f(`${e}.kind`, "expected single or range");
+    throw new v(`${e}.kind`, "expected single or range");
   return {
     kind: i,
-    target_c: A(t.target_c, `${e}.target_c`),
-    heat_target_c: A(
+    target_c: T(t.target_c, `${e}.target_c`),
+    heat_target_c: T(
       t.heat_target_c,
       `${e}.heat_target_c`
     ),
-    cool_target_c: A(
+    cool_target_c: T(
       t.cool_target_c,
       `${e}.cool_target_c`
     )
   };
 }
-function wt(r, e) {
-  const t = m(r, e), i = u(t.occupancy_label, `${e}.occupancy_label`);
-  if (!xt.has(i))
-    throw new f(
+function kt(r, e) {
+  const t = m(r, e), i = p(t.occupancy_label, `${e}.occupancy_label`);
+  if (!$t.has(i))
+    throw new v(
       `${e}.occupancy_label`,
       "unsupported occupancy label"
     );
   return {
-    period_id: u(t.period_id, `${e}.period_id`),
+    period_id: p(t.period_id, `${e}.period_id`),
     local_start: je(t.local_start, `${e}.local_start`),
-    label: typeof t.label == "string" ? t.label : u(t.label, `${e}.label`),
+    label: typeof t.label == "string" ? t.label : p(t.label, `${e}.label`),
     occupancy_label: i,
     target: de(t.target, `${e}.target`),
-    tolerance_c: O(t.tolerance_c, `${e}.tolerance_c`)
+    tolerance_c: H(t.tolerance_c, `${e}.tolerance_c`)
   };
 }
-function kt(r, e) {
+function St(r, e) {
   const t = m(r, e), i = m(t.days, `${e}.days`), a = Object.fromEntries(
     yt.map((n) => [
       n,
       w(i[n], `${e}.days.${n}`).map(
-        (s, l) => wt(s, `${e}.days.${n}[${String(l)}]`)
+        (s, l) => kt(s, `${e}.days.${n}[${String(l)}]`)
       )
     ])
   );
   return {
-    profile_id: u(t.profile_id, `${e}.profile_id`),
-    name: u(t.name, `${e}.name`),
+    profile_id: p(t.profile_id, `${e}.profile_id`),
+    name: p(t.name, `${e}.name`),
     enabled: y(t.enabled, `${e}.enabled`),
     days: a
   };
@@ -748,7 +764,7 @@ function kt(r, e) {
 function Ge(r, e) {
   const t = m(r, e);
   if (t.schedule_schema_version !== 1)
-    throw new f(
+    throw new v(
       `${e}.schedule_schema_version`,
       "expected 1"
     );
@@ -756,67 +772,67 @@ function Ge(r, e) {
   for (const [n, s] of Object.entries(i)) {
     const l = `${e}.zones.${n}`, o = m(s, l);
     a[n] = {
-      zone_id: u(o.zone_id, `${l}.zone_id`),
+      zone_id: p(o.zone_id, `${l}.zone_id`),
       enabled: y(o.enabled, `${l}.enabled`),
-      selected_profile_id: u(
+      selected_profile_id: p(
         o.selected_profile_id,
         `${l}.selected_profile_id`
       ),
       profiles: w(o.profiles, `${l}.profiles`).map(
-        (p, g) => kt(p, `${l}.profiles[${String(g)}]`)
+        (u, g) => St(u, `${l}.profiles[${String(g)}]`)
       )
     };
   }
   return {
     schedule_schema_version: 1,
-    entry_id: u(t.entry_id, `${e}.entry_id`),
-    equipment_group_id: u(
+    entry_id: p(t.entry_id, `${e}.entry_id`),
+    equipment_group_id: p(
       t.equipment_group_id,
       `${e}.equipment_group_id`
     ),
-    time_zone: u(t.time_zone, `${e}.time_zone`),
-    revision: x(t.revision, `${e}.revision`),
+    time_zone: p(t.time_zone, `${e}.time_zone`),
+    revision: $(t.revision, `${e}.revision`),
     zones: a,
-    saved_at_utc: _(t.saved_at_utc, `${e}.saved_at_utc`)
-  };
-}
-function St(r) {
-  const e = m(r, "schedule");
-  return z(e, "schedule"), {
-    api_version: $,
-    revision: x(e.revision, "schedule.revision"),
-    schedule: e.schedule === null ? null : Ge(e.schedule, "schedule.schedule")
+    saved_at_utc: b(t.saved_at_utc, `${e}.saved_at_utc`)
   };
 }
 function zt(r) {
+  const e = m(r, "schedule");
+  return z(e, "schedule"), {
+    api_version: x,
+    revision: $(e.revision, "schedule.revision"),
+    schedule: e.schedule === null ? null : Ge(e.schedule, "schedule.schedule")
+  };
+}
+function Ct(r) {
   const e = m(r, "schedule_validation");
   if (z(e, "schedule_validation"), e.valid !== !0)
-    throw new f(
+    throw new v(
       "schedule_validation.valid",
       "expected true"
     );
   return {
-    api_version: $,
+    api_version: x,
     valid: !0,
-    revision: x(
+    revision: $(
       e.revision,
       "schedule_validation.revision"
     )
   };
 }
-function Ct(r, e) {
+function At(r, e) {
   const t = m(r, e);
   return {
-    zone_id: u(t.zone_id, `${e}.zone_id`),
-    profile_id: u(t.profile_id, `${e}.profile_id`),
-    period_id: u(t.period_id, `${e}.period_id`),
+    zone_id: p(t.zone_id, `${e}.zone_id`),
+    profile_id: p(t.profile_id, `${e}.profile_id`),
+    period_id: p(t.period_id, `${e}.period_id`),
     target: de(t.target, `${e}.target`),
     next_target: t.next_target === null ? null : de(t.next_target, `${e}.next_target`),
-    next_boundary_utc: _(
+    next_boundary_utc: b(
       t.next_boundary_utc,
       `${e}.next_boundary_utc`
     ),
-    next_material_transition_utc: t.next_material_transition_utc === null ? null : _(
+    next_material_transition_utc: t.next_material_transition_utc === null ? null : b(
       t.next_material_transition_utc,
       `${e}.next_material_transition_utc`
     ),
@@ -826,75 +842,75 @@ function Ct(r, e) {
     )
   };
 }
-function At(r, e) {
-  const t = m(r, e), i = u(t.kind, `${e}.kind`);
+function Tt(r, e) {
+  const t = m(r, e), i = p(t.kind, `${e}.kind`);
   if (i !== "gap" && i !== "fold")
-    throw new f(`${e}.kind`, "expected gap or fold");
+    throw new v(`${e}.kind`, "expected gap or fold");
   return {
-    zone_id: u(t.zone_id, `${e}.zone_id`),
-    profile_id: u(t.profile_id, `${e}.profile_id`),
-    period_id: u(t.period_id, `${e}.period_id`),
-    local_date: Fe(t.local_date, `${e}.local_date`),
+    zone_id: p(t.zone_id, `${e}.zone_id`),
+    profile_id: p(t.profile_id, `${e}.profile_id`),
+    period_id: p(t.period_id, `${e}.period_id`),
+    local_date: Ze(t.local_date, `${e}.local_date`),
     local_start: je(t.local_start, `${e}.local_start`),
     kind: i,
-    occurs_at_utc: _(t.occurs_at_utc, `${e}.occurs_at_utc`),
-    explanation: u(t.explanation, `${e}.explanation`)
+    occurs_at_utc: b(t.occurs_at_utc, `${e}.occurs_at_utc`),
+    explanation: p(t.explanation, `${e}.explanation`)
   };
 }
-function Tt(r) {
+function Et(r) {
   const e = m(r, "schedule_preview");
   if (z(e, "schedule_preview"), e.authoritative !== !1)
-    throw new f(
+    throw new v(
       "schedule_preview.authoritative",
       "preview must be nonauthoritative"
     );
   return {
-    api_version: $,
+    api_version: x,
     authoritative: !1,
-    at_utc: _(e.at_utc, "schedule_preview.at_utc"),
-    time_zone: u(e.time_zone, "schedule_preview.time_zone"),
-    preview_week_start_local: Fe(
+    at_utc: b(e.at_utc, "schedule_preview.at_utc"),
+    time_zone: p(e.time_zone, "schedule_preview.time_zone"),
+    preview_week_start_local: Ze(
       e.preview_week_start_local,
       "schedule_preview.preview_week_start_local"
     ),
     zones: w(e.zones, "schedule_preview.zones").map(
-      (t, i) => Ct(t, `schedule_preview.zones[${String(i)}]`)
+      (t, i) => At(t, `schedule_preview.zones[${String(i)}]`)
     ),
     dst_warnings: w(
       e.dst_warnings,
       "schedule_preview.dst_warnings"
     ).map(
-      (t, i) => At(t, `schedule_preview.dst_warnings[${String(i)}]`)
+      (t, i) => Tt(t, `schedule_preview.dst_warnings[${String(i)}]`)
     )
   };
 }
-function Et(r) {
+function Dt(r) {
   const e = m(r, "schedule_save");
   return z(e, "schedule_save"), {
-    api_version: $,
-    revision: x(e.revision, "schedule_save.revision"),
+    api_version: x,
+    revision: $(e.revision, "schedule_save.revision"),
     schedule: Ge(e.schedule, "schedule_save.schedule")
   };
 }
-function Dt(r, e) {
+function Pt(r, e) {
   const t = m(r, e), i = (n, s) => w(n, s).map((l, o) => {
-    const p = `${s}[${String(o)}]`, g = m(l, p);
+    const u = `${s}[${String(o)}]`, g = m(l, u);
     return {
-      entity_id: u(g.entity_id, `${p}.entity_id`),
-      enabled: y(g.enabled, `${p}.enabled`)
+      entity_id: p(g.entity_id, `${u}.entity_id`),
+      enabled: y(g.enabled, `${u}.enabled`)
     };
   }), a = (n, s) => w(n, s).map((l, o) => {
-    const p = `${s}[${String(o)}]`, g = m(l, p);
+    const u = `${s}[${String(o)}]`, g = m(l, u);
     return {
-      entity_id: u(g.entity_id, `${p}.entity_id`),
-      enabled: y(g.enabled, `${p}.enabled`),
-      reviewed: y(g.reviewed, `${p}.reviewed`)
+      entity_id: p(g.entity_id, `${u}.entity_id`),
+      enabled: y(g.enabled, `${u}.enabled`),
+      reviewed: y(g.reviewed, `${u}.reviewed`)
     };
   });
   return {
     ...t,
-    zone_id: u(t.zone_id, `${e}.zone_id`),
-    name: u(t.name, `${e}.name`),
+    zone_id: p(t.zone_id, `${e}.zone_id`),
+    name: p(t.name, `${e}.name`),
     temperature_sources: i(
       t.temperature_sources,
       `${e}.temperature_sources`
@@ -911,34 +927,34 @@ function Dt(r, e) {
       t.occupancy_entity_ids,
       `${e}.occupancy_entity_ids`
     ),
-    stage_entity_ids: N(
+    stage_entity_ids: q(
       t.stage_entity_ids,
       `${e}.stage_entity_ids`
     ),
     fan_entity_ids: a(t.fan_entity_ids, `${e}.fan_entity_ids`)
   };
 }
-function Pt(r) {
+function It(r) {
   const e = m(r, "config");
   return z(e, "config"), {
-    api_version: $,
+    api_version: x,
     config: m(e.config, "config.config"),
     options: m(e.options, "config.options"),
-    active_repairs: N(e.active_repairs, "config.active_repairs"),
+    active_repairs: q(e.active_repairs, "config.active_repairs"),
     zones: w(e.zones, "config.zones").map(
-      (t, i) => Dt(t, `config.zones[${String(i)}]`)
+      (t, i) => Pt(t, `config.zones[${String(i)}]`)
     )
   };
 }
-function It(r, e) {
+function Mt(r, e) {
   const t = m(r, e);
   return {
-    zone_id: u(t.zone_id, `${e}.zone_id`),
-    effective_temperature_c: A(
+    zone_id: p(t.zone_id, `${e}.zone_id`),
+    effective_temperature_c: T(
       t.effective_temperature_c,
       `${e}.effective_temperature_c`
     ),
-    effective_humidity_pct: A(
+    effective_humidity_pct: T(
       t.effective_humidity_pct,
       `${e}.effective_humidity_pct`
     ),
@@ -946,7 +962,7 @@ function It(r, e) {
       t.thermostat_hvac_mode,
       `${e}.thermostat_hvac_mode`
     ),
-    supported_hvac_modes: N(
+    supported_hvac_modes: q(
       t.supported_hvac_modes,
       `${e}.supported_hvac_modes`
     ),
@@ -971,107 +987,130 @@ function It(r, e) {
 function Pe(r) {
   const e = m(r, "snapshot");
   return z(e, "snapshot"), {
-    api_version: $,
-    entry_id: u(e.entry_id, "snapshot.entry_id"),
-    observation_revision: x(
+    api_version: x,
+    entry_id: p(e.entry_id, "snapshot.entry_id"),
+    observation_revision: $(
       e.observation_revision,
       "snapshot.observation_revision"
     ),
-    calculated_at_utc: _(
+    calculated_at_utc: b(
       e.calculated_at_utc,
       "snapshot.calculated_at_utc"
     ),
-    control_state: u(e.control_state, "snapshot.control_state"),
+    control_state: p(e.control_state, "snapshot.control_state"),
     reason_code: W(e.reason_code, "snapshot.reason_code"),
     zones: w(e.zones, "snapshot.zones").map(
-      (t, i) => It(t, `snapshot.zones[${String(i)}]`)
+      (t, i) => Mt(t, `snapshot.zones[${String(i)}]`)
     )
   };
 }
-function Mt(r, e) {
+function Ut(r, e) {
   const t = m(r, e);
   return {
-    record_id: u(t.record_id, `${e}.record_id`),
+    record_id: p(t.record_id, `${e}.record_id`),
     zone_id: W(t.zone_id, `${e}.zone_id`),
-    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
-    activity_type: u(t.activity_type, `${e}.activity_type`),
-    reason_code: u(t.reason_code, `${e}.reason_code`),
-    severity: u(t.severity, `${e}.severity`),
-    explanation: u(t.explanation, `${e}.explanation`)
+    timestamp_utc: b(t.timestamp_utc, `${e}.timestamp_utc`),
+    activity_type: p(t.activity_type, `${e}.activity_type`),
+    reason_code: p(t.reason_code, `${e}.reason_code`),
+    severity: p(t.severity, `${e}.severity`),
+    explanation: p(t.explanation, `${e}.explanation`),
+    detail: Ot(t.detail, `${e}.detail`)
   };
 }
-function Ut(r) {
+function Ot(r, e) {
+  const t = m(r, e), i = {};
+  for (const [a, n] of Object.entries(t)) {
+    if (!wt.has(a))
+      throw new v(
+        `${e}.${a}`,
+        "unexpected detail field"
+      );
+    if (n !== null && typeof n != "string" && typeof n != "number" && typeof n != "boolean")
+      throw new v(
+        `${e}.${a}`,
+        "expected scalar detail"
+      );
+    if (typeof n == "number" && !Number.isFinite(n))
+      throw new v(
+        `${e}.${a}`,
+        "expected finite detail"
+      );
+    i[a] = n;
+  }
+  return i;
+}
+function Lt(r) {
   const e = m(r, "activity");
   z(e, "activity");
-  const t = u(e.order, "activity.order");
+  const t = p(e.order, "activity.order");
   if (t !== "newest" && t !== "oldest")
-    throw new f(
+    throw new v(
       "activity.order",
       "expected newest or oldest"
     );
   return {
-    api_version: $,
-    total: x(e.total, "activity.total"),
-    offset: x(e.offset, "activity.offset"),
+    api_version: x,
+    total: $(e.total, "activity.total"),
+    offset: $(e.offset, "activity.offset"),
     order: t,
     records: w(e.records, "activity.records").map(
-      (i, a) => Mt(i, `activity.records[${String(a)}]`)
+      (i, a) => Ut(i, `activity.records[${String(a)}]`)
     )
   };
 }
-function Ot(r, e) {
+function Ht(r, e) {
   const t = m(r, e);
   return {
     ready: y(t.ready, `${e}.ready`),
-    qualification_percent: O(
+    qualification_percent: H(
       t.qualification_percent,
       `${e}.qualification_percent`
     ),
-    valid_evaluation_percent: O(
+    valid_evaluation_percent: H(
       t.valid_evaluation_percent,
       `${e}.valid_evaluation_percent`
     ),
-    elapsed_hours: O(t.elapsed_hours, `${e}.elapsed_hours`),
-    evaluated_decisions: x(
+    elapsed_hours: H(t.elapsed_hours, `${e}.elapsed_hours`),
+    evaluated_decisions: $(
       t.evaluated_decisions,
       `${e}.evaluated_decisions`
     ),
-    valid_evaluations: x(
+    valid_evaluations: $(
       t.valid_evaluations,
       `${e}.valid_evaluations`
     ),
-    minimum_material_transitions: x(
+    minimum_material_transitions: $(
       t.minimum_material_transitions,
       `${e}.minimum_material_transitions`
     ),
-    blocking_reasons: N(
+    blocking_reasons: q(
       t.blocking_reasons,
       `${e}.blocking_reasons`
     ),
-    blocking_faults: N(
+    blocking_faults: q(
       t.blocking_faults,
       `${e}.blocking_faults`
     )
   };
 }
-function Lt(r) {
+function Nt(r) {
   const e = m(r, "shadow");
   return z(e, "shadow"), {
-    api_version: $,
-    readiness: e.readiness === null ? null : Ot(e.readiness, "shadow.readiness"),
+    api_version: x,
+    readiness: e.readiness === null ? null : Ht(e.readiness, "shadow.readiness"),
     history: w(e.history, "shadow.history").map((t, i) => {
       const a = `shadow.history[${String(i)}]`, n = m(t, a);
       return {
-        safety_evaluation_id: u(
+        safety_evaluation_id: p(
           n.safety_evaluation_id,
           `${a}.safety_evaluation_id`
         ),
-        evaluated_at_utc: _(
+        evaluated_at_utc: b(
           n.evaluated_at_utc,
           `${a}.evaluated_at_utc`
         ),
-        outcome: u(n.outcome, `${a}.outcome`),
-        reason_code: u(n.reason_code, `${a}.reason_code`),
+        outcome: p(n.outcome, `${a}.outcome`),
+        reason_code: p(n.reason_code, `${a}.reason_code`),
         would_command: y(
           n.would_command,
           `${a}.would_command`
@@ -1080,87 +1119,87 @@ function Lt(r) {
     })
   };
 }
-function Ht(r) {
+function Rt(r) {
   const e = m(r, "observation");
   if (z(e, "observation"), e.model_ready_history_available !== !1)
-    throw new f(
+    throw new v(
       "observation.model_ready_history_available",
       "Phase 2 must not claim model-ready history"
     );
   return {
-    api_version: $,
+    api_version: x,
     collection_active: y(
       e.collection_active,
       "observation.collection_active"
     ),
-    observation_revision: x(
+    observation_revision: $(
       e.observation_revision,
       "observation.observation_revision"
     ),
-    calculated_at_utc: _(
+    calculated_at_utc: b(
       e.calculated_at_utc,
       "observation.calculated_at_utc"
     ),
-    usable_temperature_sources: x(
+    usable_temperature_sources: $(
       e.usable_temperature_sources,
       "observation.usable_temperature_sources"
     ),
-    degraded_zone_count: x(
+    degraded_zone_count: $(
       e.degraded_zone_count,
       "observation.degraded_zone_count"
     ),
-    presentation_history_hours: x(
+    presentation_history_hours: $(
       e.presentation_history_hours,
       "observation.presentation_history_hours"
     ),
     model_ready_history_available: !1,
-    history_boundary: u(
+    history_boundary: p(
       e.history_boundary,
       "observation.history_boundary"
     )
   };
 }
-function Nt(r, e) {
+function qt(r, e) {
   const t = m(r, e);
   return {
-    start_utc: _(t.start_utc, `${e}.start_utc`),
-    end_utc: _(t.end_utc, `${e}.end_utc`)
+    start_utc: b(t.start_utc, `${e}.start_utc`),
+    end_utc: b(t.end_utc, `${e}.end_utc`)
   };
 }
-function Rt(r, e) {
+function Ft(r, e) {
   const t = m(r, e), i = t.value;
   if ((typeof i != "string" || i.length === 0) && (typeof i != "number" || !Number.isFinite(i)))
-    throw new f(
+    throw new v(
       `${e}.value`,
       "expected finite number or text"
     );
   return {
-    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
+    timestamp_utc: b(t.timestamp_utc, `${e}.timestamp_utc`),
     value: i
   };
 }
-function qt(r, e) {
-  const t = m(r, e), i = u(t.value_kind, `${e}.value_kind`);
-  if (!$t.has(i))
-    throw new f(
+function Zt(r, e) {
+  const t = m(r, e), i = p(t.value_kind, `${e}.value_kind`);
+  if (!xt.has(i))
+    throw new v(
       `${e}.value_kind`,
       "unsupported provenance"
     );
   if (i === "predicted" || i === "planned")
-    throw new f(
+    throw new v(
       `${e}.value_kind`,
       "future Phase 3/4 series are not accepted by the Phase 2 panel"
     );
   return {
-    kind: u(t.kind, `${e}.kind`),
+    kind: p(t.kind, `${e}.kind`),
     value_kind: i,
     unit: W(t.unit, `${e}.unit`),
-    source_quality: u(t.source_quality, `${e}.source_quality`),
-    coverage_start_utc: _(
+    source_quality: p(t.source_quality, `${e}.source_quality`),
+    coverage_start_utc: b(
       t.coverage_start_utc,
       `${e}.coverage_start_utc`
     ),
-    coverage_end_utc: _(
+    coverage_end_utc: b(
       t.coverage_end_utc,
       `${e}.coverage_end_utc`
     ),
@@ -1168,83 +1207,83 @@ function qt(r, e) {
       t.missing_intervals,
       `${e}.missing_intervals`
     ).map(
-      (a, n) => Nt(a, `${e}.missing_intervals[${String(n)}]`)
+      (a, n) => qt(a, `${e}.missing_intervals[${String(n)}]`)
     ),
     samples: w(t.samples, `${e}.samples`).map(
-      (a, n) => Rt(a, `${e}.samples[${String(n)}]`)
+      (a, n) => Ft(a, `${e}.samples[${String(n)}]`)
     )
   };
 }
-function Zt(r, e) {
+function jt(r, e) {
   const t = m(r, e);
   return {
-    annotation_id: u(t.annotation_id, `${e}.annotation_id`),
-    timestamp_utc: _(t.timestamp_utc, `${e}.timestamp_utc`),
-    reason_code: u(t.reason_code, `${e}.reason_code`),
-    activity_record_id: u(
+    annotation_id: p(t.annotation_id, `${e}.annotation_id`),
+    timestamp_utc: b(t.timestamp_utc, `${e}.timestamp_utc`),
+    reason_code: p(t.reason_code, `${e}.reason_code`),
+    activity_record_id: p(
       t.activity_record_id,
       `${e}.activity_record_id`
     )
   };
 }
-function Ft(r) {
+function Gt(r) {
   const e = m(r, "timeline");
   if (z(e, "timeline"), e.indoor_prediction_available !== !1)
-    throw new f(
+    throw new v(
       "timeline.indoor_prediction_available",
       "Phase 2 must not claim indoor prediction"
     );
   return {
-    api_version: $,
-    entry_id: u(e.entry_id, "timeline.entry_id"),
-    zone_id: u(e.zone_id, "timeline.zone_id"),
-    time_zone: u(e.time_zone, "timeline.time_zone"),
-    local_date: u(e.local_date, "timeline.local_date"),
-    day_start_utc: _(e.day_start_utc, "timeline.day_start_utc"),
-    day_end_utc: _(e.day_end_utc, "timeline.day_end_utc"),
-    generated_at_utc: _(
+    api_version: x,
+    entry_id: p(e.entry_id, "timeline.entry_id"),
+    zone_id: p(e.zone_id, "timeline.zone_id"),
+    time_zone: p(e.time_zone, "timeline.time_zone"),
+    local_date: p(e.local_date, "timeline.local_date"),
+    day_start_utc: b(e.day_start_utc, "timeline.day_start_utc"),
+    day_end_utc: b(e.day_end_utc, "timeline.day_end_utc"),
+    generated_at_utc: b(
       e.generated_at_utc,
       "timeline.generated_at_utc"
     ),
     indoor_prediction_available: !1,
-    capability_statement: u(
+    capability_statement: p(
       e.capability_statement,
       "timeline.capability_statement"
     ),
     series: w(e.series, "timeline.series").map(
-      (t, i) => qt(t, `timeline.series[${String(i)}]`)
+      (t, i) => Zt(t, `timeline.series[${String(i)}]`)
     ),
     annotations: w(e.annotations, "timeline.annotations").map(
-      (t, i) => Zt(t, `timeline.annotations[${String(i)}]`)
+      (t, i) => jt(t, `timeline.annotations[${String(i)}]`)
     )
   };
 }
-function jt(r) {
+function Bt(r) {
   const e = m(r, "narrative");
   return z(e, "narrative"), {
-    api_version: $,
-    template_version: x(
+    api_version: x,
+    template_version: $(
       e.template_version,
       "narrative.template_version"
     ),
-    entry_id: u(e.entry_id, "narrative.entry_id"),
-    zone_id: u(e.zone_id, "narrative.zone_id"),
-    control_state: u(e.control_state, "narrative.control_state"),
-    reason_code: u(e.reason_code, "narrative.reason_code"),
-    temperature_c: A(
+    entry_id: p(e.entry_id, "narrative.entry_id"),
+    zone_id: p(e.zone_id, "narrative.zone_id"),
+    control_state: p(e.control_state, "narrative.control_state"),
+    reason_code: p(e.reason_code, "narrative.reason_code"),
+    temperature_c: T(
       e.temperature_c,
       "narrative.temperature_c"
     ),
     hvac_action: W(e.hvac_action, "narrative.hvac_action"),
-    scheduled_target_c: A(
+    scheduled_target_c: T(
       e.scheduled_target_c,
       "narrative.scheduled_target_c"
     ),
-    effective_target_c: A(
+    effective_target_c: T(
       e.effective_target_c,
       "narrative.effective_target_c"
     ),
-    next_transition_utc: e.next_transition_utc === null ? null : _(
+    next_transition_utc: e.next_transition_utc === null ? null : b(
       e.next_transition_utc,
       "narrative.next_transition_utc"
     ),
@@ -1256,14 +1295,14 @@ function jt(r) {
       e.context_forecast_available,
       "narrative.context_forecast_available"
     ),
-    included_categories: N(
+    included_categories: q(
       e.included_categories,
       "narrative.included_categories"
     ),
-    rendered: u(e.rendered, "narrative.rendered")
+    rendered: p(e.rendered, "narrative.rendered")
   };
 }
-class Gt {
+class Vt {
   constructor(e, t) {
     if (this.hass = e, this.entryId = t, t.length === 0)
       throw new Error("entryId is required");
@@ -1271,7 +1310,7 @@ class Gt {
   async request(e, t, i = {}) {
     const a = await this.hass.callWS({
       type: e,
-      api_version: $,
+      api_version: x,
       entry_id: this.entryId,
       ...i
     });
@@ -1280,14 +1319,14 @@ class Gt {
   configuration() {
     return this.request(
       "intelligent_climate/config/get",
-      Pt
+      It
     );
   }
   snapshot() {
     return this.request("intelligent_climate/snapshot/get", Pe);
   }
   activity(e = 0, t = 100, i = "newest") {
-    return this.request("intelligent_climate/activity/list", Ut, {
+    return this.request("intelligent_climate/activity/list", Lt, {
       offset: e,
       limit: t,
       order: i
@@ -1296,53 +1335,53 @@ class Gt {
   shadowStatus() {
     return this.request(
       "intelligent_climate/shadow/status",
-      Lt
+      Nt
     );
   }
   observationStatus() {
     return this.request(
       "intelligent_climate/observation/status",
-      Ht
+      Rt
     );
   }
   todayTimeline(e) {
     return this.request(
       "intelligent_climate/timeline/today",
-      Ft,
+      Gt,
       { zone_id: e }
     );
   }
   narrative(e) {
     return this.request(
       "intelligent_climate/narrative/current",
-      jt,
+      Bt,
       { zone_id: e }
     );
   }
   schedule() {
     return this.request(
       "intelligent_climate/schedule/get",
-      St
+      zt
     );
   }
   validateSchedule(e) {
     return this.request(
       "intelligent_climate/schedule/validate",
-      zt,
+      Ct,
       { schedule: e }
     );
   }
   previewSchedule(e, t) {
     return this.request(
       "intelligent_climate/schedule/preview",
-      Tt,
+      Et,
       t === void 0 ? { schedule: e } : { schedule: e, at_utc: t }
     );
   }
   saveSchedule(e, t) {
     return this.request(
       "intelligent_climate/schedule/save",
-      Et,
+      Dt,
       { schedule: e, expected_revision: t }
     );
   }
@@ -1361,13 +1400,13 @@ class Gt {
       (t) => e(Pe(t)),
       {
         type: "intelligent_climate/subscribe",
-        api_version: $,
+        api_version: x,
         entry_id: this.entryId
       }
     );
   }
 }
-const Be = re`
+const Be = ne`
   :host {
     color: var(--primary-text-color, #1f2937);
     background: var(
@@ -1449,7 +1488,7 @@ function Ve(r = globalThis.crypto) {
   );
   return `${t.slice(0, 4).join("")}-${t.slice(4, 6).join("")}-${t.slice(6, 8).join("")}-${t.slice(8, 10).join("")}-${t.slice(10).join("")}`;
 }
-const M = [
+const U = [
   "monday",
   "tuesday",
   "wednesday",
@@ -1465,16 +1504,16 @@ const M = [
   friday: "Friday",
   saturday: "Saturday",
   sunday: "Sunday"
-}, Bt = {
+}, Yt = {
   homeHeatC: 20.6,
   homeCoolC: 23.9,
   awayHeatC: 18.9,
   awayCoolC: 26.7,
   sleepHeatC: 19.4,
   sleepCoolC: 23.9
-}, te = class te extends P {
+}, ie = class ie extends P {
   constructor() {
-    super(...arguments), this.zoneSnapshots = [], this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Bt }, this.zoneChanged = (e) => {
+    super(...arguments), this.zoneSnapshots = [], this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Yt }, this.zoneChanged = (e) => {
       const t = e.currentTarget;
       if (!(t instanceof HTMLSelectElement)) return;
       this.selectedZoneId = t.value;
@@ -1625,14 +1664,14 @@ const M = [
       <label class="mobile-day-picker">
         <span>Day to edit</span>
         <select .value=${this.mobileDay} @change=${this.mobileDayChanged}>
-          ${M.map(
+          ${U.map(
       (i) => c`<option value=${i}>${k[i]}</option>`
     )}
         </select>
       </label>
 
       <section class="week-grid" aria-label="Weekly schedule">
-        ${M.map((i) => this.renderDay(t, i))}
+        ${U.map((i) => this.renderDay(t, i))}
       </section>
 
       <section
@@ -1650,13 +1689,13 @@ const M = [
         <label>
           <span>Copy from</span>
           <select .value=${this.copySource} @change=${this.copySourceChanged}>
-            ${M.map(
+            ${U.map(
       (i) => c`<option value=${i}>${k[i]}</option>`
     )}
           </select>
         </label>
         <div class="copy-days">
-          ${M.filter((i) => i !== this.copySource).map(
+          ${U.filter((i) => i !== this.copySource).map(
       (i) => c`<label>
                 <input
                   type="checkbox"
@@ -2018,7 +2057,7 @@ const M = [
     (n instanceof HTMLInputElement || n instanceof HTMLSelectElement) && this.updateProfile((s) => {
       const l = s.days[e][t];
       l !== void 0 && (i === "occupancy_label" ? l.occupancy_label = n.value : l[i] = n.value, s.days[e].sort(
-        (o, p) => o.local_start.localeCompare(p.local_start)
+        (o, u) => o.local_start.localeCompare(u.local_start)
       ));
     });
   }
@@ -2068,7 +2107,7 @@ const M = [
     t !== null && typeof t.scrollIntoView == "function" && t.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   applyTemplate(e) {
-    const t = e === "weekday" ? M.slice(0, 5) : M.slice(5), i = e === "weekday" ? [
+    const t = e === "weekday" ? U.slice(0, 5) : U.slice(5), i = e === "weekday" ? [
       ["06:30", "Morning", "homeHeatC", "homeCoolC"],
       ["08:30", "Away", "awayHeatC", "awayCoolC"],
       ["17:30", "Evening", "homeHeatC", "homeCoolC"],
@@ -2079,7 +2118,7 @@ const M = [
     ];
     this.updateProfile((a) => {
       for (const n of t)
-        a.days[n] = i.map(([s, l, o, p]) => ({
+        a.days[n] = i.map(([s, l, o, u]) => ({
           ...this.newPeriod(s),
           label: l,
           occupancy_label: l === "Sleep" ? "sleep" : l === "Away" ? "away" : "home",
@@ -2087,7 +2126,7 @@ const M = [
             kind: "range",
             target_c: null,
             heat_target_c: this.starterTargets[o],
-            cool_target_c: this.starterTargets[p]
+            cool_target_c: this.starterTargets[u]
           }
         }));
     });
@@ -2235,7 +2274,7 @@ const M = [
     return e.charAt(0).toUpperCase() + e.slice(1);
   }
 };
-te.properties = {
+ie.properties = {
   document: { attribute: !1 },
   zones: { attribute: !1 },
   zoneSnapshots: { attribute: !1 },
@@ -2252,9 +2291,9 @@ te.properties = {
   copyTargets: { state: !0 },
   clearPendingDay: { state: !0 },
   starterTargets: { state: !0 }
-}, te.styles = [
+}, ie.styles = [
   Be,
-  re`
+  ne`
       :host {
         display: block;
       }
@@ -2666,9 +2705,9 @@ te.properties = {
       }
     `
 ];
-let ue = te;
+let ue = ie;
 customElements.define("ic-schedule-editor", ue);
-const Vt = {
+const Kt = {
   effective_temperature: "Indoor temperature",
   effective_humidity: "Indoor humidity",
   outdoor_temperature: "Outdoor temperature",
@@ -2702,22 +2741,22 @@ const Vt = {
   safe_fallback: "Safe fallback",
   paused: "Paused",
   degraded: "Degraded"
-}, J = 30, X = 155, Yt = X - J, Ie = [30, 61.25, 92.5, 123.75, 155], Kt = 300 * 1e3, Qt = 900 * 1e3;
-function We(r) {
-  return Vt[r] ?? r.replaceAll("_", " ");
-}
+}, J = 30, X = 155, Qt = X - J, Ie = [30, 61.25, 92.5, 123.75, 155], Jt = 300 * 1e3, Xt = 900 * 1e3;
 function Ye(r) {
-  return typeof r == "string" ? Wt[r] ?? We(r) : String(r);
+  return Kt[r] ?? r.replaceAll("_", " ");
 }
-function Jt(r) {
+function Ke(r) {
+  return typeof r == "string" ? Wt[r] ?? Ye(r) : String(r);
+}
+function ei(r) {
   return r.filter(
     (e, t) => t === 0 || r[t - 1]?.value !== e.value
   );
 }
-function Xt(r) {
+function ti(r) {
   return typeof r.value == "string";
 }
-function ei(r) {
+function ii(r) {
   switch (r) {
     case "heating":
       return "Running with heating";
@@ -2731,15 +2770,15 @@ function ei(r) {
     case "idle":
       return "Not running";
     default:
-      return Ye(r);
+      return Ke(r);
   }
 }
-function K(r) {
+function O(r) {
   return r.samples.filter(
     (e) => typeof e.value == "number"
   );
 }
-function ti(r, e) {
+function ai(r, e) {
   if (r.length === 0)
     return "";
   const t = r[0];
@@ -2750,7 +2789,7 @@ function ti(r, e) {
     i += e ? ` H ${a.x.toFixed(2)} V ${a.y.toFixed(2)}` : ` L ${a.x.toFixed(2)} ${a.y.toFixed(2)}`;
   return i;
 }
-const ie = class ie extends P {
+const ae = class ae extends P {
   constructor() {
     super(...arguments), this.locale = "en-US", this.temperatureUnit = "°C";
   }
@@ -2767,7 +2806,7 @@ const ie = class ie extends P {
       </div>`;
     const e = this.timeline, t = this.temperatureRange(e), i = this.chartWindow(e), a = this.renderedSeries(e, t, i), n = a.find(
       (d) => d.kind === "effective_temperature"
-    ), s = n?.sampleCount ?? 0, l = s >= 2, o = this.stateLanes(e, i), p = this.currentCursor(i), g = this.axisTimes(i, e);
+    ), s = n?.sampleCount ?? 0, l = s >= 2, o = this.stateLanes(e, i), u = this.currentCursor(i), g = this.timeTicks(i, e);
     return c`
       <div class="legend" aria-label="Timeline legend">
         ${a.map(
@@ -2799,23 +2838,23 @@ const ie = class ie extends P {
                   </desc>
                   <g class="grid" aria-hidden="true">
                     ${Ie.map(
-      (d) => E`<line x1="80" x2="970" y1=${d} y2=${d}></line>`
+      (d) => C`<line x1="80" x2="970" y1=${d} y2=${d}></line>`
     )}
-                    ${[80, 303, 525, 748, 970].map(
-      (d) => E`<line
-                          x1=${d}
-                          x2=${d}
+                    ${g.map(
+      (d) => C`<line
+                          x1=${d.x}
+                          x2=${d.x}
                           y1=${J}
                           y2=${X}
                         ></line>`
     )}
                   </g>
                   <g class="y-axis-labels" aria-hidden="true">
-                    ${Ie.map((d, v) => {
-      const [b, S] = t, R = S - (S - b) * v / 4;
-      return E`<text x="72" y=${d + 6} text-anchor="end">
-                        ${ce(
-        R,
+                    ${Ie.map((d, f) => {
+      const [_, S] = t, F = S - (S - _) * f / 4;
+      return C`<text x="72" y=${d + 6} text-anchor="end">
+                        ${te(
+        F,
         this.temperatureUnit,
         this.locale
       )}
@@ -2823,46 +2862,46 @@ const ie = class ie extends P {
     })}
                   </g>
                   ${a.map(
-      (d) => E`<g class="series-group ${d.className}">
+      (d) => C`<g class="series-group ${d.className}">
                         <path
                           class="series ${d.className}"
                           d=${d.path}
                         ></path>
                         ${d.kind === "effective_temperature" && d.sampleCount <= 3 ? d.points.map(
-        (v) => E`<circle
+        (f) => C`<circle
                                     class="sample-point measured-temperature"
-                                    cx=${v.x}
-                                    cy=${v.y}
+                                    cx=${f.x}
+                                    cy=${f.y}
                                     r="4.5"
                                   ></circle>`
       ) : h}
                       </g>`
     )}
-                  ${p === null ? h : E`<line
+                  ${u === null ? h : C`<line
                           class="now"
-                          x1=${p}
-                          x2=${p}
+                          x1=${u}
+                          x2=${u}
                           y1=${J - 5}
                           y2=${X + 5}
                         ></line>`}
                   ${e.annotations.map((d) => {
-      const v = this.xPosition(
+      const f = this.xPosition(
         Date.parse(d.timestamp_utc),
         i
       );
-      return E`<g class="annotation" aria-hidden="true">
-                      <circle cx=${v} cy="15" r="6"></circle>
-                      <line x1=${v} x2=${v} y1="21" y2=${J + 6}></line>
+      return C`<g class="annotation" aria-hidden="true">
+                      <circle cx=${f} cy="15" r="6"></circle>
+                      <line x1=${f} x2=${f} y1="21" y2=${J + 6}></line>
                     </g>`;
     })}
                   <g class="axis-labels" aria-hidden="true">
-                    <text x="80" y="198">${g[0]}</text>
-                    <text x="525" y="198" text-anchor="middle">
-                      ${g[1]}
-                    </text>
-                    <text x="970" y="198" text-anchor="end">
-                      ${g[2]}
-                    </text>
+                    ${g.map(
+      (d) => C`<text
+                          x=${d.x}
+                          y="198"
+                          text-anchor=${d.anchor}
+                        >${d.label}</text>`
+    )}
                   </g>
                 </svg>
                 ${this.sampleSummary(n)}
@@ -2918,30 +2957,30 @@ const ie = class ie extends P {
     `;
   }
   renderedSeries(e, t, i) {
-    return e.series.filter(
-      (n) => K(n).length > 0 && n.unit !== "%"
+    return this.visibleNumericSeries(e).filter(
+      (n) => O(n).length > 0 && n.unit !== "%"
     ).map((n) => {
-      const s = K(n), l = s.map((p) => ({
-        x: this.xPosition(Date.parse(p.timestamp_utc), i),
-        y: this.yPosition(p.value, t)
+      const s = O(n), l = s.map((u) => ({
+        x: this.xPosition(Date.parse(u.timestamp_utc), i),
+        y: this.yPosition(u.value, t)
       })), o = s.at(-1);
       if (o === void 0)
         throw new Error("validated timeline series unexpectedly empty");
       return {
         kind: n.kind,
         valueKind: n.value_kind,
-        label: We(n.kind),
+        label: Ye(n.kind),
         className: `${n.value_kind} ${n.kind}`,
-        path: ti(l, n.value_kind !== "measured"),
+        path: ai(l, n.value_kind !== "measured"),
         points: l,
         latest: o.value,
         latestTimestamp: o.timestamp_utc,
         sampleCount: s.length,
-        coverage: `${Z(
+        coverage: `${j(
           n.coverage_start_utc,
           this.locale,
           e.time_zone
-        )} – ${Z(
+        )} – ${j(
           n.coverage_end_utc,
           this.locale,
           e.time_zone
@@ -2950,17 +2989,39 @@ const ie = class ie extends P {
       };
     });
   }
+  visibleNumericSeries(e) {
+    const t = {
+      effective_target: "scheduled_target",
+      effective_heat_target: "scheduled_heat_target",
+      effective_cool_target: "scheduled_cool_target"
+    };
+    return e.series.filter((i) => {
+      const a = t[i.kind];
+      if (a === void 0) return !0;
+      const n = e.series.find(
+        (s) => s.kind === a
+      );
+      return n === void 0 || !this.sameNumericSeries(i, n);
+    });
+  }
+  sameNumericSeries(e, t) {
+    const i = O(e), a = O(t);
+    return i.length === a.length && i.every((n, s) => {
+      const l = a[s];
+      return n.timestamp_utc === l?.timestamp_utc && n.value === l.value;
+    });
+  }
   temperatureRange(e) {
     return this.range(
       e.series.filter((t) => t.unit === "°C").flatMap(
-        (t) => K(t).map((i) => i.value)
+        (t) => O(t).map((i) => i.value)
       )
     );
   }
   sampleSummary(e) {
     return e === void 0 ? h : c`<p class="sample-summary">
       Latest sample
-      ${Z(
+      ${j(
       e.latestTimestamp,
       this.locale,
       this.timeline?.time_zone
@@ -3000,7 +3061,7 @@ const ie = class ie extends P {
         "Derived from actual thermostat operation",
         "air-handler derived",
         (o) => ["heating", "cooling", "drying", "fan"].includes(o),
-        ei
+        ii
       )
     ), a !== void 0 && l.splice(
       Math.min(2, l.length),
@@ -3035,30 +3096,30 @@ const ie = class ie extends P {
       )
     ), l;
   }
-  buildStateLane(e, t, i, a, n, s, l = Ye) {
-    const o = Jt(e.samples).filter(Xt), p = Math.min(
+  buildStateLane(e, t, i, a, n, s, l = Ke) {
+    const o = ei(e.samples).filter(ti), u = Math.min(
       t.end,
       Date.parse(e.coverage_end_utc)
-    ), g = o.flatMap((d, v) => {
+    ), g = o.flatMap((d, f) => {
       if (!s(d.value)) return [];
-      const b = Math.max(
+      const _ = Math.max(
         t.start,
         Date.parse(d.timestamp_utc)
-      ), S = o[v + 1], R = Math.min(
-        p,
-        S === void 0 ? p : Date.parse(S.timestamp_utc)
+      ), S = o[f + 1], F = Math.min(
+        u,
+        S === void 0 ? u : Date.parse(S.timestamp_utc)
       );
-      if (R <= b) return [];
+      if (F <= _) return [];
       const ye = t.end - t.start;
       return [
         {
-          left: (b - t.start) / ye * 100,
-          width: (R - b) / ye * 100,
+          left: (_ - t.start) / ye * 100,
+          width: (F - _) / ye * 100,
           value: d.value,
           label: l(d.value),
           className: `${n} ${d.value}`,
-          startsAt: this.stateTimestamp(new Date(b).toISOString()),
-          endsAt: this.stateTimestamp(new Date(R).toISOString())
+          startsAt: this.stateTimestamp(new Date(_).toISOString()),
+          endsAt: this.stateTimestamp(new Date(F).toISOString())
         }
       ];
     });
@@ -3085,7 +3146,7 @@ const ie = class ie extends P {
     </div>`;
   }
   stateTimestamp(e) {
-    return Z(e, this.locale, this.timeline?.time_zone);
+    return j(e, this.locale, this.timeline?.time_zone);
   }
   range(e) {
     if (e.length === 0)
@@ -3098,48 +3159,63 @@ const ie = class ie extends P {
   }
   yPosition(e, t) {
     const [i, a] = t;
-    return X - (e - i) / (a - i) * Yt;
+    return X - (e - i) / (a - i) * Qt;
   }
   currentCursor(e) {
     const t = Date.now();
     return t < e.start || t > e.end ? null : this.xPosition(t, e);
   }
   chartWindow(e) {
-    const t = Date.parse(e.day_start_utc), i = Date.parse(e.day_end_utc), a = e.series.filter((b) => b.unit !== "%").flatMap(
-      (b) => K(b).map(
+    const t = Date.parse(e.day_start_utc), i = Date.parse(e.day_end_utc), a = e.series.filter((_) => _.unit !== "%").flatMap(
+      (_) => O(_).map(
         (S) => Date.parse(S.timestamp_utc)
       )
-    ).filter((b) => Number.isFinite(b));
+    ).filter((_) => Number.isFinite(_));
     if (a.length === 0)
       return { start: t, end: i };
     const n = Math.min(...a), s = Math.max(...a), l = i - t, o = Math.max(
-      Qt,
-      s - n + Kt * 2
-    ), p = Math.min(l, o), g = (n + s) / 2;
-    let d = g - p / 2, v = g + p / 2;
-    return d < t && (d = t, v = t + p), v > i && (v = i, d = i - p), { start: d, end: v };
+      Xt,
+      s - n + Jt * 2
+    ), u = Math.min(l, o), g = (n + s) / 2;
+    let d = g - u / 2, f = g + u / 2;
+    return d < t && (d = t, f = t + u), f > i && (f = i, d = i - u), { start: d, end: f };
   }
-  axisTimes(e, t) {
-    const i = new Intl.DateTimeFormat(this.locale, {
+  timeTicks(e, t) {
+    const i = e.end - e.start, a = [
+      5 * 6e4,
+      15 * 6e4,
+      30 * 6e4,
+      60 * 6e4,
+      120 * 6e4,
+      180 * 6e4,
+      240 * 6e4,
+      360 * 6e4
+    ], n = a.find((u) => i / u <= 7) ?? a.at(-1) ?? i, s = [e.start];
+    for (let u = Math.ceil(e.start / n) * n; u < e.end; u += n)
+      u > e.start + 6e4 && s.push(u);
+    const l = s.at(-1) ?? e.start;
+    e.end - l > 6e4 && s.push(e.end);
+    const o = new Intl.DateTimeFormat(this.locale, {
       hour: "numeric",
       minute: "2-digit",
       timeZone: t.time_zone
     });
-    return [
-      i.format(new Date(e.start)),
-      i.format(new Date((e.start + e.end) / 2)),
-      i.format(new Date(e.end))
-    ];
+    return s.map((u, g) => ({
+      timestamp: u,
+      x: this.xPosition(u, e),
+      label: o.format(new Date(u)),
+      anchor: g === 0 ? "start" : g === s.length - 1 ? "end" : "middle"
+    }));
   }
   latestValue(e) {
-    return typeof e.latest != "number" ? e.latest : ce(e.latest, this.temperatureUnit, this.locale);
+    return typeof e.latest != "number" ? e.latest : te(e.latest, this.temperatureUnit, this.locale);
   }
 };
-ie.properties = {
+ae.properties = {
   timeline: { attribute: !1 },
   locale: { type: String },
   temperatureUnit: { type: String, attribute: "temperature-unit" }
-}, ie.styles = re`
+}, ae.styles = ne`
     :host {
       display: block;
     }
@@ -3168,6 +3244,14 @@ ie.properties = {
     }
     .swatch.calculated {
       border-block-start-style: dotted;
+    }
+    .swatch.scheduled_heat_target,
+    .swatch.effective_heat_target {
+      border-block-start-color: var(--warning-color, #d97706);
+    }
+    .swatch.scheduled_cool_target,
+    .swatch.effective_cool_target {
+      border-block-start-color: var(--info-color, #1976d2);
     }
     .chart-wrap {
       overflow: hidden;
@@ -3231,7 +3315,7 @@ ie.properties = {
     }
     .axis-labels {
       fill: var(--secondary-text-color, #667085);
-      font-size: 24px;
+      font-size: 16px;
     }
     .y-axis-labels {
       fill: var(--secondary-text-color, #667085);
@@ -3379,10 +3463,10 @@ ie.properties = {
       }
     }
   `;
-let pe = ie;
+let pe = ae;
 customElements.get("ic-today-timeline") || customElements.define("ic-today-timeline", pe);
 const he = "intelligent-climate.temperature-unit";
-function ii() {
+function ri() {
   try {
     const r = window.localStorage.getItem(he);
     if (r === "fahrenheit" || r === "celsius")
@@ -3391,16 +3475,16 @@ function ii() {
   }
   return "home_assistant";
 }
-function ai(r) {
+function ni(r) {
   try {
     r === "home_assistant" ? window.localStorage.removeItem(he) : window.localStorage.setItem(he, r);
   } catch {
   }
 }
-function ri(r, e) {
+function si(r, e) {
   return r === "fahrenheit" ? "°F" : r === "celsius" ? "°C" : e;
 }
-const ni = [
+const oi = [
   "monday",
   "tuesday",
   "wednesday",
@@ -3409,8 +3493,8 @@ const ni = [
   "saturday",
   "sunday"
 ];
-function si(r, e, t = /* @__PURE__ */ new Date()) {
-  const i = li(
+function li(r, e, t = /* @__PURE__ */ new Date()) {
+  const i = di(
     e.config.equipment_group,
     "config.equipment_group"
   ), a = Ue(
@@ -3426,7 +3510,7 @@ function si(r, e, t = /* @__PURE__ */ new Date()) {
       zone_id: l.zone_id,
       enabled: !1,
       selected_profile_id: o,
-      profiles: [oi(o)]
+      profiles: [ci(o)]
     };
   }
   return {
@@ -3442,9 +3526,9 @@ function si(r, e, t = /* @__PURE__ */ new Date()) {
 function Me(r, e = /* @__PURE__ */ new Date()) {
   return { ...structuredClone(r), saved_at_utc: e.toISOString() };
 }
-function oi(r) {
+function ci(r) {
   const e = {};
-  for (const t of ni)
+  for (const t of oi)
     e[t] = [];
   return {
     profile_id: r,
@@ -3453,7 +3537,7 @@ function oi(r) {
     days: e
   };
 }
-function li(r, e) {
+function di(r, e) {
   if (typeof r != "object" || r === null || Array.isArray(r))
     throw new Error(`${e} is unavailable`);
   return r;
@@ -3463,19 +3547,19 @@ function Ue(r, e) {
     throw new Error(`${e} is unavailable`);
   return r;
 }
-const Ke = [
+const We = [
   { id: "overview", label: "Overview", icon: "⌂" },
   { id: "schedule", label: "Schedule", icon: "▦" },
   { id: "sensors", label: "Sensors", icon: "◫" },
   { id: "activity", label: "Activity", icon: "↯" },
   { id: "settings", label: "Settings", icon: "⚙" }
 ];
-function ci(r) {
-  return Ke.some((e) => e.id === r);
+function ui(r) {
+  return We.some((e) => e.id === r);
 }
-const ae = class ae extends P {
+const re = class re extends P {
   constructor() {
-    super(...arguments), this.narrow = !1, this.activeRoute = "overview", this.selectedEntryId = "", this.selectedZoneId = "", this.loading = !0, this.errorMessage = "", this.activityFilter = "all", this.temperatureUnitPreference = ii(), this.activityLoadingOlder = !1, this.scheduleLoading = !1, this.scheduleSaving = !1, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.loadGeneration = 0, this.detailLoadGeneration = 0, this.entryChanged = (e) => {
+    super(...arguments), this.narrow = !1, this.activeRoute = "overview", this.selectedEntryId = "", this.selectedZoneId = "", this.loading = !0, this.errorMessage = "", this.activityFilter = "all", this.temperatureUnitPreference = ri(), this.activityLoadingOlder = !1, this.scheduleLoading = !1, this.scheduleSaving = !1, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.loadGeneration = 0, this.detailLoadGeneration = 0, this.entryChanged = (e) => {
       const t = e.currentTarget;
       t instanceof HTMLSelectElement && this.confirmDiscard("overview") && (this.selectedEntryId = t.value, this.loadEntry(t.value));
     }, this.filterChanged = (e) => {
@@ -3486,7 +3570,7 @@ const ae = class ae extends P {
       if (!(t instanceof HTMLSelectElement))
         return;
       const i = t.value;
-      i !== "home_assistant" && i !== "fahrenheit" && i !== "celsius" || (this.temperatureUnitPreference = i, ai(i));
+      i !== "home_assistant" && i !== "fahrenheit" && i !== "celsius" || (this.temperatureUnitPreference = i, ni(i));
     }, this.loadOlderActivity = async () => {
       if (this.client === void 0 || this.data === void 0 || this.activityLoadingOlder)
         return;
@@ -3561,7 +3645,7 @@ const ae = class ae extends P {
   willUpdate(e) {
     if (e.has("route")) {
       const t = this.route?.path?.split("/").find(Boolean);
-      t !== void 0 && ci(t) && (this.activeRoute = t);
+      t !== void 0 && ui(t) && (this.activeRoute = t);
     }
   }
   updated(e) {
@@ -3597,7 +3681,7 @@ const ae = class ae extends P {
         </header>
 
         <nav class="primary-nav" aria-label="Intelligent Climate sections">
-          ${Ke.map(
+          ${We.map(
       (t) => c`<button
                 type="button"
                 class=${this.activeRoute === t.id ? "active" : ""}
@@ -3701,7 +3785,7 @@ const ae = class ae extends P {
     `;
   }
   renderOverview() {
-    const e = this.requireData(), t = _t(e.snapshot.control_state), i = e.shadow.readiness, a = [
+    const e = this.requireData(), t = bt(e.snapshot.control_state), i = e.shadow.readiness, a = [
       "shadow_qualifying",
       "shadow_ready"
     ].includes(e.snapshot.control_state), n = this.selectedZone();
@@ -3722,7 +3806,7 @@ const ae = class ae extends P {
             <span>Revision ${e.snapshot.observation_revision}</span>
             <span>Updated ${this.time(e.snapshot.calculated_at_utc)}</span>
             <span
-              >${e.snapshot.reason_code === null ? "No current alert" : Y(e.snapshot.reason_code)}</span
+              >${e.snapshot.reason_code === null ? "No current alert" : M(e.snapshot.reason_code)}</span
             >
           </div>
         </div>
@@ -4070,8 +4154,8 @@ const ae = class ae extends P {
       </div>` : c`<ol class="activity-list">
       ${e.map((t) => {
       const i = this.data?.configuration.zones.find(
-        (a) => a.zone_id === t.zone_id
-      );
+        (n) => n.zone_id === t.zone_id
+      ), a = this.activityFacts(t);
       return c`<li>
           <span
             class="activity-marker severity-${t.severity}"
@@ -4079,20 +4163,111 @@ const ae = class ae extends P {
           ></span>
           <div class="activity-body">
             <div class="activity-title">
-              <strong>${Y(t.activity_type)}</strong
+              <strong>${M(t.activity_type)}</strong
               ><time datetime=${t.timestamp_utc}
                 >${this.time(t.timestamp_utc)}</time
               >
             </div>
             <p>${t.explanation}</p>
+            ${a.length === 0 ? h : c`<dl class="activity-facts">
+                    ${a.map(
+        (n) => c`<div>
+                          <dt>${n.label}</dt>
+                          <dd>${n.value}</dd>
+                        </div>`
+      )}
+                  </dl>`}
             <div class="activity-meta">
-              <span>${Y(t.reason_code)}</span
+              <span>${M(t.reason_code)}</span
               >${i === void 0 ? h : c`<span>${i.name}</span>`}<span>${t.severity}</span>${this.repairRecordStatus(t)}
             </div>
           </div>
         </li>`;
     })}
     </ol>`;
+  }
+  activityFacts(e) {
+    const t = e.detail;
+    switch (e.reason_code) {
+      case "control_state_changed":
+        return this.transitionFact(
+          "State",
+          t.previous_state,
+          t.new_state
+        );
+      case "thermostat_mode_changed":
+        return this.transitionFact(
+          "Mode",
+          t.previous_hvac_mode,
+          t.new_hvac_mode
+        );
+      case "thermostat_target_changed":
+        return [
+          "previous_target_temperature_c",
+          "previous_target_low_c",
+          "previous_target_high_c",
+          "new_target_temperature_c",
+          "new_target_low_c",
+          "new_target_high_c"
+        ].some((i) => Object.hasOwn(t, i)) ? [
+          {
+            label: "Target",
+            value: `${this.activityTarget(t, "previous")} → ${this.activityTarget(t, "new")}`
+          }
+        ] : [];
+      case "source_excluded":
+      case "source_exclusion_changed":
+      case "source_recovered": {
+        const i = this.transitionFact(
+          "Quality",
+          t.previous_quality,
+          t.new_quality
+        );
+        return t.previous_exclusion_reason !== t.new_exclusion_reason && i.push(
+          ...this.transitionFact(
+            "Reason",
+            t.previous_exclusion_reason,
+            t.new_exclusion_reason
+          )
+        ), i;
+      }
+      case "migration_failed":
+      case "missing_entity":
+      case "incompatible_entity":
+      case "no_zones_configured":
+      case "store_write_failed":
+      case "command_boundary_violation":
+        return typeof t.issue_code == "string" ? [
+          {
+            label: "Issue",
+            value: M(t.issue_code)
+          }
+        ] : [];
+      default:
+        return [];
+    }
+  }
+  transitionFact(e, t, i) {
+    return t === void 0 && i === void 0 ? [] : [
+      {
+        label: e,
+        value: `${this.activityValue(t)} → ${this.activityValue(i)}`
+      }
+    ];
+  }
+  activityValue(e) {
+    return e == null ? "Unavailable" : typeof e != "string" ? String(e) : e === "heat_cool" ? "Heat/Cool" : M(e);
+  }
+  activityTarget(e, t) {
+    const i = e[`${t}_target_temperature_c`], a = e[`${t}_target_low_c`], n = e[`${t}_target_high_c`];
+    return typeof a == "number" || typeof n == "number" ? `${this.activityTemperature(a)}–${this.activityTemperature(n)}` : this.activityTemperature(i);
+  }
+  activityTemperature(e) {
+    return te(
+      typeof e == "number" ? e : null,
+      this.temperatureUnit(),
+      this.locale()
+    );
   }
   renderSettings() {
     const e = this.requireData(), t = e.configuration.config.automation_enabled === !0, i = e.configuration.options.safety_limits;
@@ -4259,19 +4434,19 @@ const ae = class ae extends P {
     return this.hass.locale.language;
   }
   temperatureUnit() {
-    return ri(
+    return si(
       this.temperatureUnitPreference,
       this.hass.config.unit_system.temperature
     );
   }
   temperature(e) {
-    return ce(e, this.temperatureUnit(), this.locale());
+    return te(e, this.temperatureUnit(), this.locale());
   }
   humidity(e, t = !0) {
     return t ? e === null ? "Unavailable" : `${new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 1 }).format(e)}%` : "Not configured";
   }
   time(e) {
-    return Z(e, this.locale(), this.timeline?.time_zone);
+    return j(e, this.locale(), this.timeline?.time_zone);
   }
   enabledSourceCount(e) {
     return e.filter((t) => t.enabled).length;
@@ -4293,7 +4468,7 @@ const ae = class ae extends P {
         emergency_paused: "Control is paused.",
         degraded: "Observation is continuing with degraded data.",
         reconciling: "Live state is being checked after startup."
-      }[e.control_state] ?? `Current status: ${Y(e.control_state)}.`
+      }[e.control_state] ?? `Current status: ${M(e.control_state)}.`
     ], a = e.effective_target_c ?? e.scheduled_target_c;
     if (a !== null) {
       const n = e.next_transition_utc === null ? "" : ` until ${this.time(e.next_transition_utc)}`;
@@ -4332,7 +4507,7 @@ const ae = class ae extends P {
   async loadEntry(e) {
     const t = ++this.loadGeneration;
     this.unsubscribe?.(), this.unsubscribe = void 0, this.loading = !0, this.errorMessage = "", this.data = void 0, this.timeline = void 0, this.narrative = void 0, this.scheduleDocument = void 0, this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1;
-    const i = new Gt(this.hass, e);
+    const i = new Vt(this.hass, e);
     this.client = i;
     try {
       const a = await i.dashboardData();
@@ -4359,7 +4534,7 @@ const ae = class ae extends P {
       try {
         const t = await this.client.schedule();
         if (e !== this.loadGeneration) return;
-        this.scheduleDocument = t.schedule ?? si(this.selectedEntryId, this.data.configuration), this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleConflict = !1;
+        this.scheduleDocument = t.schedule ?? li(this.selectedEntryId, this.data.configuration), this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleConflict = !1;
       } catch (t) {
         if (e !== this.loadGeneration) return;
         this.scheduleDocument = void 0, this.scheduleMessage = this.describeError(t);
@@ -4381,7 +4556,7 @@ const ae = class ae extends P {
     this.data === void 0 || e.entry_id !== this.selectedEntryId || (this.data = { ...this.data, snapshot: e }, this.loadZoneDetails(this.loadGeneration));
   }
   describeError(e) {
-    return e instanceof f ? `The backend returned data this frontend cannot safely display (${e.message}). Reload the integration or update the candidate.` : e instanceof Error ? e.message : "An unknown local data error occurred.";
+    return e instanceof v ? `The backend returned data this frontend cannot safely display (${e.message}). Reload the integration or update the candidate.` : e instanceof Error ? e.message : "An unknown local data error occurred.";
   }
   navigate(e) {
     this.confirmDiscard(e) && (this.activeRoute = e, window.history.replaceState(null, "", `/intelligent-climate/${e}`), this.shadowRoot?.querySelector("#main-content")?.focus(), e === "schedule" && this.scheduleDocument === void 0 && this.loadSchedule(this.loadGeneration));
@@ -4401,7 +4576,7 @@ const ae = class ae extends P {
     return this.errorCode(e) === "revision_conflict" ? "The schedule changed in another editor. Your draft was not saved." : this.describeError(e);
   }
 };
-ae.properties = {
+re.properties = {
   hass: { attribute: !1 },
   panel: { attribute: !1 },
   route: { attribute: !1 },
@@ -4424,9 +4599,9 @@ ae.properties = {
   scheduleDirty: { state: !0 },
   scheduleMessage: { state: !0 },
   scheduleConflict: { state: !0 }
-}, ae.styles = [
+}, re.styles = [
   Be,
-  re`
+  ne`
       :host {
         display: block;
         min-block-size: 100%;
@@ -5124,6 +5299,30 @@ ae.properties = {
         font-size: 0.85rem;
         line-height: 1.5;
       }
+      .activity-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 10px;
+      }
+      .activity-facts div {
+        display: inline-flex;
+        gap: 5px;
+        padding: 6px 9px;
+        border-radius: 8px;
+        background: var(--ic-surface-muted);
+        font-size: 0.76rem;
+      }
+      .activity-facts dt {
+        color: var(--secondary-text-color);
+      }
+      .activity-facts dt::after {
+        content: ":";
+      }
+      .activity-facts dd {
+        margin: 0;
+        font-weight: 650;
+      }
       .activity-meta {
         display: flex;
         flex-wrap: wrap;
@@ -5321,5 +5520,5 @@ ae.properties = {
       }
     `
 ];
-let ge = ae;
+let ge = re;
 customElements.get("intelligent-climate-panel") || customElements.define("intelligent-climate-panel", ge);
