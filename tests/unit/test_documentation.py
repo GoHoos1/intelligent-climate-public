@@ -105,6 +105,7 @@ def test_changelog_contains_versioned_release_sections() -> None:
     assert headings == [
         "Unreleased",
         "0.0.17 - 2026-08-02",
+        "0.0.16 - 2026-08-01",
         "0.0.15 - 2026-08-01",
         "0.0.14 - 2026-08-01",
         "0.0.13 - 2026-08-01",
