@@ -176,7 +176,14 @@ describe("Intelligent Climate sidebar", () => {
     expect(panel.shadowRoot?.textContent).toContain("Newest activity first");
     expect(
       panel.shadowRoot?.querySelector(".activity-title strong")?.textContent,
-    ).toBe("Observation");
+    ).toBe("Runtime State Changed");
+    const activityFacts = [
+      ...(panel.shadowRoot?.querySelectorAll(".activity-facts") ?? []),
+    ]
+      .map((item) => item.textContent)
+      .join(" ");
+    expect(activityFacts).toContain("State");
+    expect(activityFacts).toContain("Reconciling → Observing");
     expect(panel.shadowRoot?.textContent).toContain("Historical record");
     (buttons[4] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })

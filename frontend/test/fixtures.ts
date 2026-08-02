@@ -76,10 +76,14 @@ export const activity: ActivityResponse = {
       record_id: "record-1",
       zone_id: ZONE_ID,
       timestamp_utc: NOW,
-      activity_type: "observation",
-      reason_code: "observation_updated",
+      activity_type: "runtime_state_changed",
+      reason_code: "control_state_changed",
       severity: "info",
-      explanation: "A new valid observation was recorded.",
+      explanation: "The observation runtime state changed.",
+      detail: {
+        previous_state: "reconciling",
+        new_state: "observing",
+      },
     },
     {
       record_id: "record-older-repair",
@@ -89,6 +93,7 @@ export const activity: ActivityResponse = {
       reason_code: "migration_failed",
       severity: "error",
       explanation: "A migration repair was created during an earlier setup.",
+      detail: { issue_code: "migration_failed" },
     },
   ],
 };

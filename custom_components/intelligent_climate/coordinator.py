@@ -1085,6 +1085,18 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
                         ),
                         explanation="The observed thermostat mode changed.",
                         zone_id=zone_id,
+                        detail={
+                            "previous_hvac_mode": (
+                                None
+                                if prior.state.hvac_mode is None
+                                else prior.state.hvac_mode.value
+                            ),
+                            "new_hvac_mode": (
+                                None
+                                if thermostat.state.hvac_mode is None
+                                else thermostat.state.hvac_mode.value
+                            ),
+                        },
                         timestamp=current.calculated_at,
                     )
             if _target_semantics(prior) != _target_semantics(thermostat):
@@ -1102,6 +1114,18 @@ class IntelligentClimateCoordinator(DataUpdateCoordinator[EntryObservationSnapsh
                         ),
                         explanation="The observed thermostat target changed.",
                         zone_id=zone_id,
+                        detail={
+                            "previous_target_temperature_c": (
+                                prior.state.target_temperature_c
+                            ),
+                            "previous_target_low_c": prior.state.target_low_c,
+                            "previous_target_high_c": prior.state.target_high_c,
+                            "new_target_temperature_c": (
+                                thermostat.state.target_temperature_c
+                            ),
+                            "new_target_low_c": thermostat.state.target_low_c,
+                            "new_target_high_c": thermostat.state.target_high_c,
+                        },
                         timestamp=current.calculated_at,
                     )
 

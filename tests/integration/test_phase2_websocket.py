@@ -193,6 +193,11 @@ async def test_activity_defaults_newest_first_and_can_request_oldest(
             reason_code=SimpleNamespace(value="observation_updated"),
             severity=SimpleNamespace(value="info"),
             explanation=record_id,
+            detail={
+                "previous_state": "reconciling",
+                "new_state": "observing",
+                "source_id": "private-internal-source-id",
+            },
         )
 
     stored = (record("earlier", earlier), record("later", later))
@@ -221,5 +226,9 @@ async def test_activity_defaults_newest_first_and_can_request_oldest(
         response = await client.receive_json()
         assert response["success"]
         assert [item["record_id"] for item in response["result"]["records"]] == expected
+        assert response["result"]["records"][0]["detail"] == {
+            "previous_state": "reconciling",
+            "new_state": "observing",
+        }
 
     assert coordinator.history.records == stored

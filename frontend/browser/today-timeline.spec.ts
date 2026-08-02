@@ -181,6 +181,9 @@ test("renders dense history as clean lines with aligned operation and context la
   ]);
 
   await expect(chart.locator("circle.measured-temperature")).toHaveCount(0);
+  expect(
+    await chart.locator(".axis-labels text").count(),
+  ).toBeGreaterThanOrEqual(5);
   await expect(chart.locator("path.scheduled_heat_target")).toHaveCount(1);
   await expect(chart.locator("path.scheduled_cool_target")).toHaveCount(1);
   const timeline = page.locator("#timeline");

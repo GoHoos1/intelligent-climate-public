@@ -68,6 +68,24 @@ const VALUE_KINDS = new Set<TimelineValueKind>([
   "planned",
 ]);
 
+const ACTIVITY_DETAIL_KEYS = new Set([
+  "issue_code",
+  "new_exclusion_reason",
+  "new_hvac_mode",
+  "new_quality",
+  "new_state",
+  "new_target_high_c",
+  "new_target_low_c",
+  "new_target_temperature_c",
+  "previous_exclusion_reason",
+  "previous_hvac_mode",
+  "previous_quality",
+  "previous_state",
+  "previous_target_high_c",
+  "previous_target_low_c",
+  "previous_target_temperature_c",
+]);
+
 function object(value: unknown, path: string): JsonObject {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new FrontendContractError(path, "expected object");
@@ -516,7 +534,43 @@ function activityRecord(value: unknown, path: string): ActivityRecord {
     reason_code: string(root["reason_code"], `${path}.reason_code`),
     severity: string(root["severity"], `${path}.severity`),
     explanation: string(root["explanation"], `${path}.explanation`),
+    detail: activityDetail(root["detail"], `${path}.detail`),
   };
+}
+
+function activityDetail(
+  value: unknown,
+  path: string,
+): Record<string, string | number | boolean | null> {
+  const root = object(value, path);
+  const result: Record<string, string | number | boolean | null> = {};
+  for (const [key, item] of Object.entries(root)) {
+    if (!ACTIVITY_DETAIL_KEYS.has(key)) {
+      throw new FrontendContractError(
+        `${path}.${key}`,
+        "unexpected detail field",
+      );
+    }
+    if (
+      item !== null &&
+      typeof item !== "string" &&
+      typeof item !== "number" &&
+      typeof item !== "boolean"
+    ) {
+      throw new FrontendContractError(
+        `${path}.${key}`,
+        "expected scalar detail",
+      );
+    }
+    if (typeof item === "number" && !Number.isFinite(item)) {
+      throw new FrontendContractError(
+        `${path}.${key}`,
+        "expected finite detail",
+      );
+    }
+    result[key] = item;
+  }
+  return result;
 }
 
 export function validateActivity(value: unknown): ActivityResponse {

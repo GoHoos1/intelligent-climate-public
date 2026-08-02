@@ -49,6 +49,11 @@ import type {
 
 type PanelRoute = "overview" | "schedule" | "sensors" | "activity" | "settings";
 
+interface ActivityFact {
+  label: string;
+  value: string;
+}
+
 const ROUTES: readonly {
   id: PanelRoute;
   label: string;
@@ -740,6 +745,7 @@ export class IntelligentClimatePanel extends LitElement {
         const zone = this.data?.configuration.zones.find(
           (item) => item.zone_id === record.zone_id,
         );
+        const facts = this.activityFacts(record);
         return html`<li>
           <span
             class="activity-marker severity-${record.severity}"
@@ -753,6 +759,19 @@ export class IntelligentClimatePanel extends LitElement {
               >
             </div>
             <p>${record.explanation}</p>
+            ${
+              facts.length === 0
+                ? nothing
+                : html`<dl class="activity-facts">
+                    ${facts.map(
+                      (fact) =>
+                        html`<div>
+                          <dt>${fact.label}</dt>
+                          <dd>${fact.value}</dd>
+                        </div>`,
+                    )}
+                  </dl>`
+            }
             <div class="activity-meta">
               <span>${humanizeCode(record.reason_code)}</span
               >${zone === undefined ? nothing : html`<span>${zone.name}</span>`}<span>${record.severity}</span>${this.repairRecordStatus(record)}
@@ -761,6 +780,126 @@ export class IntelligentClimatePanel extends LitElement {
         </li>`;
       })}
     </ol>`;
+  }
+
+  private activityFacts(record: ActivityRecord): ActivityFact[] {
+    const detail = record.detail;
+    switch (record.reason_code) {
+      case "control_state_changed":
+        return this.transitionFact(
+          "State",
+          detail["previous_state"],
+          detail["new_state"],
+        );
+      case "thermostat_mode_changed":
+        return this.transitionFact(
+          "Mode",
+          detail["previous_hvac_mode"],
+          detail["new_hvac_mode"],
+        );
+      case "thermostat_target_changed":
+        if (
+          ![
+            "previous_target_temperature_c",
+            "previous_target_low_c",
+            "previous_target_high_c",
+            "new_target_temperature_c",
+            "new_target_low_c",
+            "new_target_high_c",
+          ].some((key) => Object.hasOwn(detail, key))
+        ) {
+          return [];
+        }
+        return [
+          {
+            label: "Target",
+            value: `${this.activityTarget(detail, "previous")} → ${this.activityTarget(detail, "new")}`,
+          },
+        ];
+      case "source_excluded":
+      case "source_exclusion_changed":
+      case "source_recovered": {
+        const facts = this.transitionFact(
+          "Quality",
+          detail["previous_quality"],
+          detail["new_quality"],
+        );
+        if (
+          detail["previous_exclusion_reason"] !== detail["new_exclusion_reason"]
+        ) {
+          facts.push(
+            ...this.transitionFact(
+              "Reason",
+              detail["previous_exclusion_reason"],
+              detail["new_exclusion_reason"],
+            ),
+          );
+        }
+        return facts;
+      }
+      case "migration_failed":
+      case "missing_entity":
+      case "incompatible_entity":
+      case "no_zones_configured":
+      case "store_write_failed":
+      case "command_boundary_violation":
+        return typeof detail["issue_code"] === "string"
+          ? [
+              {
+                label: "Issue",
+                value: humanizeCode(detail["issue_code"]),
+              },
+            ]
+          : [];
+      default:
+        return [];
+    }
+  }
+
+  private transitionFact(
+    label: string,
+    previous: string | number | boolean | null | undefined,
+    current: string | number | boolean | null | undefined,
+  ): ActivityFact[] {
+    if (previous === undefined && current === undefined) return [];
+    return [
+      {
+        label,
+        value: `${this.activityValue(previous)} → ${this.activityValue(current)}`,
+      },
+    ];
+  }
+
+  private activityValue(
+    value: string | number | boolean | null | undefined,
+  ): string {
+    if (value === null || value === undefined) return "Unavailable";
+    if (typeof value !== "string") return String(value);
+    if (value === "heat_cool") return "Heat/Cool";
+    return humanizeCode(value);
+  }
+
+  private activityTarget(
+    detail: ActivityRecord["detail"],
+    prefix: "previous" | "new",
+  ): string {
+    const target = detail[`${prefix}_target_temperature_c`];
+    const low = detail[`${prefix}_target_low_c`];
+    const high = detail[`${prefix}_target_high_c`];
+    if (typeof low === "number" || typeof high === "number") {
+      return `${this.activityTemperature(low)}–${this.activityTemperature(high)}`;
+    }
+    return this.activityTemperature(target);
+  }
+
+  private activityTemperature(
+    value: string | number | boolean | null | undefined,
+  ): string {
+    return formatTemperature(
+      typeof value === "number" ? value : null,
+      this.temperatureUnit(),
+      this.locale(),
+    );
   }
 
   private renderSettings(): TemplateResult {
@@ -2049,6 +2188,30 @@ export class IntelligentClimatePanel extends LitElement {
         color: var(--secondary-text-color);
         font-size: 0.85rem;
         line-height: 1.5;
+      }
+      .activity-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 10px;
+      }
+      .activity-facts div {
+        display: inline-flex;
+        gap: 5px;
+        padding: 6px 9px;
+        border-radius: 8px;
+        background: var(--ic-surface-muted);
+        font-size: 0.76rem;
+      }
+      .activity-facts dt {
+        color: var(--secondary-text-color);
+      }
+      .activity-facts dt::after {
+        content: ":";
+      }
+      .activity-facts dd {
+        margin: 0;
+        font-weight: 650;
       }
       .activity-meta {
         display: flex;

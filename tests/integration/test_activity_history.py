@@ -550,6 +550,19 @@ async def test_thermostat_mode_target_and_capability_semantics_ignore_time(
         ActivityReason.THERMOSTAT_TARGET_CHANGED,
         ActivityReason.THERMOSTAT_CAPABILITIES_CHANGED,
     }
+    records_by_reason = {record.reason_code: record for record in new_records}
+    assert dict(records_by_reason[ActivityReason.THERMOSTAT_MODE_CHANGED].detail) == {
+        "previous_hvac_mode": "heat",
+        "new_hvac_mode": "cool",
+    }
+    assert dict(records_by_reason[ActivityReason.THERMOSTAT_TARGET_CHANGED].detail) == {
+        "previous_target_temperature_c": 21.0,
+        "previous_target_low_c": None,
+        "previous_target_high_c": None,
+        "new_target_temperature_c": 22.0,
+        "new_target_low_c": None,
+        "new_target_high_c": None,
+    }
     count = len(coordinator.history.records)
 
     _set_states(
