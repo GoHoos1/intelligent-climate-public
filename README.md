@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.16 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.17 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,15 +14,19 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.16**. Intelligent Climate is pre-alpha software
+The current release is **0.0.17**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.16 refines schedule editing and the Today timeline with clearer
-comfort-band workflows, scheduled target lines, factual equipment-state lanes,
-and optional aggregate window/door context. Existing schedules and history are
-preserved, and the physical-control boundary remains read-only.
+Release 0.0.17 makes schedule targets mode-aware, prevents ambiguous target
+shapes from producing Shadow would-commands, fixes repeated discard prompts,
+and routes diagnostics to the integration page. Existing schedules and history
+are preserved, and the physical-control boundary remains read-only.
 
 ## Recent changes
 
+- **0.0.17**
+  - Adds mode-aware single/range target guidance and fail-closed Shadow
+    compatibility checks without changing thermostat mode.
+  - Fixes repeated unsaved-draft prompts and the Settings diagnostics route.
 - **0.0.16**
   - Adds clear-day confirmation, multi-destination day copying, clearer profile
     guidance, and editable Home/Away/Sleep heat-and-cool starter targets.
@@ -165,7 +169,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.16 does not provide:
+Release 0.0.17 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A manual control page, active occupancy control, or active window suspension.

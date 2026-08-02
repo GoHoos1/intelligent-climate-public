@@ -391,7 +391,28 @@ class Phase2CoordinatorRuntime:
                 DemandSuppression.INVALID,
             )
         target = evaluation.effective_target
-        if target.kind is not TargetKind.SINGLE or target.target_c is None:
+        mode = zone.thermostat_states[0].hvac_mode if zone.thermostat_states else None
+        if target.kind is TargetKind.SINGLE:
+            if target.target_c is None or mode not in {HVACMode.HEAT, HVACMode.COOL}:
+                return ZoneDemand(
+                    zone_id,
+                    ZoneDemandDirection.SUPPRESSED,
+                    0.0,
+                    None,
+                    DemandSuppression.INVALID,
+                )
+            direction = _demand_direction(mode, current, target.target_c)
+            return ZoneDemand(
+                zone_id,
+                direction,
+                abs(target.target_c - current),
+                target.target_c,
+            )
+        if (
+            mode not in {HVACMode.HEAT_COOL, HVACMode.AUTO}
+            or target.heat_target_c is None
+            or target.cool_target_c is None
+        ):
             return ZoneDemand(
                 zone_id,
                 ZoneDemandDirection.SUPPRESSED,
@@ -399,13 +420,20 @@ class Phase2CoordinatorRuntime:
                 None,
                 DemandSuppression.INVALID,
             )
-        mode = zone.thermostat_states[0].hvac_mode if zone.thermostat_states else None
-        direction = _demand_direction(mode, current, target.target_c)
+        if current < target.heat_target_c:
+            direction = ZoneDemandDirection.HEAT
+            requested_target = target.heat_target_c
+        elif current > target.cool_target_c:
+            direction = ZoneDemandDirection.COOL
+            requested_target = target.cool_target_c
+        else:
+            direction = ZoneDemandDirection.SATISFIED
+            requested_target = None
         return ZoneDemand(
             zone_id,
             direction,
-            abs(target.target_c - current),
-            target.target_c,
+            0.0 if requested_target is None else abs(requested_target - current),
+            requested_target,
         )
 
     async def _evaluate_shadow_zone(
@@ -435,6 +463,11 @@ class Phase2CoordinatorRuntime:
         if thermostat is None or thermostat.capability_discovery.capabilities is None:
             fault = ShadowBlockingFault.CAPABILITY
             reason = SafetyReasonCode.CAPABILITY_UNAVAILABLE
+        elif target is not None and not _target_matches_hvac_mode(
+            target, thermostat.state.hvac_mode
+        ):
+            fault = ShadowBlockingFault.SAFETY_EVALUATION
+            reason = SafetyReasonCode.HVAC_MODE_UNSUPPORTED
         if reason is not None:
             decision = _blocked_decision(safety_id, reason)
             result = await self.shadow_sink.async_record_evaluation(
@@ -576,6 +609,7 @@ def _candidate(
         ),
     )
     if target.kind is TargetKind.SINGLE:
+        assert state.hvac_mode in {HVACMode.HEAT, HVACMode.COOL}
         requested = NormalizedCommandValues(target_c=target.target_c)
         kind = CommandKind.SET_TARGET
         fields = frozenset({CommandControlledField.TARGET})
@@ -585,6 +619,7 @@ def _candidate(
             else SafetyTargetDirection.HEAT
         )
     else:
+        assert state.hvac_mode in {HVACMode.HEAT_COOL, HVACMode.AUTO}
         requested = NormalizedCommandValues(
             heat_target_c=target.heat_target_c,
             cool_target_c=target.cool_target_c,
@@ -680,6 +715,13 @@ def _demand_direction(
     return (
         ZoneDemandDirection.HEAT if current < target else ZoneDemandDirection.SATISFIED
     )
+
+
+def _target_matches_hvac_mode(target: TargetSpec, mode: HVACMode | None) -> bool:
+    """Require an unambiguous live mode before constructing a target plan."""
+    if target.kind is TargetKind.SINGLE:
+        return mode in {HVACMode.HEAT, HVACMode.COOL}
+    return mode in {HVACMode.HEAT_COOL, HVACMode.AUTO}
 
 
 def _equipment_direction(observation: EntryObservationSnapshot) -> EquipmentDirection:

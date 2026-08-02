@@ -7,6 +7,31 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.17 - 2026-08-02
+
+### Changed
+
+- Made schedule target guidance aware of the current thermostat HVAC mode and
+  advertised single/range capabilities. Capable thermostats now default new
+  periods to heat/cool ranges, while existing schedules remain unchanged.
+- Added a fail-closed Shadow guard: single targets require an unambiguous Heat
+  or Cool mode, range targets require Heat/Cool or Auto, and Off, unavailable,
+  or incompatible modes cannot produce a would-command plan.
+
+### Fixed
+
+- Discarding an unsaved schedule draft now clears the dirty draft before
+  navigation, preventing repeated discard prompts on later page changes.
+- The Settings diagnostics action now opens the Intelligent Climate integration
+  page and explains the supported diagnostics-download workflow instead of
+  opening Developer Tools YAML.
+
+### Security
+
+- Target/mode incompatibility fails closed without adding any Home Assistant
+  service-call path. Existing schedules and history remain unchanged, entity
+  IDs remain outside the frontend snapshot, and the release remains read-only.
+
 ## 0.0.16 - 2026-08-01
 
 ### Changed

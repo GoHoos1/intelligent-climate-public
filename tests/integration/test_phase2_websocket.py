@@ -51,6 +51,7 @@ async def test_snapshot_read_returns_versioned_observation_without_control(
         revision=9,
         calculated_at=now,
         control_state=ControlState.OBSERVING,
+        thermostats=(),
         zones=(),
     )
     coordinator = SimpleNamespace(data=observation, phase2_runtime=None)
@@ -82,6 +83,78 @@ async def test_snapshot_read_returns_versioned_observation_without_control(
         "reason_code": None,
         "zones": [],
     }
+
+
+async def test_snapshot_reports_only_aggregate_zone_mode_capabilities(
+    hass: HomeAssistant,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Mode guidance exposes safe facts without thermostat identity."""
+    async_register_websocket_api(hass)
+    now = datetime(2026, 7, 31, 18, tzinfo=UTC)
+    mode = SimpleNamespace(value="heat_cool")
+    state = SimpleNamespace(
+        entity_id="climate.private_name",
+        available=True,
+        hvac_mode=mode,
+    )
+    capabilities = SimpleNamespace(
+        hvac_modes=(
+            SimpleNamespace(value="off"),
+            SimpleNamespace(value="heat"),
+            SimpleNamespace(value="cool"),
+            mode,
+        ),
+        target_temperature=True,
+        target_temperature_range=True,
+    )
+    thermostat = SimpleNamespace(
+        entity_id=state.entity_id,
+        state=state,
+        capability_discovery=SimpleNamespace(capabilities=capabilities),
+    )
+    zone = SimpleNamespace(
+        zone_id="99246285-6f02-4e8a-94ed-bdfd4a5e62c4",
+        effective_temperature_c=23.7,
+        effective_humidity_pct=50.0,
+        thermostat_states=(state,),
+        sensor_data_degraded=False,
+        thermostat_data_degraded=False,
+    )
+    observation = SimpleNamespace(
+        entry_id="entry-mode",
+        revision=10,
+        calculated_at=now,
+        control_state=ControlState.OBSERVING,
+        thermostats=(thermostat,),
+        zones=(zone,),
+    )
+    coordinator = SimpleNamespace(data=observation, phase2_runtime=None)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="entry-mode",
+        state=ConfigEntryState.LOADED,
+    )
+    entry.add_to_hass(hass)
+    entry.runtime_data = coordinator
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id(
+        {
+            "type": "intelligent_climate/snapshot/get",
+            "api_version": API_VERSION,
+            "entry_id": entry.entry_id,
+        }
+    )
+    response = await client.receive_json()
+
+    assert response["success"]
+    result = response["result"]["zones"][0]
+    assert result["thermostat_hvac_mode"] == "heat_cool"
+    assert result["supported_hvac_modes"] == ["cool", "heat", "heat_cool", "off"]
+    assert result["supports_single_target"] is True
+    assert result["supports_target_range"] is True
+    assert "climate.private_name" not in str(response["result"])
 
 
 async def test_websocket_api_rejects_unknown_frontend_version(

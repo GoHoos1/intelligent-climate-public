@@ -770,6 +770,14 @@ Desktop uses a seven-column weekly view with a synchronized period list. Mobile 
 - see inherited periods on empty-day/before-first areas; and
 - view exact DST warnings for the previewed week.
 
+The editor shows the current aggregate command-authority HVAC mode and
+advertised single/range target capabilities without exposing thermostat entity
+IDs. A single target is control-compatible only in an unambiguous Heat or Cool
+mode; a range is control-compatible only in Heat/Cool or Auto. Off,
+unavailable, and incompatible combinations remain editable and visible but
+fail closed before a Shadow or active plan. The schedule never changes HVAC
+mode implicitly; mode selection remains an explicit Control-route workflow.
+
 The core editor does not require drag-and-drop. Phase 7 may add it as an alternate interaction, not replace the accessible form/list path.
 
 ## 8.4 Today climate timeline and narrative

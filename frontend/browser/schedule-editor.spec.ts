@@ -18,6 +18,7 @@ async function renderEditor(page: Page) {
     const value = element as HTMLElement & {
       document: unknown;
       zones: unknown;
+      zoneSnapshots: unknown;
       temperatureUnit: string;
       locale: string;
       updateComplete: Promise<boolean>;
@@ -70,6 +71,19 @@ async function renderEditor(page: Page) {
       saved_at_utc: "2026-08-01T12:00:00Z",
     };
     value.zones = [{ zone_id: zoneId, name: "Dining Room" }];
+    value.zoneSnapshots = [
+      {
+        zone_id: zoneId,
+        effective_temperature_c: 22,
+        effective_humidity_pct: 50,
+        thermostat_hvac_mode: "heat_cool",
+        supported_hvac_modes: ["off", "heat", "cool", "heat_cool"],
+        supports_single_target: true,
+        supports_target_range: true,
+        sensor_data_degraded: false,
+        thermostat_data_degraded: false,
+      },
+    ];
     value.temperatureUnit = "°F";
     value.locale = "en-US";
     await value.updateComplete;
@@ -104,6 +118,48 @@ test("uses one-day-at-a-time editing at a 320-pixel viewport", async ({
     () => document.documentElement.scrollWidth,
   );
   expect(bodyWidth).toBeLessThanOrEqual(320);
+});
+
+test("shows mode guidance and defaults capable thermostats to ranges", async ({
+  page,
+}) => {
+  const editor = await renderEditor(page);
+  await expect(editor.locator(".mode-guidance")).toContainText(
+    "Current thermostat mode",
+  );
+  await expect(editor.locator(".mode-guidance")).toContainText("Heat/Cool");
+  await expect(editor.locator(".mode-warning").first()).toContainText(
+    "Single target cannot be used for Scheduled Control",
+  );
+  await editor.evaluate((element) => {
+    element.addEventListener("schedule-change", (event) => {
+      (
+        globalThis as typeof globalThis & { scheduleChange?: unknown }
+      ).scheduleChange = (event as CustomEvent).detail;
+    });
+  });
+  await editor.getByRole("button", { name: "Add Tuesday period" }).click();
+  const kind = await page.evaluate(() => {
+    const detail = (
+      globalThis as typeof globalThis & {
+        scheduleChange?: {
+          document: {
+            zones: Record<
+              string,
+              {
+                profiles: {
+                  days: { tuesday: { target: { kind: string } }[] };
+                }[];
+              }
+            >;
+          };
+        };
+      }
+    ).scheduleChange;
+    return detail?.document.zones["11111111-1111-4111-8111-111111111111"]
+      ?.profiles[0]?.days.tuesday[0]?.target.kind;
+  });
+  expect(kind).toBe("range");
 });
 
 test("adds periods on plain HTTP when randomUUID is unavailable", async ({

@@ -9,6 +9,7 @@ import type {
   ScheduleTarget,
   ScheduleWeekday,
   ZoneConfiguration,
+  ZoneSnapshot,
   ZoneSchedule,
 } from "../types/contracts";
 import { createUuid } from "../util/uuid";
@@ -59,6 +60,7 @@ export class ScheduleEditor extends LitElement {
   public static override properties = {
     document: { attribute: false },
     zones: { attribute: false },
+    zoneSnapshots: { attribute: false },
     preview: { attribute: false },
     validationMessage: { type: String },
     saving: { type: Boolean },
@@ -76,6 +78,7 @@ export class ScheduleEditor extends LitElement {
 
   declare public document: ScheduleDocument;
   declare public zones: ZoneConfiguration[];
+  public zoneSnapshots: ZoneSnapshot[] = [];
   declare public preview: SchedulePreviewResponse | undefined;
   public validationMessage = "";
   public saving = false;
@@ -172,6 +175,8 @@ export class ScheduleEditor extends LitElement {
           <span>Enable profile</span>
         </label>
       </section>
+
+      ${this.renderModeGuidance()}
 
       <section class="template-tools" aria-labelledby="template-heading">
         <div class="template-intro">
@@ -477,6 +482,7 @@ export class ScheduleEditor extends LitElement {
           />
         </label>
       </div>
+      ${this.targetModeWarning(period)}
       ${invalid ? html`<p class="field-error">Review this period and the validation summary.</p>` : nothing}
     </li>`;
   }
@@ -928,12 +934,7 @@ export class ScheduleEditor extends LitElement {
       local_start: localStart,
       label: "",
       occupancy_label: "none",
-      target: {
-        kind: "single",
-        target_c: 22,
-        heat_target_c: null,
-        cool_target_c: null,
-      },
+      target: this.defaultTarget(),
       tolerance_c: 0.5,
     };
   }
@@ -964,6 +965,110 @@ export class ScheduleEditor extends LitElement {
 
   private zoneName(zoneId: string): string {
     return this.zones.find((zone) => zone.zone_id === zoneId)?.name ?? zoneId;
+  }
+
+  private currentZoneSnapshot(): ZoneSnapshot | undefined {
+    return this.zoneSnapshots.find(
+      (snapshot) => snapshot.zone_id === this.selectedZoneId,
+    );
+  }
+
+  private defaultTarget(): ScheduleTarget {
+    const snapshot = this.currentZoneSnapshot();
+    const rangeCapable = snapshot?.supports_target_range === true;
+    return rangeCapable
+      ? {
+          kind: "range",
+          target_c: null,
+          heat_target_c: this.starterTargets.homeHeatC,
+          cool_target_c: this.starterTargets.homeCoolC,
+        }
+      : {
+          kind: "single",
+          target_c: 22,
+          heat_target_c: null,
+          cool_target_c: null,
+        };
+  }
+
+  private renderModeGuidance() {
+    const snapshot = this.currentZoneSnapshot();
+    const mode = snapshot?.thermostat_hvac_mode;
+    const label =
+      mode === null || mode === undefined
+        ? "Unavailable"
+        : this.modeLabel(mode);
+    let guidance: string;
+    if (mode === "heat_cool" || mode === "auto") {
+      guidance =
+        "Use heat / cool ranges. A single target is ambiguous in this mode and Scheduled Control will remain blocked for that period.";
+    } else if (mode === "heat") {
+      guidance =
+        "A single target is interpreted as heating. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it.";
+    } else if (mode === "cool") {
+      guidance =
+        "A single target is interpreted as cooling. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it.";
+    } else if (mode === "off") {
+      guidance =
+        "Schedules remain editable, but Scheduled Control is blocked while the thermostat is Off.";
+    } else {
+      guidance =
+        "Schedules remain editable, but Scheduled Control is blocked until the thermostat reports an unambiguous Heat, Cool, or Heat/Cool mode.";
+    }
+    return html`<section
+      class="mode-guidance"
+      aria-labelledby="mode-guidance-heading"
+    >
+      <div>
+        <span>Current thermostat mode</span>
+        <strong id="mode-guidance-heading">${label}</strong>
+      </div>
+      <p>${guidance}</p>
+      <small>The schedule never changes HVAC mode automatically.</small>
+    </section>`;
+  }
+
+  private targetModeWarning(period: SchedulePeriod) {
+    const snapshot = this.currentZoneSnapshot();
+    const mode = snapshot?.thermostat_hvac_mode;
+    const targetSupported =
+      period.target.kind === "single"
+        ? snapshot?.supports_single_target === true
+        : snapshot?.supports_target_range === true;
+    if (!targetSupported) {
+      const targetLabel =
+        period.target.kind === "single"
+          ? "Single targets are"
+          : "Heat / cool ranges are";
+      return html`<p class="mode-warning" role="status">
+        ${targetLabel} not supported by the current command-authority
+        thermostat. This period remains visible, but it cannot be used for
+        Scheduled Control.
+      </p>`;
+    }
+    const compatible =
+      (period.target.kind === "single" &&
+        (mode === "heat" || mode === "cool")) ||
+      (period.target.kind === "range" &&
+        (mode === "heat_cool" || mode === "auto"));
+    if (compatible) return nothing;
+    const targetLabel =
+      period.target.kind === "single" ? "Single target" : "Heat / cool range";
+    const modeLabel =
+      mode === null || mode === undefined
+        ? "an unavailable mode"
+        : this.modeLabel(mode);
+    return html`<p class="mode-warning" role="status">
+      ${targetLabel} cannot be used for Scheduled Control while the thermostat
+      reports ${modeLabel}. It remains saved and visible; control will fail
+      closed.
+    </p>`;
+  }
+
+  private modeLabel(mode: string): string {
+    if (mode === "heat_cool") return "Heat/Cool";
+    if (mode === "auto") return "Auto";
+    return this.titleCase(mode);
   }
 
   private displayTemperature(celsius: number): number {
@@ -1095,6 +1200,7 @@ export class ScheduleEditor extends LitElement {
         line-height: 1.35;
       }
       .template-tools,
+      .mode-guidance,
       .copy-tool,
       .preview-card,
       .save-bar {
@@ -1103,6 +1209,33 @@ export class ScheduleEditor extends LitElement {
         background: var(--ic-surface);
         padding: 16px;
         margin-block: 16px;
+      }
+      .mode-guidance {
+        display: grid;
+        grid-template-columns: minmax(150px, auto) 1fr;
+        gap: 8px 20px;
+        border: 1px solid var(--ic-border);
+        border-inline-start: 4px solid var(--info-color, #039be5);
+        border-radius: 12px;
+        background: var(--ic-surface);
+        padding: 14px 16px;
+      }
+      .mode-guidance div {
+        display: grid;
+      }
+      .mode-guidance span,
+      .mode-guidance small {
+        color: var(--secondary-text-color);
+        font-size: 0.78rem;
+      }
+      .mode-guidance small {
+        grid-column: 1 / -1;
+      }
+      .mode-warning {
+        margin-block-start: 10px;
+        border-inline-start: 3px solid var(--warning-color, #f9a825);
+        padding-inline-start: 10px;
+        font-size: 0.82rem;
       }
       .template-tools {
         display: grid;
