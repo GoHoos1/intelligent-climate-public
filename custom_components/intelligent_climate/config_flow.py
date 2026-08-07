@@ -12,9 +12,9 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
-    EntityFilterSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
+    EntityWithDeviceFilterSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -132,7 +132,7 @@ _THERMOSTATS_SCHEMA = vol.Schema(
         vol.Required(CONF_THERMOSTAT_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                filter=EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
             )
         )
     }
@@ -159,15 +159,15 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
         vol.Required(CONF_ZONE_THERMOSTAT_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                filter=EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
             )
         ),
         vol.Required(CONF_TEMPERATURE_SOURCES): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
                 filter=[
-                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
-                    EntityFilterSelectorConfig(
+                    EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityWithDeviceFilterSelectorConfig(
                         domain="sensor",
                         device_class="temperature",
                     ),
@@ -178,8 +178,8 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
             EntitySelectorConfig(
                 multiple=True,
                 filter=[
-                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
-                    EntityFilterSelectorConfig(
+                    EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityWithDeviceFilterSelectorConfig(
                         domain="sensor",
                         device_class="humidity",
                     ),
@@ -189,7 +189,7 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_WINDOW_DOOR_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(
+                filter=EntityWithDeviceFilterSelectorConfig(
                     domain="binary_sensor",
                     device_class=[
                         BinarySensorDeviceClass.DOOR,
@@ -203,7 +203,7 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_OCCUPANCY_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(
+                filter=EntityWithDeviceFilterSelectorConfig(
                     domain=[
                         "alarm_control_panel",
                         "binary_sensor",
@@ -219,13 +219,15 @@ _FIRST_ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_STAGE_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=["binary_sensor", "sensor"]),
+                filter=EntityWithDeviceFilterSelectorConfig(
+                    domain=["binary_sensor", "sensor"]
+                ),
             )
         ),
         vol.Optional(CONF_FAN_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=["climate", "fan"]),
+                filter=EntityWithDeviceFilterSelectorConfig(domain=["climate", "fan"]),
             )
         ),
     }
@@ -796,7 +798,9 @@ class IntelligentClimateConfigFlow(  # type: ignore[call-arg, unused-ignore]
                     vol.Required(CONF_ZONE_THERMOSTAT_ENTITY_IDS): EntitySelector(
                         EntitySelectorConfig(
                             multiple=True,
-                            filter=EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                            filter=EntityWithDeviceFilterSelectorConfig(
+                                domain=CLIMATE_DOMAIN
+                            ),
                         )
                     )
                 }

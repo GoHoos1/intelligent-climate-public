@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.18 is a read-only Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.19 is a read-only Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,15 +14,18 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.17**. Intelligent Climate is pre-alpha software
+The current release is **0.0.19**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.18 makes schedule targets mode-aware, prevents ambiguous target
-shapes from producing Shadow would-commands, fixes repeated discard prompts,
-and routes diagnostics to the integration page. Existing schedules and history
+Release 0.0.19 aligns Today timeline labels to the local clock and keeps the
+live-time cursor separate from the time axis. Existing schedules and history
 are preserved, and the physical-control boundary remains read-only.
 
 ## Recent changes
 
+- **0.0.19**
+  - Aligns Today chart ticks to regular local clock boundaries.
+  - Keeps the live-time cursor separate from axis labels and preserves correct
+    23-hour and 25-hour daylight-saving days.
 - **0.0.18**
   - Shows semantic release versions in update notifications through matching
     GitHub releases, rather than short commit hashes.
@@ -176,7 +179,7 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.18 does not provide:
+Release 0.0.17 does not provide:
 
 - Thermostat, fan, switch, humidity, ventilation, or other equipment control.
 - A manual control page, active occupancy control, or active window suspension.

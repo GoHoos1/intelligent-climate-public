@@ -13,9 +13,9 @@ from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import (
     BooleanSelector,
-    EntityFilterSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
+    EntityWithDeviceFilterSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -122,15 +122,15 @@ _ZONE_SCHEMA = vol.Schema(
         vol.Required(CONF_ZONE_THERMOSTAT_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                filter=EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
             )
         ),
         vol.Required(CONF_TEMPERATURE_SOURCES): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
                 filter=[
-                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
-                    EntityFilterSelectorConfig(
+                    EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityWithDeviceFilterSelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=SensorDeviceClass.TEMPERATURE,
                     ),
@@ -141,8 +141,8 @@ _ZONE_SCHEMA = vol.Schema(
             EntitySelectorConfig(
                 multiple=True,
                 filter=[
-                    EntityFilterSelectorConfig(domain=CLIMATE_DOMAIN),
-                    EntityFilterSelectorConfig(
+                    EntityWithDeviceFilterSelectorConfig(domain=CLIMATE_DOMAIN),
+                    EntityWithDeviceFilterSelectorConfig(
                         domain=SENSOR_DOMAIN,
                         device_class=SensorDeviceClass.HUMIDITY,
                     ),
@@ -152,7 +152,7 @@ _ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_WINDOW_DOOR_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(
+                filter=EntityWithDeviceFilterSelectorConfig(
                     domain="binary_sensor",
                     device_class=[
                         BinarySensorDeviceClass.DOOR,
@@ -166,19 +166,25 @@ _ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_OCCUPANCY_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=sorted(_OCCUPANCY_DOMAINS)),
+                filter=EntityWithDeviceFilterSelectorConfig(
+                    domain=sorted(_OCCUPANCY_DOMAINS)
+                ),
             )
         ),
         vol.Optional(CONF_STAGE_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=sorted(_STAGE_DOMAINS)),
+                filter=EntityWithDeviceFilterSelectorConfig(
+                    domain=sorted(_STAGE_DOMAINS)
+                ),
             )
         ),
         vol.Optional(CONF_FAN_ENTITY_IDS): EntitySelector(
             EntitySelectorConfig(
                 multiple=True,
-                filter=EntityFilterSelectorConfig(domain=sorted(_FAN_DOMAINS)),
+                filter=EntityWithDeviceFilterSelectorConfig(
+                    domain=sorted(_FAN_DOMAINS)
+                ),
             )
         ),
     }

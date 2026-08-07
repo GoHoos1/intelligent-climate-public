@@ -7,6 +7,20 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.19 - 2026-08-07
+
+### Fixed
+
+- Aligned Today chart ticks to local clock boundaries and kept the live-time
+  cursor separate from axis labels, including on 23-hour and 25-hour DST days.
+- Updated entity-selector filter annotations for Home Assistant 2026.8 without
+  changing the selector data or configuration-flow behavior.
+
+### Security
+
+- This presentation-only correction adds no Home Assistant service call or
+  physical-control authority and preserves existing schedules and history.
+
 ## 0.0.18 - 2026-08-02
 
 ### Changed
