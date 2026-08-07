@@ -228,6 +228,101 @@ describe("accessible Today timeline", () => {
     element.remove();
   });
 
+  it("uses clock-aligned ticks without turning the latest sample into a tick", async () => {
+    const element = document.createElement("ic-today-timeline");
+    element.timeline = {
+      ...timeline,
+      generated_at_utc: "2026-07-31T19:50:00+00:00",
+      series: timeline.series.map((series) =>
+        series.kind === "effective_temperature"
+          ? {
+              ...series,
+              samples: [
+                {
+                  timestamp_utc: "2026-07-31T04:00:00+00:00",
+                  value: 23.9,
+                },
+                {
+                  timestamp_utc: "2026-07-31T19:50:00+00:00",
+                  value: 23.7,
+                },
+              ],
+            }
+          : series,
+      ),
+    };
+    document.body.append(element);
+    await element.updateComplete;
+
+    const labels = [
+      ...(element.shadowRoot?.querySelectorAll(".axis-labels text") ?? []),
+    ].map((node) => node.textContent.trim());
+    expect(labels).toEqual([
+      "12 AM",
+      "2 AM",
+      "4 AM",
+      "6 AM",
+      "8 AM",
+      "10 AM",
+      "12 PM",
+      "2 PM",
+    ]);
+    expect(labels).not.toContain("3:50 PM");
+    element.remove();
+  });
+
+  it.each([
+    {
+      name: "spring-forward",
+      start: "2026-03-08T05:00:00+00:00",
+      end: "2026-03-09T04:00:00+00:00",
+      missing: "2 AM",
+    },
+    {
+      name: "fall-back",
+      start: "2026-11-01T04:00:00+00:00",
+      end: "2026-11-02T05:00:00+00:00",
+      missing: null,
+    },
+  ])(
+    "keeps clock ticks aligned on a $name day",
+    async ({ start, end, missing }) => {
+      const element = document.createElement("ic-today-timeline");
+      element.timeline = {
+        ...timeline,
+        day_start_utc: start,
+        day_end_utc: end,
+        series: timeline.series.map((series) =>
+          series.kind === "effective_temperature"
+            ? {
+                ...series,
+                samples: [
+                  { timestamp_utc: start, value: 23.9 },
+                  {
+                    timestamp_utc: new Date(
+                      Date.parse(end) - 60_000,
+                    ).toISOString(),
+                    value: 23.7,
+                  },
+                ],
+              }
+            : series,
+        ),
+      };
+      document.body.append(element);
+      await element.updateComplete;
+
+      const labels = [
+        ...(element.shadowRoot?.querySelectorAll(".axis-labels text") ?? []),
+      ].map((node) => node.textContent.trim());
+      expect(labels[0]).toBe("12 AM");
+      expect(labels.at(-1)).toBe("10 PM");
+      expect(labels.every((value) => !value.includes(":"))).toBe(true);
+      if (missing !== null) expect(labels).not.toContain(missing);
+      element.remove();
+    },
+  );
+
   it("keeps a flat two-sample five-minute trace visibly separated", async () => {
     const element = document.createElement("ic-today-timeline");
     element.timeline = {

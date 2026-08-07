@@ -730,45 +730,66 @@ export class IntelligentClimateTodayTimeline extends LitElement {
     timeline: TodayTimelineResponse,
   ): TimeTick[] {
     const duration = chartWindow.end - chartWindow.start;
-    const intervals = [
-      5 * 60_000,
-      15 * 60_000,
-      30 * 60_000,
-      60 * 60_000,
-      2 * 60 * 60_000,
-      3 * 60 * 60_000,
-      4 * 60 * 60_000,
-      6 * 60 * 60_000,
-    ];
-    const interval =
-      intervals.find((candidate) => duration / candidate <= 7) ??
-      intervals.at(-1) ??
-      duration;
-    const timestamps = [chartWindow.start];
-    for (
-      let timestamp = Math.ceil(chartWindow.start / interval) * interval;
-      timestamp < chartWindow.end;
-      timestamp += interval
-    ) {
-      if (timestamp > chartWindow.start + 60_000) timestamps.push(timestamp);
-    }
-    const lastTimestamp = timestamps.at(-1) ?? chartWindow.start;
-    if (chartWindow.end - lastTimestamp > 60_000) {
-      timestamps.push(chartWindow.end);
-    }
-    const formatter = new Intl.DateTimeFormat(this.locale, {
+    const intervalMinutes =
+      duration <= 30 * 60_000
+        ? 5
+        : duration <= 90 * 60_000
+          ? 15
+          : duration <= 3 * 60 * 60_000
+            ? 30
+            : duration <= 8 * 60 * 60_000
+              ? 60
+              : 120;
+    const partsFormatter = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hourCycle: "h23",
+      minute: "2-digit",
+      timeZone: timeline.time_zone,
+    });
+    const hourFormatter = new Intl.DateTimeFormat(this.locale, {
+      hour: "numeric",
+      timeZone: timeline.time_zone,
+    });
+    const minuteFormatter = new Intl.DateTimeFormat(this.locale, {
       hour: "numeric",
       minute: "2-digit",
       timeZone: timeline.time_zone,
     });
+    const dayStart = Date.parse(timeline.day_start_utc);
+    const dayEnd = Date.parse(timeline.day_end_utc);
+    const scanStep = Math.min(intervalMinutes, 15) * 60_000;
+    const timestamps: number[] = [];
+    for (
+      let timestamp = dayStart;
+      timestamp < dayEnd && timestamp < chartWindow.end;
+      timestamp += scanStep
+    ) {
+      if (timestamp < chartWindow.start) continue;
+      const parts = Object.fromEntries(
+        partsFormatter
+          .formatToParts(new Date(timestamp))
+          .filter((part) => part.type === "hour" || part.type === "minute")
+          .map((part) => [part.type, Number(part.value)]),
+      );
+      const hour = parts["hour"];
+      const minute = parts["minute"];
+      if (hour === undefined || minute === undefined) continue;
+      const minutesSinceMidnight = hour * 60 + minute;
+      if (minutesSinceMidnight % intervalMinutes === 0) {
+        timestamps.push(timestamp);
+      }
+    }
     return timestamps.map((timestamp, index) => ({
       timestamp,
       x: this.xPosition(timestamp, chartWindow),
-      label: formatter.format(new Date(timestamp)),
+      label:
+        intervalMinutes < 60
+          ? minuteFormatter.format(new Date(timestamp))
+          : hourFormatter.format(new Date(timestamp)),
       anchor:
-        index === 0
+        index === 0 && timestamp === chartWindow.start
           ? "start"
-          : index === timestamps.length - 1
+          : index === timestamps.length - 1 && timestamp === chartWindow.end
             ? "end"
             : "middle",
     }));

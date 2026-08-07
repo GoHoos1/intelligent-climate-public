@@ -181,9 +181,8 @@ test("renders dense history as clean lines with aligned operation and context la
   ]);
 
   await expect(chart.locator("circle.measured-temperature")).toHaveCount(0);
-  expect(
-    await chart.locator(".axis-labels text").count(),
-  ).toBeGreaterThanOrEqual(5);
+  const timeLabels = await chart.locator(".axis-labels text").allTextContents();
+  expect(timeLabels).toEqual(["1:00 PM", "1:15 PM", "1:30 PM", "1:45 PM"]);
   await expect(chart.locator("path.scheduled_heat_target")).toHaveCount(1);
   await expect(chart.locator("path.scheduled_cool_target")).toHaveCount(1);
   const timeline = page.locator("#timeline");
