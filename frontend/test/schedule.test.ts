@@ -322,6 +322,39 @@ describe("Task 23 schedule editor", () => {
     ).toBe("Morning");
   });
 
+  it("uses a single cooling target for a Cool-mode Nest even when ranges exist", async () => {
+    const baseSnapshot = snapshot.zones[0];
+    if (baseSnapshot === undefined) throw new Error("zone snapshot is missing");
+    const editor = await renderEditor(undefined, [
+      {
+        ...baseSnapshot,
+        thermostat_hvac_mode: "cool",
+        supports_single_target: true,
+        supports_target_range: true,
+      },
+    ]);
+    const changes: ScheduleDocument[] = [];
+    editor.addEventListener("schedule-change", (event) => {
+      changes.push(
+        (event as CustomEvent<{ document: ScheduleDocument }>).detail.document,
+      );
+    });
+    editor.shadowRoot
+      ?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Add Tuesday period"]',
+      )
+      ?.click();
+    await editor.updateComplete;
+    expect(
+      changes.at(-1)?.zones[ZONE_ID]?.profiles[0]?.days.tuesday[0]?.target,
+    ).toEqual({
+      kind: "single",
+      target_c: 23.9,
+      heat_target_c: null,
+      cool_target_c: null,
+    });
+  });
+
   it("clears a whole day only after explaining inherited settings", async () => {
     const editor = await renderEditor();
     const changes: ScheduleDocument[] = [];

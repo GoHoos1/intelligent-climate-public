@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -245,6 +246,32 @@ class Phase2CoordinatorRuntime:
     def async_schedule_updated(self) -> None:
         """Invalidate period identity after an atomic schedule replacement."""
         self._last_periods.clear()
+
+    def set_operating_mode(self, config: object, *, now_utc: datetime) -> None:
+        """Apply a persisted zero-command mode without unloading the panel."""
+        from .models.phase2_schema import Phase2EquipmentGroupDocument
+
+        if not isinstance(config, Phase2EquipmentGroupDocument):
+            raise TypeError("config must be a Phase 2 equipment-group document")
+        prior = self.migration.config.desired_operating_mode
+        intent = replace(
+            self.migration.runtime.control_intent,
+            automation_enabled=config.automation_enabled,
+            desired_operating_mode=config.desired_operating_mode,
+            active_control_armed=False,
+        )
+        self.migration = replace(
+            self.migration,
+            config=config,
+            runtime=replace(self.migration.runtime, control_intent=intent),
+        )
+        if (
+            prior is not OperatingMode.SCHEDULED_SHADOW
+            and config.desired_operating_mode is OperatingMode.SCHEDULED_SHADOW
+        ):
+            self.shadow_sink.reset_qualification()
+            self._last_periods.clear()
+            self.started_at_utc = _utc(now_utc)
 
     @property
     def _authority_valid(self) -> bool:

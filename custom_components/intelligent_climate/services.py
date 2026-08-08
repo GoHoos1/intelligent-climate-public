@@ -59,7 +59,7 @@ async def async_set_operating_mode(
     hass: HomeAssistant,
     call: ServiceCall,
 ) -> None:
-    """Persist one explicit zero-command mode and reload safely."""
+    """Persist and apply one explicit zero-command mode without a panel reload."""
     user_id = call.context.user_id
     user = None if user_id is None else await hass.auth.async_get_user(user_id)
     if user is None or not user.is_admin:
@@ -115,5 +115,9 @@ async def async_set_operating_mode(
         entry,
         data=dict(encode_phase2_equipment_group_document(updated)),
     )
-    if not await hass.config_entries.async_reload(entry.entry_id):
-        raise ServiceValidationError("Operating mode was saved but reload failed")
+    runtime.set_operating_mode(updated, now_utc=coordinator.data.calculated_at)
+    if coordinator.runtime_store is not None:
+        coordinator.runtime_store.async_update_phase2_control_intent(
+            runtime.migration.runtime.control_intent
+        )
+    await coordinator.async_request_refresh()

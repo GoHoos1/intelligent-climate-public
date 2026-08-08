@@ -1671,9 +1671,9 @@ const U = [
         <div class="template-intro">
           <h3 id="template-heading">Starter schedule</h3>
           <p>
-            Review these comfort bands before replacing the matching days.
-            Heating and cooling targets stay together in one schedule period;
-            your thermostat mode determines which side applies.
+            Review these comfort bands before replacing the matching days. In
+            Heat or Cool mode, starter periods use a single target for that
+            mode. Heat/Cool and Auto use paired heat / cool ranges.
           </p>
         </div>
         <div class="starter-grid">
@@ -2152,12 +2152,10 @@ const U = [
           ...this.newPeriod(s),
           label: c,
           occupancy_label: c === "Sleep" ? "sleep" : c === "Away" ? "away" : "home",
-          target: {
-            kind: "range",
-            target_c: null,
-            heat_target_c: this.starterTargets[o],
-            cool_target_c: this.starterTargets[p]
-          }
+          target: this.modeAppropriateTarget(
+            this.starterTargets[o],
+            this.starterTargets[p]
+          )
         }));
     });
   }
@@ -2227,14 +2225,21 @@ const U = [
     );
   }
   defaultTarget() {
-    return this.currentZoneSnapshot()?.supports_target_range === !0 ? {
+    return this.modeAppropriateTarget(
+      this.starterTargets.homeHeatC,
+      this.starterTargets.homeCoolC
+    );
+  }
+  modeAppropriateTarget(e, t) {
+    const i = this.currentZoneSnapshot(), a = i?.thermostat_hvac_mode;
+    return i === void 0 || i.supports_target_range && (a === "heat_cool" || a === "auto") ? {
       kind: "range",
       target_c: null,
-      heat_target_c: this.starterTargets.homeHeatC,
-      cool_target_c: this.starterTargets.homeCoolC
+      heat_target_c: e,
+      cool_target_c: t
     } : {
       kind: "single",
-      target_c: 22,
+      target_c: a === "heat" ? e : a === "cool" ? t : 22,
       heat_target_c: null,
       cool_target_c: null
     };
