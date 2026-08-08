@@ -76,7 +76,10 @@ def _entry(
     config = _config()
     activity = SimpleNamespace(record=Mock())
     runtime = SimpleNamespace(
-        migration=SimpleNamespace(config=config),
+        migration=SimpleNamespace(
+            config=config,
+            runtime=SimpleNamespace(control_intent=SimpleNamespace()),
+        ),
         schedule_store=SimpleNamespace(
             document=(
                 SimpleNamespace(zones={"zone": SimpleNamespace(enabled=True)})
@@ -84,8 +87,15 @@ def _entry(
                 else None
             )
         ),
+        set_operating_mode=Mock(),
     )
-    coordinator = SimpleNamespace(phase2_runtime=runtime, activity=activity)
+    coordinator = SimpleNamespace(
+        phase2_runtime=runtime,
+        activity=activity,
+        data=SimpleNamespace(calculated_at=None),
+        runtime_store=None,
+        async_request_refresh=AsyncMock(),
+    )
     entry = MockConfigEntry(
         domain=DOMAIN,
         entry_id="entry-1",
@@ -98,7 +108,7 @@ def _entry(
     return entry, activity
 
 
-async def test_admin_starts_shadow_by_persisting_intent_then_reloading(
+async def test_admin_starts_shadow_without_reloading_the_sidebar_entry(
     hass: HomeAssistant,
 ) -> None:
     """Starting Shadow changes intent only; no service-call adapter exists."""
@@ -109,11 +119,6 @@ async def test_admin_starts_shadow_by_persisting_intent_then_reloading(
             "async_get_user",
             AsyncMock(return_value=SimpleNamespace(is_admin=True)),
         ),
-        patch.object(
-            hass.config_entries,
-            "async_reload",
-            AsyncMock(return_value=True),
-        ) as reload_entry,
     ):
         await async_set_operating_mode(
             hass,
@@ -122,7 +127,9 @@ async def test_admin_starts_shadow_by_persisting_intent_then_reloading(
 
     assert entry.data["automation_enabled"] is True
     assert entry.data["desired_operating_mode"] == "scheduled_shadow"
-    reload_entry.assert_awaited_once_with(entry.entry_id)
+    coordinator = entry.runtime_data
+    coordinator.phase2_runtime.set_operating_mode.assert_called_once()
+    coordinator.async_request_refresh.assert_awaited_once()
     activity.record.assert_called_once()
     assert activity.record.call_args.kwargs["detail"] == {
         "previous_state": "observe_only",
