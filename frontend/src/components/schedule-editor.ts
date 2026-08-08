@@ -182,9 +182,9 @@ export class ScheduleEditor extends LitElement {
         <div class="template-intro">
           <h3 id="template-heading">Starter schedule</h3>
           <p>
-            Review these comfort bands before replacing the matching days.
-            Heating and cooling targets stay together in one schedule period;
-            your thermostat mode determines which side applies.
+            Review these comfort bands before replacing the matching days. In
+            Heat or Cool mode, starter periods use a single target for that
+            mode. Heat/Cool and Auto use paired heat / cool ranges.
           </p>
         </div>
         <div class="starter-grid">
@@ -868,12 +868,10 @@ export class ScheduleEditor extends LitElement {
           label,
           occupancy_label:
             label === "Sleep" ? "sleep" : label === "Away" ? "away" : "home",
-          target: {
-            kind: "range",
-            target_c: null,
-            heat_target_c: this.starterTargets[heatKey],
-            cool_target_c: this.starterTargets[coolKey],
-          },
+          target: this.modeAppropriateTarget(
+            this.starterTargets[heatKey],
+            this.starterTargets[coolKey],
+          ),
         }));
       }
     });
@@ -974,21 +972,37 @@ export class ScheduleEditor extends LitElement {
   }
 
   private defaultTarget(): ScheduleTarget {
+    return this.modeAppropriateTarget(
+      this.starterTargets.homeHeatC,
+      this.starterTargets.homeCoolC,
+    );
+  }
+
+  private modeAppropriateTarget(
+    heatTargetC: number,
+    coolTargetC: number,
+  ): ScheduleTarget {
     const snapshot = this.currentZoneSnapshot();
-    const rangeCapable = snapshot?.supports_target_range === true;
-    return rangeCapable
-      ? {
-          kind: "range",
-          target_c: null,
-          heat_target_c: this.starterTargets.homeHeatC,
-          cool_target_c: this.starterTargets.homeCoolC,
-        }
-      : {
-          kind: "single",
-          target_c: 22,
-          heat_target_c: null,
-          cool_target_c: null,
-        };
+    const mode = snapshot?.thermostat_hvac_mode;
+    if (
+      snapshot === undefined ||
+      (snapshot.supports_target_range &&
+        (mode === "heat_cool" || mode === "auto"))
+    ) {
+      return {
+        kind: "range",
+        target_c: null,
+        heat_target_c: heatTargetC,
+        cool_target_c: coolTargetC,
+      };
+    }
+    return {
+      kind: "single",
+      target_c:
+        mode === "heat" ? heatTargetC : mode === "cool" ? coolTargetC : 22,
+      heat_target_c: null,
+      cool_target_c: null,
+    };
   }
 
   private renderModeGuidance() {
