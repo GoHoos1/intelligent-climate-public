@@ -38,6 +38,7 @@ from custom_components.intelligent_climate.migration import (
     _Phase2RuntimeDataStore,
     _PresentationTraceDataStore,
     async_initialize_presentation_trace,
+    async_reconcile_phase2_migration,
 )
 from custom_components.intelligent_climate.models import (
     PHASE2_CONFIG_MAJOR_VERSION,
@@ -53,11 +54,13 @@ from custom_components.intelligent_climate.models import (
     decode_phase2_runtime_store_document,
     decode_phase2_zone_config,
     decode_presentation_trace_document,
+    encode_phase2_equipment_group_document,
     encode_phase2_runtime_store_document,
 )
 from custom_components.intelligent_climate.repairs import (
     IssueCode,
     MigrationFailureCategory,
+    RepairsManager,
     issue_id,
 )
 
@@ -224,6 +227,50 @@ async def test_accepted_0_0_8_migrates_to_observe_only_without_service_call(
     assert await schedule.async_load() is None
     assert await async_unload_entry(hass, entry)
     assert (await _stored_phase2_runtime(hass, entry.entry_id))["schema_version"] == 2
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_reconcile_accepts_shadow_intent_and_resets_qualification(
+    hass: HomeAssistant,
+) -> None:
+    """A confirmed Shadow transition persists intent but never arms control."""
+    _set_live_states(hass)
+    entry = _entry(hass)
+    await _save_phase1_runtime(hass)
+    assert await async_migrate_entry(hass, entry)
+
+    observe_config = decode_phase2_equipment_group_document(
+        entry.data,
+        version=entry.version,
+        minor_version=entry.minor_version,
+    )
+    shadow_config = replace(
+        observe_config,
+        automation_enabled=True,
+        desired_operating_mode=OperatingMode.SCHEDULED_SHADOW,
+    )
+    hass.config_entries.async_update_entry(
+        entry,
+        data=dict(encode_phase2_equipment_group_document(shadow_config)),
+    )
+
+    reconciled = await async_reconcile_phase2_migration(
+        hass,
+        entry,
+        repairs=RepairsManager(hass, entry.entry_id),
+    )
+    assert reconciled.runtime.control_intent.automation_enabled is True
+    assert (
+        reconciled.runtime.control_intent.desired_operating_mode
+        is OperatingMode.SCHEDULED_SHADOW
+    )
+    assert reconciled.runtime.control_intent.active_control_armed is False
+    assert reconciled.runtime.shadow_qualification.started_at_utc is None
+    assert reconciled.runtime.shadow_qualification.evaluated_decisions == 0
+    assert reconciled.runtime.shadow_qualification.valid_evaluations == 0
+    assert set(
+        reconciled.runtime.shadow_qualification.material_transitions_by_zone.values()
+    ) == {0}
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

@@ -46,9 +46,11 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup(hass: HomeAssistant, _config: dict[str, object]) -> bool:
     """Register entry-independent Phase 2 backend API contracts once."""
     from .frontend import async_setup_frontend
+    from .services import async_register_services
     from .websocket import async_register_websocket_api
 
     async_register_websocket_api(hass)
+    async_register_services(hass)
     await async_setup_frontend(hass)
     return True
 

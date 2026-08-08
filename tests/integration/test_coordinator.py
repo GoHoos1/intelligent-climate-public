@@ -31,7 +31,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util.dt import utcnow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.intelligent_climate.const import DOMAIN
+from custom_components.intelligent_climate.const import (
+    ACTION_SET_OPERATING_MODE,
+    DOMAIN,
+)
 from custom_components.intelligent_climate.coordinator import (
     IntelligentClimateCoordinator,
 )
@@ -1267,7 +1270,9 @@ async def test_real_config_entry_reload_replaces_runtime_without_services(
         assert second.data.revision == 1
         assert second._source_baselines
         assert first._source_baselines is not second._source_baselines
-        assert DOMAIN not in hass.services.async_services()
+        assert set(hass.services.async_services()[DOMAIN]) == {
+            ACTION_SET_OPERATING_MODE
+        }
         assert service_call.call_count == 0
         assert await hass.config_entries.async_unload(entry.entry_id)
         assert service_call.call_count == 0

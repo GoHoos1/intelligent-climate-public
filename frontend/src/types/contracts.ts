@@ -90,7 +90,21 @@ export interface ShadowHistoryRecord {
   outcome: string;
   reason_code: string;
   would_command: boolean;
+  command: ShadowCommand | null;
 }
+
+export interface ShadowCommand {
+  kind: string;
+  target_c: number | null;
+  heat_target_c: number | null;
+  cool_target_c: number | null;
+  hvac_mode: string | null;
+  fan_mode: string | null;
+  cause: string;
+}
+
+export type ZeroCommandOperatingMode =
+  "observe_only" | "manual_control" | "scheduled_shadow";
 
 export interface ShadowStatusResponse {
   api_version: typeof API_VERSION;

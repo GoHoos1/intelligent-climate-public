@@ -35,11 +35,13 @@ import type {
   NarrativeResponse,
   ScheduleDocument,
   SchedulePreviewResponse,
+  ShadowCommand,
   SnapshotResponse,
   TodayTimelineResponse,
   ReviewedBinding,
   ZoneConfiguration,
   ZoneSnapshot,
+  ZeroCommandOperatingMode,
 } from "../types/contracts";
 import type {
   HomeAssistantLike,
@@ -47,7 +49,8 @@ import type {
   IntelligentClimatePanelEntry,
 } from "../types/home-assistant";
 
-type PanelRoute = "overview" | "schedule" | "sensors" | "activity" | "settings";
+type PanelRoute =
+  "overview" | "schedule" | "control" | "sensors" | "activity" | "settings";
 
 interface ActivityFact {
   label: string;
@@ -61,6 +64,7 @@ const ROUTES: readonly {
 }[] = [
   { id: "overview", label: "Overview", icon: "⌂" },
   { id: "schedule", label: "Schedule", icon: "▦" },
+  { id: "control", label: "Control", icon: "◉" },
   { id: "sensors", label: "Sensors", icon: "◫" },
   { id: "activity", label: "Activity", icon: "↯" },
   { id: "settings", label: "Settings", icon: "⚙" },
@@ -94,6 +98,10 @@ export class IntelligentClimatePanel extends LitElement {
     scheduleDirty: { state: true },
     scheduleMessage: { state: true },
     scheduleConflict: { state: true },
+    scheduleAvailable: { state: true },
+    controlBusy: { state: true },
+    controlMessage: { state: true },
+    controlPendingMode: { state: true },
   };
 
   declare public hass: HomeAssistantLike;
@@ -120,6 +128,10 @@ export class IntelligentClimatePanel extends LitElement {
   protected scheduleDirty = false;
   protected scheduleMessage = "";
   protected scheduleConflict = false;
+  protected scheduleAvailable = false;
+  protected controlBusy = false;
+  protected controlMessage = "";
+  protected controlPendingMode: ZeroCommandOperatingMode | undefined;
 
   private client: IntelligentClimateClient | undefined;
   private unsubscribe: (() => void) | undefined;
@@ -247,6 +259,8 @@ export class IntelligentClimatePanel extends LitElement {
         return this.renderOverview();
       case "schedule":
         return this.renderSchedule();
+      case "control":
+        return this.renderControl();
       case "sensors":
         return this.renderSensors();
       case "activity":
@@ -315,6 +329,226 @@ export class IntelligentClimatePanel extends LitElement {
                   @schedule-save=${this.saveSchedule}
                 ></ic-schedule-editor>`
       }
+    `;
+  }
+
+  private renderControl(): TemplateResult {
+    const data = this.requireData();
+    const current = this.currentOperatingMode();
+    const readiness = data.shadow.readiness;
+    const history = [...data.shadow.history].reverse().slice(0, 8);
+    const modes: readonly {
+      id: ZeroCommandOperatingMode;
+      title: string;
+      description: string;
+      badge: string;
+    }[] = [
+      {
+        id: "observe_only",
+        title: "Observe Only",
+        description:
+          "Keep all live climate, sensor, timeline, and activity reporting on with no automation.",
+        badge: "Zero commands",
+      },
+      {
+        id: "manual_control",
+        title: "Manual Control",
+        description:
+          "Reserve the mode for future deliberate user commands. This package still has no active adapter.",
+        badge: "Zero commands in this release",
+      },
+      {
+        id: "scheduled_shadow",
+        title: "Scheduled Shadow",
+        description:
+          "Evaluate the saved schedule and every available safety gate, then record what would happen without changing the thermostat.",
+        badge: "Recommended next step",
+      },
+    ];
+    return html`
+      <section class="page-heading with-action">
+        <div>
+          <span class="eyebrow">Control readiness</span>
+          <h2>Control</h2>
+          <p>
+            Choose how Intelligent Climate evaluates your home. Every mode
+            available on this page is physically inert.
+          </p>
+        </div>
+        <span class="zero-command-badge">🛡 Zero HVAC service calls</span>
+      </section>
+
+      <section class="mode-grid" aria-label="Operating modes">
+        ${modes.map(
+          (mode) =>
+            html`<article
+              class="mode-card ${current === mode.id ? "selected" : ""}"
+            >
+              <div class="mode-card-heading">
+                <h3>${mode.title}</h3>
+                <span>${mode.badge}</span>
+              </div>
+              <p>${mode.description}</p>
+              <button
+                type="button"
+                class=${
+                  mode.id === "scheduled_shadow"
+                    ? "primary-button"
+                    : "secondary-button"
+                }
+                ?disabled=${this.controlBusy || current === mode.id}
+                @click=${() => this.requestOperatingMode(mode.id)}
+              >
+                ${
+                  current === mode.id
+                    ? "Current mode"
+                    : mode.id === "scheduled_shadow"
+                      ? "Start Scheduled Shadow"
+                      : `Switch to ${mode.title}`
+                }
+              </button>
+            </article>`,
+        )}
+      </section>
+
+      ${
+        this.controlPendingMode === undefined
+          ? nothing
+          : html`<section
+              class="confirmation-card"
+              role="alertdialog"
+              aria-labelledby="confirm-mode-title"
+            >
+              <div>
+                <span class="eyebrow">Confirm operating-mode change</span>
+                <h3 id="confirm-mode-title">
+                  ${
+                    this.controlPendingMode === "scheduled_shadow"
+                      ? "Start Scheduled Shadow?"
+                      : `Switch to ${humanizeCode(this.controlPendingMode)}?`
+                  }
+                </h3>
+                <p>
+                  ${
+                    this.controlPendingMode === "scheduled_shadow"
+                      ? "Intelligent Climate will evaluate your saved schedule against live thermostat and sensor data. It will record proposed targets and suppression reasons, but it cannot send a climate or fan service call. Starting a new run resets the readiness counters."
+                      : "Changing mode does not change the physical thermostat. Observation and activity remain available."
+                  }
+                </p>
+              </div>
+              <div class="confirmation-actions">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  @click=${this.cancelOperatingMode}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="primary-button"
+                  ?disabled=${this.controlBusy}
+                  @click=${this.confirmOperatingMode}
+                >
+                  ${this.controlBusy ? "Applying…" : "Confirm"}
+                </button>
+              </div>
+            </section>`
+      }
+      ${
+        this.controlMessage.length === 0
+          ? nothing
+          : html`<p class="control-message" role="status">
+              ${this.controlMessage}
+            </p>`
+      }
+
+      <div class="control-grid">
+        <section class="card" aria-labelledby="control-readiness-heading">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">Mandatory qualification</span>
+              <h3 id="control-readiness-heading">Shadow readiness</h3>
+            </div>
+            <strong
+              >${readiness?.ready === true ? "Ready" : "Not ready"}</strong
+            >
+          </div>
+          ${
+            current !== "scheduled_shadow"
+              ? html`<p class="muted">
+                  Start Scheduled Shadow to collect the required 24 hours, 20
+                  decisions, two material transitions, and 95% valid
+                  evaluations.
+                </p>`
+              : readiness === null
+                ? html`<p class="muted">
+                    Waiting for the first live evaluation.
+                  </p>`
+                : html`<dl class="readiness-facts">
+                    <div>
+                      <dt>Time</dt>
+                      <dd>${readiness.elapsed_hours.toFixed(1)} / 24 h</dd>
+                    </div>
+                    <div>
+                      <dt>Decisions</dt>
+                      <dd>${readiness.evaluated_decisions} / 20</dd>
+                    </div>
+                    <div>
+                      <dt>Valid</dt>
+                      <dd>
+                        ${readiness.valid_evaluation_percent.toFixed(0)}% / 95%
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Transitions</dt>
+                      <dd>${readiness.minimum_material_transitions} / 2</dd>
+                    </div>
+                  </dl>`
+          }
+        </section>
+
+        <section class="card" aria-labelledby="shadow-history-heading">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">Privacy-safe evidence</span>
+              <h3 id="shadow-history-heading">Recent Shadow decisions</h3>
+            </div>
+          </div>
+          ${
+            history.length === 0
+              ? html`<p class="muted">
+                  No Shadow decisions have been recorded yet.
+                </p>`
+              : html`<ol class="shadow-history">
+                  ${history.map(
+                    (record) =>
+                      html`<li>
+                        <time datetime=${record.evaluated_at_utc}
+                          >${this.time(record.evaluated_at_utc)}</time
+                        >
+                        <strong
+                          >${this.shadowCommandSummary(record.command)}</strong
+                        >
+                        <span>${humanizeCode(record.reason_code)}</span>
+                      </li>`,
+                  )}
+                </ol>`
+          }
+        </section>
+      </div>
+
+      <section class="boundary-note">
+        <span aria-hidden="true">🔒</span>
+        <div>
+          <strong>Scheduled Control is deliberately unavailable</strong>
+          <p>
+            Readiness is evidence, not permission. A later package and a
+            separate explicit confirmation are required before any physical
+            command path can exist.
+          </p>
+        </div>
+      </section>
     `;
   }
 
@@ -1072,6 +1306,37 @@ export class IntelligentClimatePanel extends LitElement {
     );
   }
 
+  private currentOperatingMode(): ZeroCommandOperatingMode {
+    const mode = this.data?.configuration.config["desired_operating_mode"];
+    return mode === "manual_control" || mode === "scheduled_shadow"
+      ? mode
+      : "observe_only";
+  }
+
+  private shadowCommandSummary(command: ShadowCommand | null): string {
+    if (command === null) return "No command proposed";
+    const details: string[] = [];
+    if (command.target_c !== null) {
+      details.push(`set ${this.temperature(command.target_c)}`);
+    } else if (
+      command.heat_target_c !== null ||
+      command.cool_target_c !== null
+    ) {
+      details.push(
+        `${this.temperature(command.heat_target_c)}–${this.temperature(command.cool_target_c)}`,
+      );
+    }
+    if (command.hvac_mode !== null) {
+      details.push(humanizeCode(command.hvac_mode));
+    }
+    if (command.fan_mode !== null) {
+      details.push(`fan ${humanizeCode(command.fan_mode)}`);
+    }
+    return details.length === 0
+      ? `Would ${humanizeCode(command.kind)}`
+      : `Would ${details.join(" · ")}`;
+  }
+
   private locale(): string {
     return this.hass.locale.language;
   }
@@ -1200,6 +1465,9 @@ export class IntelligentClimatePanel extends LitElement {
     this.scheduleDirty = false;
     this.scheduleMessage = "";
     this.scheduleConflict = false;
+    this.scheduleAvailable = false;
+    this.controlPendingMode = undefined;
+    this.controlMessage = "";
     const client = new IntelligentClimateClient(this.hass, entryId);
     this.client = client;
     try {
@@ -1213,7 +1481,7 @@ export class IntelligentClimatePanel extends LitElement {
       if (this.selectedZoneId.length > 0) {
         await this.loadZoneDetails(generation);
       }
-      if (this.activeRoute === "schedule") {
+      if (this.activeRoute === "schedule" || this.activeRoute === "control") {
         await this.loadSchedule(generation);
       }
       if (generation !== this.loadGeneration) {
@@ -1243,6 +1511,7 @@ export class IntelligentClimatePanel extends LitElement {
     try {
       const response = await this.client.schedule();
       if (generation !== this.loadGeneration) return;
+      this.scheduleAvailable = response.schedule !== null;
       this.scheduleDocument =
         response.schedule ??
         createEmptyScheduleDraft(this.selectedEntryId, this.data.configuration);
@@ -1252,6 +1521,7 @@ export class IntelligentClimatePanel extends LitElement {
     } catch (error: unknown) {
       if (generation !== this.loadGeneration) return;
       this.scheduleDocument = undefined;
+      this.scheduleAvailable = false;
       this.scheduleMessage = this.describeError(error);
     } finally {
       if (generation === this.loadGeneration) this.scheduleLoading = false;
@@ -1304,10 +1574,50 @@ export class IntelligentClimatePanel extends LitElement {
     this.activeRoute = route;
     window.history.replaceState(null, "", `/intelligent-climate/${route}`);
     this.shadowRoot?.querySelector<HTMLElement>("#main-content")?.focus();
-    if (route === "schedule" && this.scheduleDocument === undefined) {
+    if (
+      (route === "schedule" || route === "control") &&
+      this.scheduleDocument === undefined
+    ) {
       void this.loadSchedule(this.loadGeneration);
     }
   }
+
+  private requestOperatingMode(mode: ZeroCommandOperatingMode): void {
+    this.controlMessage = "";
+    if (mode === "scheduled_shadow" && !this.scheduleAvailable) {
+      this.controlMessage =
+        "Save and enable a valid schedule before starting Scheduled Shadow.";
+      return;
+    }
+    this.controlPendingMode = mode;
+  }
+
+  private cancelOperatingMode = (): void => {
+    this.controlPendingMode = undefined;
+  };
+
+  private confirmOperatingMode = async (): Promise<void> => {
+    if (
+      this.client === undefined ||
+      this.controlPendingMode === undefined ||
+      this.controlBusy
+    ) {
+      return;
+    }
+    const mode = this.controlPendingMode;
+    this.controlBusy = true;
+    this.controlMessage = "";
+    try {
+      await this.client.setOperatingMode(mode);
+      this.controlPendingMode = undefined;
+      await this.loadEntry(this.selectedEntryId);
+      this.controlMessage = `${humanizeCode(mode)} is now selected. No HVAC service call was sent.`;
+    } catch (error: unknown) {
+      this.controlMessage = this.describeError(error);
+    } finally {
+      this.controlBusy = false;
+    }
+  };
 
   private entryChanged = (event: Event): void => {
     const target = event.currentTarget;
@@ -2034,6 +2344,131 @@ export class IntelligentClimatePanel extends LitElement {
         max-inline-size: 630px;
         line-height: 1.5;
       }
+      .zero-command-badge {
+        padding: 9px 13px;
+        border: 1px solid color-mix(in srgb, #18815f 35%, var(--ic-border));
+        border-radius: 999px;
+        background: color-mix(in srgb, #18815f 10%, var(--ic-surface));
+        color: #137255;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-block-end: 18px;
+      }
+      .mode-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-block-size: 235px;
+        padding: 22px;
+        border: 1px solid var(--ic-border);
+        border-radius: var(--ic-radius);
+        background: var(--ic-surface);
+        box-shadow: var(--ic-shadow);
+      }
+      .mode-card.selected {
+        border: 2px solid var(--ic-accent);
+        padding: 21px;
+      }
+      .mode-card-heading {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .mode-card-heading span {
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: var(--ic-surface-muted);
+        color: var(--secondary-text-color);
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: center;
+      }
+      .mode-card p {
+        flex: 1;
+        color: var(--secondary-text-color);
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+      .mode-card button,
+      .confirmation-actions button {
+        min-block-size: 44px;
+      }
+      .secondary-button {
+        padding-inline: 18px;
+        border: 1px solid var(--ic-border);
+        border-radius: 12px;
+        background: var(--ic-surface-muted);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+      .confirmation-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-block-end: 18px;
+        padding: 22px;
+        border: 2px solid var(--ic-accent);
+        border-radius: var(--ic-radius);
+        background: color-mix(in srgb, var(--ic-accent) 7%, var(--ic-surface));
+      }
+      .confirmation-card p {
+        max-inline-size: 850px;
+        margin-block-start: 8px;
+        color: var(--secondary-text-color);
+        line-height: 1.5;
+      }
+      .confirmation-actions {
+        display: flex;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .control-message {
+        margin-block-end: 18px;
+        padding: 12px 15px;
+        border-radius: 12px;
+        background: var(--ic-surface-muted);
+        font-weight: 650;
+      }
+      .control-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .shadow-history {
+        display: grid;
+        gap: 10px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .shadow-history li {
+        display: grid;
+        grid-template-columns: minmax(120px, auto) 1fr auto;
+        gap: 10px;
+        align-items: baseline;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--ic-surface-muted);
+        font-size: 0.78rem;
+      }
+      .shadow-history time,
+      .shadow-history span {
+        color: var(--secondary-text-color);
+      }
       .sensor-summary {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -2313,6 +2748,10 @@ export class IntelligentClimatePanel extends LitElement {
         color: var(--secondary-text-color);
       }
       @media (max-width: 980px) {
+        .mode-grid,
+        .control-grid {
+          grid-template-columns: 1fr;
+        }
         .metric-grid {
           grid-template-columns: repeat(2, 1fr);
         }
@@ -2374,6 +2813,15 @@ export class IntelligentClimatePanel extends LitElement {
         .page-heading.with-action {
           align-items: stretch;
           flex-direction: column;
+        }
+        .confirmation-card,
+        .confirmation-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .shadow-history li {
+          grid-template-columns: 1fr;
+          gap: 3px;
         }
         .source-counts {
           grid-template-columns: repeat(2, 1fr);

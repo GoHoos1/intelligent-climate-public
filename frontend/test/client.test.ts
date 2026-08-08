@@ -21,6 +21,7 @@ import {
 function createHass(): {
   hass: HomeAssistantLike;
   callWSMock: ReturnType<typeof vi.fn>;
+  callServiceMock: ReturnType<typeof vi.fn>;
 } {
   const responses: Record<string, unknown> = {
     "intelligent_climate/config/get": configuration,
@@ -41,10 +42,13 @@ function createHass(): {
   const callWS: HomeAssistantLike["callWS"] = <T>(
     message: Record<string, unknown>,
   ) => callWSMock(message) as Promise<T>;
+  const callServiceMock = vi.fn(() => Promise.resolve());
   return {
     callWSMock,
+    callServiceMock,
     hass: {
       callWS,
+      callService: callServiceMock,
       connection: { subscribeMessage: () => Promise.resolve(vi.fn()) },
       locale: { language: "en-US" },
       config: { unit_system: { temperature: "°F" } },
@@ -142,6 +146,18 @@ describe("IntelligentClimateClient", () => {
         expected_revision: 1,
         schedule: scheduleDocument,
       }),
+    );
+  });
+
+  it("uses the explicit zero-command service for operating-mode changes", async () => {
+    const { hass, callServiceMock } = createHass();
+    await new IntelligentClimateClient(hass, ENTRY_ID).setOperatingMode(
+      "scheduled_shadow",
+    );
+    expect(callServiceMock).toHaveBeenCalledWith(
+      "intelligent_climate",
+      "set_operating_mode",
+      { entry_id: ENTRY_ID, mode: "scheduled_shadow" },
     );
   });
 });

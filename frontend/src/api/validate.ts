@@ -657,6 +657,39 @@ export function validateShadowStatus(value: unknown): ShadowStatusResponse {
           record["would_command"],
           `${path}.would_command`,
         ),
+        command:
+          record["command"] === null
+            ? null
+            : (() => {
+                const command = object(record["command"], `${path}.command`);
+                return {
+                  kind: string(command["kind"], `${path}.command.kind`),
+                  target_c: nullableNumber(
+                    command["target_c"],
+                    `${path}.command.target_c`,
+                  ),
+                  heat_target_c: nullableNumber(
+                    command["heat_target_c"],
+                    `${path}.command.heat_target_c`,
+                  ),
+                  cool_target_c: nullableNumber(
+                    command["cool_target_c"],
+                    `${path}.command.cool_target_c`,
+                  ),
+                  hvac_mode:
+                    command["hvac_mode"] === null
+                      ? null
+                      : string(
+                          command["hvac_mode"],
+                          `${path}.command.hvac_mode`,
+                        ),
+                  fan_mode:
+                    command["fan_mode"] === null
+                      ? null
+                      : string(command["fan_mode"], `${path}.command.fan_mode`),
+                  cause: string(command["cause"], `${path}.command.cause`),
+                };
+              })(),
       };
     }),
   };

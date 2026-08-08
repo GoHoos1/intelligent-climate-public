@@ -63,6 +63,7 @@ from custom_components.intelligent_climate.climate import (
     IntelligentClimateZoneClimateEntity,
 )
 from custom_components.intelligent_climate.const import (
+    ACTION_SET_OPERATING_MODE,
     DOMAIN,
     PLATFORMS,
     SUBENTRY_TYPE_ZONE,
@@ -601,7 +602,7 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
         Platform.SENSOR,
         Platform.SWITCH,
     }
-    assert DOMAIN not in hass.services.async_services()
+    assert set(hass.services.async_services()[DOMAIN]) == {ACTION_SET_OPERATING_MODE}
 
     assert await hass.config_entries.async_unload(entry.entry_id)
 

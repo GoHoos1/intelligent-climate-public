@@ -32,6 +32,8 @@ from .models import (
     EntryRuntimeConfiguration,
     EquipmentGroupDocument,
     IntegrationOptions,
+    OperatingMode,
+    Phase2ControlIntent,
     Phase2EquipmentGroupDocument,
     Phase2IntegrationOptions,
     Phase2MigrationDryRun,
@@ -63,6 +65,7 @@ from .models import (
 )
 from .repairs import MigrationFailureCategory, RepairsManager
 from .schema_compat import migrate_zone_document
+from .shadow.qualification import empty_shadow_qualification
 from .type_aliases import IntelligentClimateConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
@@ -276,7 +279,6 @@ async def async_reconcile_phase2_migration(
             version=entry.version,
             minor_version=entry.minor_version,
         )
-        _require_migration_safe_config(config)
         zones = tuple(
             migrate_zone_document(subentry.data)
             for subentry in entry.subentries.values()
@@ -429,12 +431,26 @@ async def _async_reconcile_runtime_configuration(
             }
         ),
     )
+    mode_changed = (
+        runtime.control_intent.desired_operating_mode
+        is not config.desired_operating_mode
+    )
+    if mode_changed and config.desired_operating_mode is OperatingMode.SCHEDULED_SHADOW:
+        qualification = empty_shadow_qualification(zone_ids)
     candidate = replace(
         runtime,
         zones=runtime_zones,
         source_baselines=baselines,
         decisions=decisions,
         shadow_qualification=qualification,
+        control_intent=Phase2ControlIntent(
+            automation_enabled=config.automation_enabled,
+            desired_operating_mode=config.desired_operating_mode,
+            active_control_armed=False,
+            time_zone_acknowledgement_required=(
+                runtime.control_intent.time_zone_acknowledgement_required
+            ),
+        ),
     )
     if candidate == runtime:
         return runtime
@@ -445,6 +461,7 @@ async def _async_reconcile_runtime_configuration(
         encoded=dict(encode_phase2_runtime_store_document(candidate)),
         expected_group_id=str(config.equipment_group.equipment_group_id),
         expected_zone_ids=frozenset(str(zone_id) for zone_id in zone_ids),
+        require_migration_safe=False,
     )
 
 
@@ -792,7 +809,6 @@ async def _async_load_or_create_phase2_runtime(
         )
     try:
         runtime = decode_phase2_runtime_store_document(raw)
-        _require_migration_safe_runtime(runtime)
     except (
         KeyError,
         SchemaMigrationError,
@@ -876,6 +892,7 @@ async def _async_save_phase2_runtime(
     encoded: dict[str, object],
     expected_group_id: str,
     expected_zone_ids: frozenset[str],
+    require_migration_safe: bool = True,
 ) -> Phase2RuntimeStoreDocument:
     store = _Phase2RuntimeDataStore(
         hass,
@@ -913,7 +930,8 @@ async def _async_save_phase2_runtime(
         zone_ids=expected_zone_ids,
         source_ids=None,
     )
-    _require_migration_safe_runtime(runtime)
+    if require_migration_safe:
+        _require_migration_safe_runtime(runtime)
     return runtime
 
 

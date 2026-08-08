@@ -14,6 +14,7 @@ import {
   type ShadowStatusResponse,
   type SnapshotResponse,
   type TodayTimelineResponse,
+  type ZeroCommandOperatingMode,
 } from "../types/contracts";
 import {
   validateActivity,
@@ -145,6 +146,13 @@ export class IntelligentClimateClient {
       validateScheduleSave,
       { schedule, expected_revision: expectedRevision },
     );
+  }
+
+  public setOperatingMode(mode: ZeroCommandOperatingMode): Promise<void> {
+    return this.hass.callService("intelligent_climate", "set_operating_mode", {
+      entry_id: this.entryId,
+      mode,
+    });
   }
 
   public async dashboardData(): Promise<EntryDashboardData> {

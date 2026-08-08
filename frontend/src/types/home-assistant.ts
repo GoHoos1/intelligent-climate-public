@@ -7,6 +7,11 @@ export interface HomeAssistantConnection {
 
 export interface HomeAssistantLike {
   callWS<T>(message: Record<string, unknown>): Promise<T>;
+  callService(
+    domain: string,
+    service: string,
+    data?: Record<string, unknown>,
+  ): Promise<void>;
   connection: HomeAssistantConnection;
   locale: { language: string };
   config: { unit_system: { temperature: "°C" | "°F" } };
