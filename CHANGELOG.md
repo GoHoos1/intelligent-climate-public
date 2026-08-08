@@ -7,6 +7,22 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.22 - 2026-08-08
+
+### Fixed
+
+- Applied zero-command operating-mode changes in place so the Intelligent
+  Climate panel remains mounted instead of routing to Home Assistant Overview.
+- Made schedule defaults follow the thermostat's current Heat, Cool, or
+  Heat/Cool/Auto mode. Existing incompatible periods remain visible and fail
+  closed rather than producing a Shadow would-command.
+
+### Security
+
+- Scheduled Shadow remains physically inert, Scheduled Control remains
+  unavailable, and this release adds no climate or fan service-call path,
+  active adapter, or physical-control authority.
+
 ## 0.0.21 - 2026-08-08
 
 ### Added
