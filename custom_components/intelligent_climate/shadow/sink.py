@@ -27,6 +27,7 @@ from .history import (
 from .qualification import (
     evaluate_shadow_readiness,
     record_shadow_evaluation,
+    reset_shadow_qualification,
     validate_shadow_qualification,
 )
 
@@ -67,6 +68,13 @@ class ShadowCommandSink:
     def history(self) -> tuple[ShadowHistoryRecord, ...]:
         """Return the latest immutable bounded history."""
         return self._history
+
+    def reset_qualification(self) -> None:
+        """Begin a distinct Shadow qualification run without touching equipment."""
+        self._qualification = reset_shadow_qualification(
+            self._qualification,
+            all_zone_ids=self._all_zone_ids,
+        )
 
     async def async_record_plan(
         self,
