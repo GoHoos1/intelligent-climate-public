@@ -6,6 +6,7 @@ import type { SnapshotResponse } from "../src/types/contracts";
 import type { HomeAssistantLike } from "../src/types/home-assistant";
 import {
   ENTRY_ID,
+  NOW,
   activity,
   configuration,
   narrative,
@@ -24,6 +25,7 @@ function createHass(): {
   cleanup: ReturnType<typeof vi.fn>;
   emitSnapshot: (value: SnapshotResponse) => void;
   setResponse: (type: string, value: unknown) => void;
+  callServiceMock: ReturnType<typeof vi.fn>;
 } {
   const responses: Record<string, unknown> = {
     "intelligent_climate/config/get": configuration,
@@ -39,6 +41,7 @@ function createHass(): {
     "intelligent_climate/schedule/save": scheduleSave,
   };
   const cleanup = vi.fn();
+  const callServiceMock = vi.fn(() => Promise.resolve());
   let subscription: ((message: unknown) => void) | undefined;
   const callWS: HomeAssistantLike["callWS"] = <T>(
     message: Record<string, unknown>,
@@ -50,12 +53,14 @@ function createHass(): {
   };
   return {
     cleanup,
+    callServiceMock,
     emitSnapshot: (value) => subscription?.(value),
     setResponse: (type, value) => {
       responses[type] = value;
     },
     hass: {
       callWS,
+      callService: callServiceMock,
       connection: {
         subscribeMessage: (callback) => {
           subscription = callback;
@@ -84,9 +89,11 @@ function mount(): {
   cleanup: ReturnType<typeof vi.fn>;
   emitSnapshot: (value: SnapshotResponse) => void;
   setResponse: (type: string, value: unknown) => void;
+  callServiceMock: ReturnType<typeof vi.fn>;
 } {
   const panel = document.createElement("intelligent-climate-panel");
-  const { hass, cleanup, emitSnapshot, setResponse } = createHass();
+  const { hass, cleanup, emitSnapshot, setResponse, callServiceMock } =
+    createHass();
   panel.hass = hass;
   panel.panel = {
     config: {
@@ -96,7 +103,7 @@ function mount(): {
     },
   };
   document.body.append(panel);
-  return { panel, cleanup, emitSnapshot, setResponse };
+  return { panel, cleanup, emitSnapshot, setResponse, callServiceMock };
 }
 
 afterEach(() => {
@@ -155,6 +162,7 @@ describe("Intelligent Climate sidebar", () => {
     ).toEqual([
       "⌂ Overview",
       "▦ Schedule",
+      "◉ Control",
       "◫ Sensors",
       "↯ Activity",
       "⚙ Settings",
@@ -165,12 +173,15 @@ describe("Intelligent Climate sidebar", () => {
       "Local weekly comfort schedule",
     );
     (buttons[2] as HTMLButtonElement).click();
+    await settle(panel);
+    expect(panel.shadowRoot?.textContent).toContain("Zero HVAC service calls");
+    (buttons[3] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain(
       "Current readings and configured sources",
     );
-    (buttons[3] as HTMLButtonElement).click();
+    (buttons[4] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain("Newest activity first");
@@ -185,10 +196,72 @@ describe("Intelligent Climate sidebar", () => {
     expect(activityFacts).toContain("State");
     expect(activityFacts).toContain("Reconciling → Observing");
     expect(panel.shadowRoot?.textContent).toContain("Historical record");
-    (buttons[4] as HTMLButtonElement).click();
+    (buttons[5] as HTMLButtonElement).click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(panel.shadowRoot?.textContent).toContain("Read-only preview");
+  });
+
+  it("requires explicit confirmation and explains exact zero-command Shadow decisions", async () => {
+    const { panel, callServiceMock, setResponse } = mount();
+    setResponse("intelligent_climate/shadow/status", {
+      ...shadow,
+      history: [
+        {
+          safety_evaluation_id: "evaluation-1",
+          evaluated_at_utc: NOW,
+          outcome: "recorded",
+          reason_code: "shadow_recorded",
+          would_command: true,
+          command: {
+            kind: "climate_target",
+            target_c: 25,
+            heat_target_c: null,
+            cool_target_c: null,
+            hvac_mode: "cool",
+            fan_mode: null,
+            cause: "schedule",
+          },
+        },
+      ],
+    });
+    await settle(panel);
+    const control = panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+      ".primary-nav button",
+    )[2];
+    control?.click();
+    await settle(panel);
+
+    expect(panel.shadowRoot?.textContent).toContain(
+      "Scheduled Control is deliberately unavailable",
+    );
+    expect(panel.shadowRoot?.textContent).toContain("Would set 77°F · Cool");
+    const start = [
+      ...(panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        ".mode-card button",
+      ) ?? []),
+    ].find((button) => button.textContent.includes("Start Scheduled Shadow"));
+    start?.click();
+    await (panel as HTMLElement & { updateComplete: Promise<boolean> })
+      .updateComplete;
+    expect(panel.shadowRoot?.textContent).toContain("Start Scheduled Shadow?");
+    expect(callServiceMock).not.toHaveBeenCalled();
+
+    const confirm = [
+      ...(panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        ".confirmation-actions button",
+      ) ?? []),
+    ].find((button) => button.textContent.trim() === "Confirm");
+    confirm?.click();
+    await settle(panel);
+    expect(callServiceMock).toHaveBeenCalledWith(
+      "intelligent_climate",
+      "set_operating_mode",
+      { entry_id: ENTRY_ID, mode: "scheduled_shadow" },
+    );
+    expect(panel.shadowRoot?.textContent).toContain(
+      "No HVAC service call was sent",
+    );
   });
 
   it("discards a dirty draft once and does not prompt on later navigation", async () => {
@@ -216,7 +289,7 @@ describe("Intelligent Climate sidebar", () => {
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
 
-    routeButtons()[4]?.click();
+    routeButtons()[5]?.click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
     expect(confirm).toHaveBeenCalledTimes(1);
@@ -239,7 +312,7 @@ describe("Intelligent Climate sidebar", () => {
       ...(panel.shadowRoot?.querySelectorAll<HTMLButtonElement>(
         ".primary-nav button",
       ) ?? []),
-    ][4];
+    ][5];
     settings?.click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;
@@ -261,7 +334,7 @@ describe("Intelligent Climate sidebar", () => {
     await settle(panel);
     const settings = panel.shadowRoot?.querySelectorAll(
       ".primary-nav button",
-    )[4] as HTMLButtonElement;
+    )[5] as HTMLButtonElement;
     settings.click();
     await (panel as HTMLElement & { updateComplete: Promise<boolean> })
       .updateComplete;

@@ -7,6 +7,22 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.21 - 2026-08-08
+
+### Added
+
+- Added an administrator-only Control route for Observe Only, Manual Control,
+  and Scheduled Shadow, with an explicit confirmation and a valid saved schedule
+  required before a Shadow run can begin.
+- Added exact privacy-safe would-command details and visible Shadow-readiness
+  evidence, with qualification reset whenever a new Shadow run starts.
+
+### Security
+
+- Every exposed mode in this package is zero-command. Scheduled Control is
+  rejected, active control is forcibly kept unarmed, and no Home Assistant
+  physical equipment service-call path or active adapter is present.
+
 ## 0.0.20 - 2026-08-08
 
 ### Fixed

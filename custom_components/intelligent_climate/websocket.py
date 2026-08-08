@@ -435,6 +435,19 @@ async def websocket_shadow_status(
                     "outcome": item.outcome.value,
                     "reason_code": item.reason_code.value,
                     "would_command": item.would_command is not None,
+                    "command": (
+                        None
+                        if item.would_command is None
+                        else {
+                            "kind": item.would_command.command_kind.value,
+                            "target_c": item.would_command.desired.target_c,
+                            "heat_target_c": item.would_command.desired.heat_target_c,
+                            "cool_target_c": item.would_command.desired.cool_target_c,
+                            "hvac_mode": item.would_command.desired.hvac_mode,
+                            "fan_mode": item.would_command.desired.fan_mode,
+                            "cause": item.would_command.cause.value,
+                        }
+                    ),
                 }
                 for item in runtime.shadow_sink.history
             ],

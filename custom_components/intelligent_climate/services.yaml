@@ -1,0 +1,25 @@
+set_operating_mode:
+  name: Set operating mode
+  description: >-
+    Select Observe Only, Manual Control, or Scheduled Shadow. Every mode
+    available in this release is physically inert and sends no HVAC commands.
+  fields:
+    entry_id:
+      name: Configuration entry
+      description: Intelligent Climate configuration entry ID.
+      required: true
+      selector:
+        text:
+    mode:
+      name: Operating mode
+      description: Zero-command operating mode to select.
+      required: true
+      selector:
+        select:
+          options:
+            - label: Observe Only
+              value: observe_only
+            - label: Manual Control (zero-command in this release)
+              value: manual_control
+            - label: Scheduled Shadow
+              value: scheduled_shadow

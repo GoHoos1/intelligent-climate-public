@@ -1,5 +1,5 @@
-const J = globalThis, fe = J.ShadowRoot && (J.ShadyCSS === void 0 || J.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, _e = /* @__PURE__ */ Symbol(), xe = /* @__PURE__ */ new WeakMap();
-let Le = class {
+const J = globalThis, fe = J.ShadowRoot && (J.ShadyCSS === void 0 || J.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype, _e = /* @__PURE__ */ Symbol(), $e = /* @__PURE__ */ new WeakMap();
+let Ne = class {
   constructor(e, t, i) {
     if (this._$cssResult$ = !0, i !== _e) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
     this.cssText = e, this.t = t;
@@ -9,7 +9,7 @@ let Le = class {
     const t = this.t;
     if (fe && e === void 0) {
       const i = t !== void 0 && t.length === 1;
-      i && (e = xe.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && xe.set(t, e));
+      i && (e = $e.get(t)), e === void 0 && ((this.o = e = new CSSStyleSheet()).replaceSync(this.cssText), i && $e.set(t, e));
     }
     return e;
   }
@@ -17,13 +17,13 @@ let Le = class {
     return this.cssText;
   }
 };
-const Je = (r) => new Le(typeof r == "string" ? r : r + "", void 0, _e), se = (r, ...e) => {
+const Je = (r) => new Ne(typeof r == "string" ? r : r + "", void 0, _e), se = (r, ...e) => {
   const t = r.length === 1 ? r[0] : e.reduce((i, a, n) => i + ((s) => {
     if (s._$cssResult$ === !0) return s.cssText;
     if (typeof s == "number") return s;
     throw Error("Value passed to 'css' function must be a 'css' function result: " + s + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
   })(a) + r[n + 1], r[0]);
-  return new Le(t, r, _e);
+  return new Ne(t, r, _e);
 }, Xe = (r, e) => {
   if (fe) r.adoptedStyleSheets = e.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
   else for (const t of e) {
@@ -35,7 +35,7 @@ const Je = (r) => new Le(typeof r == "string" ? r : r + "", void 0, _e), se = (r
   for (const i of e.cssRules) t += i.cssText;
   return Je(t);
 })(r) : r;
-const { is: et, defineProperty: tt, getOwnPropertyDescriptor: it, getOwnPropertyNames: at, getOwnPropertySymbols: rt, getPrototypeOf: nt } = Object, oe = globalThis, ke = oe.trustedTypes, st = ke ? ke.emptyScript : "", ot = oe.reactiveElementPolyfillSupport, B = (r, e) => r, ue = { toAttribute(r, e) {
+const { is: et, defineProperty: tt, getOwnPropertyDescriptor: it, getOwnPropertyNames: at, getOwnPropertySymbols: rt, getPrototypeOf: nt } = Object, oe = globalThis, ke = oe.trustedTypes, st = ke ? ke.emptyScript : "", ot = oe.reactiveElementPolyfillSupport, G = (r, e) => r, ue = { toAttribute(r, e) {
   switch (e) {
     case Boolean:
       r = r ? st : null;
@@ -63,9 +63,9 @@ const { is: et, defineProperty: tt, getOwnPropertyDescriptor: it, getOwnProperty
       }
   }
   return t;
-} }, Ne = (r, e) => !et(r, e), Se = { attribute: !0, type: String, converter: ue, reflect: !1, useDefault: !1, hasChanged: Ne };
+} }, He = (r, e) => !et(r, e), Se = { attribute: !0, type: String, converter: ue, reflect: !1, useDefault: !1, hasChanged: He };
 Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), oe.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-let N = class extends HTMLElement {
+let H = class extends HTMLElement {
   static addInitializer(e) {
     this._$Ei(), (this.l ??= []).push(e);
   }
@@ -85,21 +85,21 @@ let N = class extends HTMLElement {
       this[t] = s;
     } };
     return { get: a, set(s) {
-      const l = a?.call(this);
-      n?.call(this, s), this.requestUpdate(e, l, i);
+      const c = a?.call(this);
+      n?.call(this, s), this.requestUpdate(e, c, i);
     }, configurable: !0, enumerable: !0 };
   }
   static getPropertyOptions(e) {
     return this.elementProperties.get(e) ?? Se;
   }
   static _$Ei() {
-    if (this.hasOwnProperty(B("elementProperties"))) return;
+    if (this.hasOwnProperty(G("elementProperties"))) return;
     const e = nt(this);
     e.finalize(), e.l !== void 0 && (this.l = [...e.l]), this.elementProperties = new Map(e.elementProperties);
   }
   static finalize() {
-    if (this.hasOwnProperty(B("finalized"))) return;
-    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(B("properties"))) {
+    if (this.hasOwnProperty(G("finalized"))) return;
+    if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(G("properties"))) {
       const t = this.properties, i = [...at(t), ...rt(t)];
       for (const a of i) this.createProperty(a, t[a]);
     }
@@ -171,14 +171,14 @@ let N = class extends HTMLElement {
     if (a !== void 0 && this._$Em !== a) {
       const n = i.getPropertyOptions(a), s = typeof n.converter == "function" ? { fromAttribute: n.converter } : n.converter?.fromAttribute !== void 0 ? n.converter : ue;
       this._$Em = a;
-      const l = s.fromAttribute(t, n.type);
-      this[a] = l ?? this._$Ej?.get(a) ?? l, this._$Em = null;
+      const c = s.fromAttribute(t, n.type);
+      this[a] = c ?? this._$Ej?.get(a) ?? c, this._$Em = null;
     }
   }
   requestUpdate(e, t, i, a = !1, n) {
     if (e !== void 0) {
       const s = this.constructor;
-      if (a === !1 && (n = this[e]), i ??= s.getPropertyOptions(e), !((i.hasChanged ?? Ne)(n, t) || i.useDefault && i.reflect && n === this._$Ej?.get(e) && !this.hasAttribute(s._$Eu(e, i)))) return;
+      if (a === !1 && (n = this[e]), i ??= s.getPropertyOptions(e), !((i.hasChanged ?? He)(n, t) || i.useDefault && i.reflect && n === this._$Ej?.get(e) && !this.hasAttribute(s._$Eu(e, i)))) return;
       this.C(e, t, i);
     }
     this.isUpdatePending === !1 && (this._$ES = this._$EP());
@@ -208,8 +208,8 @@ let N = class extends HTMLElement {
       }
       const i = this.constructor.elementProperties;
       if (i.size > 0) for (const [a, n] of i) {
-        const { wrapped: s } = n, l = this[a];
-        s !== !0 || this._$AL.has(a) || l === void 0 || this.C(a, void 0, n, l);
+        const { wrapped: s } = n, c = this[a];
+        s !== !0 || this._$AL.has(a) || c === void 0 || this.C(a, void 0, n, c);
       }
     }
     let e = !1;
@@ -246,10 +246,10 @@ let N = class extends HTMLElement {
   firstUpdated(e) {
   }
 };
-N.elementStyles = [], N.shadowRootOptions = { mode: "open" }, N[B("elementProperties")] = /* @__PURE__ */ new Map(), N[B("finalized")] = /* @__PURE__ */ new Map(), ot?.({ ReactiveElement: N }), (oe.reactiveElementVersions ??= []).push("2.1.2");
-const be = globalThis, ze = (r) => r, te = be.trustedTypes, Ce = te ? te.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, He = "$lit$", T = `lit$${Math.random().toFixed(9).slice(2)}$`, Re = "?" + T, lt = `<${Re}>`, M = document, V = () => M.createComment(""), Y = (r) => r === null || typeof r != "object" && typeof r != "function", ye = Array.isArray, ct = (r) => ye(r) || typeof r?.[Symbol.iterator] == "function", de = `[ 	
-\f\r]`, j = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ae = /-->/g, Te = />/g, D = RegExp(`>|${de}(?:([^\\s"'>=/]+)(${de}*=${de}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g"), Ee = /'/g, De = /"/g, qe = /^(?:script|style|textarea|title)$/i, Fe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), c = Fe(1), A = Fe(2), R = /* @__PURE__ */ Symbol.for("lit-noChange"), g = /* @__PURE__ */ Symbol.for("lit-nothing"), Pe = /* @__PURE__ */ new WeakMap(), P = M.createTreeWalker(M, 129);
+H.elementStyles = [], H.shadowRootOptions = { mode: "open" }, H[G("elementProperties")] = /* @__PURE__ */ new Map(), H[G("finalized")] = /* @__PURE__ */ new Map(), ot?.({ ReactiveElement: H }), (oe.reactiveElementVersions ??= []).push("2.1.2");
+const be = globalThis, ze = (r) => r, te = be.trustedTypes, Ce = te ? te.createPolicy("lit-html", { createHTML: (r) => r }) : void 0, Le = "$lit$", D = `lit$${Math.random().toFixed(9).slice(2)}$`, Re = "?" + D, lt = `<${Re}>`, O = document, V = () => O.createComment(""), Y = (r) => r === null || typeof r != "object" && typeof r != "function", ye = Array.isArray, ct = (r) => ye(r) || typeof r?.[Symbol.iterator] == "function", de = `[ 	
+\f\r]`, j = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g, Ae = /-->/g, Te = />/g, M = RegExp(`>|${de}(?:([^\\s"'>=/]+)(${de}*=${de}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g"), Ee = /'/g, De = /"/g, qe = /^(?:script|style|textarea|title)$/i, Fe = (r) => (e, ...t) => ({ _$litType$: r, strings: e, values: t }), l = Fe(1), E = Fe(2), R = /* @__PURE__ */ Symbol.for("lit-noChange"), h = /* @__PURE__ */ Symbol.for("lit-nothing"), Me = /* @__PURE__ */ new WeakMap(), P = O.createTreeWalker(O, 129);
 function Ze(r, e) {
   if (!ye(r) || !r.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return Ce !== void 0 ? Ce.createHTML(e) : e;
@@ -257,49 +257,49 @@ function Ze(r, e) {
 const dt = (r, e) => {
   const t = r.length - 1, i = [];
   let a, n = e === 2 ? "<svg>" : e === 3 ? "<math>" : "", s = j;
-  for (let l = 0; l < t; l++) {
-    const o = r[l];
-    let p, m, d = -1, h = 0;
-    for (; h < o.length && (s.lastIndex = h, m = s.exec(o), m !== null); ) h = s.lastIndex, s === j ? m[1] === "!--" ? s = Ae : m[1] !== void 0 ? s = Te : m[2] !== void 0 ? (qe.test(m[2]) && (a = RegExp("</" + m[2], "g")), s = D) : m[3] !== void 0 && (s = D) : s === D ? m[0] === ">" ? (s = a ?? j, d = -1) : m[1] === void 0 ? d = -2 : (d = s.lastIndex - m[2].length, p = m[1], s = m[3] === void 0 ? D : m[3] === '"' ? De : Ee) : s === De || s === Ee ? s = D : s === Ae || s === Te ? s = j : (s = D, a = void 0);
-    const f = s === D && r[l + 1].startsWith("/>") ? " " : "";
-    n += s === j ? o + lt : d >= 0 ? (i.push(p), o.slice(0, d) + He + o.slice(d) + T + f) : o + T + (d === -2 ? l : f);
+  for (let c = 0; c < t; c++) {
+    const o = r[c];
+    let p, m, d = -1, g = 0;
+    for (; g < o.length && (s.lastIndex = g, m = s.exec(o), m !== null); ) g = s.lastIndex, s === j ? m[1] === "!--" ? s = Ae : m[1] !== void 0 ? s = Te : m[2] !== void 0 ? (qe.test(m[2]) && (a = RegExp("</" + m[2], "g")), s = M) : m[3] !== void 0 && (s = M) : s === M ? m[0] === ">" ? (s = a ?? j, d = -1) : m[1] === void 0 ? d = -2 : (d = s.lastIndex - m[2].length, p = m[1], s = m[3] === void 0 ? M : m[3] === '"' ? De : Ee) : s === De || s === Ee ? s = M : s === Ae || s === Te ? s = j : (s = M, a = void 0);
+    const f = s === M && r[c + 1].startsWith("/>") ? " " : "";
+    n += s === j ? o + lt : d >= 0 ? (i.push(p), o.slice(0, d) + Le + o.slice(d) + D + f) : o + D + (d === -2 ? c : f);
   }
   return [Ze(r, n + (r[t] || "<?>") + (e === 2 ? "</svg>" : e === 3 ? "</math>" : "")), i];
 };
-class K {
+class W {
   constructor({ strings: e, _$litType$: t }, i) {
     let a;
     this.parts = [];
     let n = 0, s = 0;
-    const l = e.length - 1, o = this.parts, [p, m] = dt(e, t);
-    if (this.el = K.createElement(p, i), P.currentNode = this.el.content, t === 2 || t === 3) {
+    const c = e.length - 1, o = this.parts, [p, m] = dt(e, t);
+    if (this.el = W.createElement(p, i), P.currentNode = this.el.content, t === 2 || t === 3) {
       const d = this.el.content.firstChild;
       d.replaceWith(...d.childNodes);
     }
-    for (; (a = P.nextNode()) !== null && o.length < l; ) {
+    for (; (a = P.nextNode()) !== null && o.length < c; ) {
       if (a.nodeType === 1) {
-        if (a.hasAttributes()) for (const d of a.getAttributeNames()) if (d.endsWith(He)) {
-          const h = m[s++], f = a.getAttribute(d).split(T), y = /([.?@])?(.*)/.exec(h);
+        if (a.hasAttributes()) for (const d of a.getAttributeNames()) if (d.endsWith(Le)) {
+          const g = m[s++], f = a.getAttribute(d).split(D), y = /([.?@])?(.*)/.exec(g);
           o.push({ type: 1, index: n, name: y[2], strings: f, ctor: y[1] === "." ? pt : y[1] === "?" ? ht : y[1] === "@" ? gt : le }), a.removeAttribute(d);
-        } else d.startsWith(T) && (o.push({ type: 6, index: n }), a.removeAttribute(d));
+        } else d.startsWith(D) && (o.push({ type: 6, index: n }), a.removeAttribute(d));
         if (qe.test(a.tagName)) {
-          const d = a.textContent.split(T), h = d.length - 1;
-          if (h > 0) {
+          const d = a.textContent.split(D), g = d.length - 1;
+          if (g > 0) {
             a.textContent = te ? te.emptyScript : "";
-            for (let f = 0; f < h; f++) a.append(d[f], V()), P.nextNode(), o.push({ type: 2, index: ++n });
-            a.append(d[h], V());
+            for (let f = 0; f < g; f++) a.append(d[f], V()), P.nextNode(), o.push({ type: 2, index: ++n });
+            a.append(d[g], V());
           }
         }
       } else if (a.nodeType === 8) if (a.data === Re) o.push({ type: 2, index: n });
       else {
         let d = -1;
-        for (; (d = a.data.indexOf(T, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += T.length - 1;
+        for (; (d = a.data.indexOf(D, d + 1)) !== -1; ) o.push({ type: 7, index: n }), d += D.length - 1;
       }
       n++;
     }
   }
   static createElement(e, t) {
-    const i = M.createElement("template");
+    const i = O.createElement("template");
     return i.innerHTML = e, i;
   }
 }
@@ -320,29 +320,29 @@ class ut {
     return this._$AM._$AU;
   }
   u(e) {
-    const { el: { content: t }, parts: i } = this._$AD, a = (e?.creationScope ?? M).importNode(t, !0);
+    const { el: { content: t }, parts: i } = this._$AD, a = (e?.creationScope ?? O).importNode(t, !0);
     P.currentNode = a;
-    let n = P.nextNode(), s = 0, l = 0, o = i[0];
+    let n = P.nextNode(), s = 0, c = 0, o = i[0];
     for (; o !== void 0; ) {
       if (s === o.index) {
         let p;
-        o.type === 2 ? p = new W(n, n.nextSibling, this, e) : o.type === 1 ? p = new o.ctor(n, o.name, o.strings, this, e) : o.type === 6 && (p = new mt(n, this, e)), this._$AV.push(p), o = i[++l];
+        o.type === 2 ? p = new K(n, n.nextSibling, this, e) : o.type === 1 ? p = new o.ctor(n, o.name, o.strings, this, e) : o.type === 6 && (p = new mt(n, this, e)), this._$AV.push(p), o = i[++c];
       }
       s !== o?.index && (n = P.nextNode(), s++);
     }
-    return P.currentNode = M, a;
+    return P.currentNode = O, a;
   }
   p(e) {
     let t = 0;
     for (const i of this._$AV) i !== void 0 && (i.strings !== void 0 ? (i._$AI(e, i, t), t += i.strings.length - 2) : i._$AI(e[t])), t++;
   }
 }
-class W {
+class K {
   get _$AU() {
     return this._$AM?._$AU ?? this._$Cv;
   }
   constructor(e, t, i, a) {
-    this.type = 2, this._$AH = g, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = i, this.options = a, this._$Cv = a?.isConnected ?? !0;
+    this.type = 2, this._$AH = h, this._$AN = void 0, this._$AA = e, this._$AB = t, this._$AM = i, this.options = a, this._$Cv = a?.isConnected ?? !0;
   }
   get parentNode() {
     let e = this._$AA.parentNode;
@@ -356,7 +356,7 @@ class W {
     return this._$AB;
   }
   _$AI(e, t = this) {
-    e = q(this, e, t), Y(e) ? e === g || e == null || e === "" ? (this._$AH !== g && this._$AR(), this._$AH = g) : e !== this._$AH && e !== R && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : ct(e) ? this.k(e) : this._(e);
+    e = q(this, e, t), Y(e) ? e === h || e == null || e === "" ? (this._$AH !== h && this._$AR(), this._$AH = h) : e !== this._$AH && e !== R && this._(e) : e._$litType$ !== void 0 ? this.$(e) : e.nodeType !== void 0 ? this.T(e) : ct(e) ? this.k(e) : this._(e);
   }
   O(e) {
     return this._$AA.parentNode.insertBefore(e, this._$AB);
@@ -365,10 +365,10 @@ class W {
     this._$AH !== e && (this._$AR(), this._$AH = this.O(e));
   }
   _(e) {
-    this._$AH !== g && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(M.createTextNode(e)), this._$AH = e;
+    this._$AH !== h && Y(this._$AH) ? this._$AA.nextSibling.data = e : this.T(O.createTextNode(e)), this._$AH = e;
   }
   $(e) {
-    const { values: t, _$litType$: i } = e, a = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = K.createElement(Ze(i.h, i.h[0]), this.options)), i);
+    const { values: t, _$litType$: i } = e, a = typeof i == "number" ? this._$AC(e) : (i.el === void 0 && (i.el = W.createElement(Ze(i.h, i.h[0]), this.options)), i);
     if (this._$AH?._$AD === a) this._$AH.p(t);
     else {
       const n = new ut(a, this), s = n.u(this.options);
@@ -376,14 +376,14 @@ class W {
     }
   }
   _$AC(e) {
-    let t = Pe.get(e.strings);
-    return t === void 0 && Pe.set(e.strings, t = new K(e)), t;
+    let t = Me.get(e.strings);
+    return t === void 0 && Me.set(e.strings, t = new W(e)), t;
   }
   k(e) {
     ye(this._$AH) || (this._$AH = [], this._$AR());
     const t = this._$AH;
     let i, a = 0;
-    for (const n of e) a === t.length ? t.push(i = new W(this.O(V()), this.O(V()), this, this.options)) : i = t[a], i._$AI(n), a++;
+    for (const n of e) a === t.length ? t.push(i = new K(this.O(V()), this.O(V()), this, this.options)) : i = t[a], i._$AI(n), a++;
     a < t.length && (this._$AR(i && i._$AB.nextSibling, a), t.length = a);
   }
   _$AR(e = this._$AA.nextSibling, t) {
@@ -404,21 +404,21 @@ class le {
     return this._$AM._$AU;
   }
   constructor(e, t, i, a, n) {
-    this.type = 1, this._$AH = g, this._$AN = void 0, this.element = e, this.name = t, this._$AM = a, this.options = n, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = g;
+    this.type = 1, this._$AH = h, this._$AN = void 0, this.element = e, this.name = t, this._$AM = a, this.options = n, i.length > 2 || i[0] !== "" || i[1] !== "" ? (this._$AH = Array(i.length - 1).fill(new String()), this.strings = i) : this._$AH = h;
   }
   _$AI(e, t = this, i, a) {
     const n = this.strings;
     let s = !1;
     if (n === void 0) e = q(this, e, t, 0), s = !Y(e) || e !== this._$AH && e !== R, s && (this._$AH = e);
     else {
-      const l = e;
+      const c = e;
       let o, p;
-      for (e = n[0], o = 0; o < n.length - 1; o++) p = q(this, l[i + o], t, o), p === R && (p = this._$AH[o]), s ||= !Y(p) || p !== this._$AH[o], p === g ? e = g : e !== g && (e += (p ?? "") + n[o + 1]), this._$AH[o] = p;
+      for (e = n[0], o = 0; o < n.length - 1; o++) p = q(this, c[i + o], t, o), p === R && (p = this._$AH[o]), s ||= !Y(p) || p !== this._$AH[o], p === h ? e = h : e !== h && (e += (p ?? "") + n[o + 1]), this._$AH[o] = p;
     }
     s && !a && this.j(e);
   }
   j(e) {
-    e === g ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
+    e === h ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, e ?? "");
   }
 }
 class pt extends le {
@@ -426,7 +426,7 @@ class pt extends le {
     super(...arguments), this.type = 3;
   }
   j(e) {
-    this.element[this.name] = e === g ? void 0 : e;
+    this.element[this.name] = e === h ? void 0 : e;
   }
 }
 class ht extends le {
@@ -434,7 +434,7 @@ class ht extends le {
     super(...arguments), this.type = 4;
   }
   j(e) {
-    this.element.toggleAttribute(this.name, !!e && e !== g);
+    this.element.toggleAttribute(this.name, !!e && e !== h);
   }
 }
 class gt extends le {
@@ -442,8 +442,8 @@ class gt extends le {
     super(e, t, i, a, n), this.type = 5;
   }
   _$AI(e, t = this) {
-    if ((e = q(this, e, t, 0) ?? g) === R) return;
-    const i = this._$AH, a = e === g && i !== g || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive, n = e !== g && (i === g || a);
+    if ((e = q(this, e, t, 0) ?? h) === R) return;
+    const i = this._$AH, a = e === h && i !== h || e.capture !== i.capture || e.once !== i.once || e.passive !== i.passive, n = e !== h && (i === h || a);
     a && this.element.removeEventListener(this.name, this, i), n && this.element.addEventListener(this.name, this, e), this._$AH = e;
   }
   handleEvent(e) {
@@ -462,18 +462,18 @@ class mt {
   }
 }
 const vt = be.litHtmlPolyfillSupport;
-vt?.(K, W), (be.litHtmlVersions ??= []).push("3.3.3");
+vt?.(W, K), (be.litHtmlVersions ??= []).push("3.3.3");
 const ft = (r, e, t) => {
   const i = t?.renderBefore ?? e;
   let a = i._$litPart$;
   if (a === void 0) {
     const n = t?.renderBefore ?? null;
-    i._$litPart$ = a = new W(e.insertBefore(V(), n), n, void 0, t ?? {});
+    i._$litPart$ = a = new K(e.insertBefore(V(), n), n, void 0, t ?? {});
   }
   return a._$AI(r), a;
 };
-const $e = globalThis;
-class I extends N {
+const xe = globalThis;
+class I extends H {
   constructor() {
     super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
   }
@@ -495,10 +495,10 @@ class I extends N {
     return R;
   }
 }
-I._$litElement$ = !0, I.finalized = !0, $e.litElementHydrateSupport?.({ LitElement: I });
-const _t = $e.litElementPolyfillSupport;
+I._$litElement$ = !0, I.finalized = !0, xe.litElementHydrateSupport?.({ LitElement: I });
+const _t = xe.litElementPolyfillSupport;
 _t?.({ LitElement: I });
-($e.litElementVersions ??= []).push("4.2.2");
+(xe.litElementVersions ??= []).push("4.2.2");
 const bt = {
   observing: {
     label: "Observe Only",
@@ -587,7 +587,7 @@ function ie(r, e, t) {
   const i = e === "°F" ? r * 9 / 5 + 32 : r;
   return `${new Intl.NumberFormat(t, { maximumFractionDigits: 1 }).format(i)}${e}`;
 }
-function G(r, e, t) {
+function B(r, e, t) {
   return new Intl.DateTimeFormat(e, {
     hour: "numeric",
     minute: "2-digit",
@@ -596,10 +596,10 @@ function G(r, e, t) {
     ...t === void 0 ? {} : { timeZone: t }
   }).format(new Date(r));
 }
-function U(r) {
+function z(r) {
   return r.split("_").filter((e) => e.length > 0).map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" ");
 }
-const w = 1, $t = [
+const w = 1, xt = [
   "monday",
   "tuesday",
   "wednesday",
@@ -607,7 +607,7 @@ const w = 1, $t = [
   "friday",
   "saturday",
   "sunday"
-], xt = /* @__PURE__ */ new Set([
+], $t = /* @__PURE__ */ new Set([
   "none",
   "home",
   "away",
@@ -663,24 +663,24 @@ function u(r, e) {
 function Q(r, e) {
   return r === null ? null : u(r, e);
 }
-function $(r, e) {
+function x(r, e) {
   if (typeof r != "boolean")
     throw new _(e, "expected boolean");
   return r;
 }
-function H(r, e) {
+function L(r, e) {
   if (typeof r != "number" || !Number.isFinite(r))
     throw new _(e, "expected finite number");
   return r;
 }
-function x(r, e) {
-  const t = H(r, e);
+function $(r, e) {
+  const t = L(r, e);
   if (!Number.isInteger(t) || t < 0)
     throw new _(e, "expected non-negative integer");
   return t;
 }
-function E(r, e) {
-  return r === null ? null : H(r, e);
+function C(r, e) {
+  return r === null ? null : L(r, e);
 }
 function b(r, e) {
   const t = u(r, e);
@@ -694,13 +694,13 @@ function je(r, e) {
     throw new _(e, "expected YYYY-MM-DD local date");
   return t;
 }
-function Ge(r, e) {
+function Be(r, e) {
   const t = u(r, e);
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t))
     throw new _(e, "expected HH:MM local time");
   return t;
 }
-function z(r, e) {
+function A(r, e) {
   if (r.api_version !== w)
     throw new _(
       `${e}.api_version`,
@@ -718,12 +718,12 @@ function pe(r, e) {
     throw new _(`${e}.kind`, "expected single or range");
   return {
     kind: i,
-    target_c: E(t.target_c, `${e}.target_c`),
-    heat_target_c: E(
+    target_c: C(t.target_c, `${e}.target_c`),
+    heat_target_c: C(
       t.heat_target_c,
       `${e}.heat_target_c`
     ),
-    cool_target_c: E(
+    cool_target_c: C(
       t.cool_target_c,
       `${e}.cool_target_c`
     )
@@ -731,37 +731,37 @@ function pe(r, e) {
 }
 function St(r, e) {
   const t = v(r, e), i = u(t.occupancy_label, `${e}.occupancy_label`);
-  if (!xt.has(i))
+  if (!$t.has(i))
     throw new _(
       `${e}.occupancy_label`,
       "unsupported occupancy label"
     );
   return {
     period_id: u(t.period_id, `${e}.period_id`),
-    local_start: Ge(t.local_start, `${e}.local_start`),
+    local_start: Be(t.local_start, `${e}.local_start`),
     label: typeof t.label == "string" ? t.label : u(t.label, `${e}.label`),
     occupancy_label: i,
     target: pe(t.target, `${e}.target`),
-    tolerance_c: H(t.tolerance_c, `${e}.tolerance_c`)
+    tolerance_c: L(t.tolerance_c, `${e}.tolerance_c`)
   };
 }
 function zt(r, e) {
   const t = v(r, e), i = v(t.days, `${e}.days`), a = Object.fromEntries(
-    $t.map((n) => [
+    xt.map((n) => [
       n,
       k(i[n], `${e}.days.${n}`).map(
-        (s, l) => St(s, `${e}.days.${n}[${String(l)}]`)
+        (s, c) => St(s, `${e}.days.${n}[${String(c)}]`)
       )
     ])
   );
   return {
     profile_id: u(t.profile_id, `${e}.profile_id`),
     name: u(t.name, `${e}.name`),
-    enabled: $(t.enabled, `${e}.enabled`),
+    enabled: x(t.enabled, `${e}.enabled`),
     days: a
   };
 }
-function Be(r, e) {
+function Ge(r, e) {
   const t = v(r, e);
   if (t.schedule_schema_version !== 1)
     throw new _(
@@ -770,16 +770,16 @@ function Be(r, e) {
     );
   const i = v(t.zones, `${e}.zones`), a = {};
   for (const [n, s] of Object.entries(i)) {
-    const l = `${e}.zones.${n}`, o = v(s, l);
+    const c = `${e}.zones.${n}`, o = v(s, c);
     a[n] = {
-      zone_id: u(o.zone_id, `${l}.zone_id`),
-      enabled: $(o.enabled, `${l}.enabled`),
+      zone_id: u(o.zone_id, `${c}.zone_id`),
+      enabled: x(o.enabled, `${c}.enabled`),
       selected_profile_id: u(
         o.selected_profile_id,
-        `${l}.selected_profile_id`
+        `${c}.selected_profile_id`
       ),
-      profiles: k(o.profiles, `${l}.profiles`).map(
-        (p, m) => zt(p, `${l}.profiles[${String(m)}]`)
+      profiles: k(o.profiles, `${c}.profiles`).map(
+        (p, m) => zt(p, `${c}.profiles[${String(m)}]`)
       )
     };
   }
@@ -791,22 +791,22 @@ function Be(r, e) {
       `${e}.equipment_group_id`
     ),
     time_zone: u(t.time_zone, `${e}.time_zone`),
-    revision: x(t.revision, `${e}.revision`),
+    revision: $(t.revision, `${e}.revision`),
     zones: a,
     saved_at_utc: b(t.saved_at_utc, `${e}.saved_at_utc`)
   };
 }
 function Ct(r) {
   const e = v(r, "schedule");
-  return z(e, "schedule"), {
+  return A(e, "schedule"), {
     api_version: w,
-    revision: x(e.revision, "schedule.revision"),
-    schedule: e.schedule === null ? null : Be(e.schedule, "schedule.schedule")
+    revision: $(e.revision, "schedule.revision"),
+    schedule: e.schedule === null ? null : Ge(e.schedule, "schedule.schedule")
   };
 }
 function At(r) {
   const e = v(r, "schedule_validation");
-  if (z(e, "schedule_validation"), e.valid !== !0)
+  if (A(e, "schedule_validation"), e.valid !== !0)
     throw new _(
       "schedule_validation.valid",
       "expected true"
@@ -814,7 +814,7 @@ function At(r) {
   return {
     api_version: w,
     valid: !0,
-    revision: x(
+    revision: $(
       e.revision,
       "schedule_validation.revision"
     )
@@ -836,7 +836,7 @@ function Tt(r, e) {
       t.next_material_transition_utc,
       `${e}.next_material_transition_utc`
     ),
-    inherited_from_previous_day: $(
+    inherited_from_previous_day: x(
       t.inherited_from_previous_day,
       `${e}.inherited_from_previous_day`
     )
@@ -851,7 +851,7 @@ function Et(r, e) {
     profile_id: u(t.profile_id, `${e}.profile_id`),
     period_id: u(t.period_id, `${e}.period_id`),
     local_date: je(t.local_date, `${e}.local_date`),
-    local_start: Ge(t.local_start, `${e}.local_start`),
+    local_start: Be(t.local_start, `${e}.local_start`),
     kind: i,
     occurs_at_utc: b(t.occurs_at_utc, `${e}.occurs_at_utc`),
     explanation: u(t.explanation, `${e}.explanation`)
@@ -859,7 +859,7 @@ function Et(r, e) {
 }
 function Dt(r) {
   const e = v(r, "schedule_preview");
-  if (z(e, "schedule_preview"), e.authoritative !== !1)
+  if (A(e, "schedule_preview"), e.authoritative !== !1)
     throw new _(
       "schedule_preview.authoritative",
       "preview must be nonauthoritative"
@@ -884,27 +884,27 @@ function Dt(r) {
     )
   };
 }
-function Pt(r) {
+function Mt(r) {
   const e = v(r, "schedule_save");
-  return z(e, "schedule_save"), {
+  return A(e, "schedule_save"), {
     api_version: w,
-    revision: x(e.revision, "schedule_save.revision"),
-    schedule: Be(e.schedule, "schedule_save.schedule")
+    revision: $(e.revision, "schedule_save.revision"),
+    schedule: Ge(e.schedule, "schedule_save.schedule")
   };
 }
-function It(r, e) {
-  const t = v(r, e), i = (n, s) => k(n, s).map((l, o) => {
-    const p = `${s}[${String(o)}]`, m = v(l, p);
+function Pt(r, e) {
+  const t = v(r, e), i = (n, s) => k(n, s).map((c, o) => {
+    const p = `${s}[${String(o)}]`, m = v(c, p);
     return {
       entity_id: u(m.entity_id, `${p}.entity_id`),
-      enabled: $(m.enabled, `${p}.enabled`)
+      enabled: x(m.enabled, `${p}.enabled`)
     };
-  }), a = (n, s) => k(n, s).map((l, o) => {
-    const p = `${s}[${String(o)}]`, m = v(l, p);
+  }), a = (n, s) => k(n, s).map((c, o) => {
+    const p = `${s}[${String(o)}]`, m = v(c, p);
     return {
       entity_id: u(m.entity_id, `${p}.entity_id`),
-      enabled: $(m.enabled, `${p}.enabled`),
-      reviewed: $(m.reviewed, `${p}.reviewed`)
+      enabled: x(m.enabled, `${p}.enabled`),
+      reviewed: x(m.reviewed, `${p}.reviewed`)
     };
   });
   return {
@@ -934,27 +934,27 @@ function It(r, e) {
     fan_entity_ids: a(t.fan_entity_ids, `${e}.fan_entity_ids`)
   };
 }
-function Mt(r) {
+function It(r) {
   const e = v(r, "config");
-  return z(e, "config"), {
+  return A(e, "config"), {
     api_version: w,
     config: v(e.config, "config.config"),
     options: v(e.options, "config.options"),
     active_repairs: F(e.active_repairs, "config.active_repairs"),
     zones: k(e.zones, "config.zones").map(
-      (t, i) => It(t, `config.zones[${String(i)}]`)
+      (t, i) => Pt(t, `config.zones[${String(i)}]`)
     )
   };
 }
-function Ut(r, e) {
+function Ot(r, e) {
   const t = v(r, e);
   return {
     zone_id: u(t.zone_id, `${e}.zone_id`),
-    effective_temperature_c: E(
+    effective_temperature_c: C(
       t.effective_temperature_c,
       `${e}.effective_temperature_c`
     ),
-    effective_humidity_pct: E(
+    effective_humidity_pct: C(
       t.effective_humidity_pct,
       `${e}.effective_humidity_pct`
     ),
@@ -966,30 +966,30 @@ function Ut(r, e) {
       t.supported_hvac_modes,
       `${e}.supported_hvac_modes`
     ),
-    supports_single_target: $(
+    supports_single_target: x(
       t.supports_single_target,
       `${e}.supports_single_target`
     ),
-    supports_target_range: $(
+    supports_target_range: x(
       t.supports_target_range,
       `${e}.supports_target_range`
     ),
-    sensor_data_degraded: $(
+    sensor_data_degraded: x(
       t.sensor_data_degraded,
       `${e}.sensor_data_degraded`
     ),
-    thermostat_data_degraded: $(
+    thermostat_data_degraded: x(
       t.thermostat_data_degraded,
       `${e}.thermostat_data_degraded`
     )
   };
 }
-function Ie(r) {
+function Pe(r) {
   const e = v(r, "snapshot");
-  return z(e, "snapshot"), {
+  return A(e, "snapshot"), {
     api_version: w,
     entry_id: u(e.entry_id, "snapshot.entry_id"),
-    observation_revision: x(
+    observation_revision: $(
       e.observation_revision,
       "snapshot.observation_revision"
     ),
@@ -1000,11 +1000,11 @@ function Ie(r) {
     control_state: u(e.control_state, "snapshot.control_state"),
     reason_code: Q(e.reason_code, "snapshot.reason_code"),
     zones: k(e.zones, "snapshot.zones").map(
-      (t, i) => Ut(t, `snapshot.zones[${String(i)}]`)
+      (t, i) => Ot(t, `snapshot.zones[${String(i)}]`)
     )
   };
 }
-function Ot(r, e) {
+function Ut(r, e) {
   const t = v(r, e);
   return {
     record_id: u(t.record_id, `${e}.record_id`),
@@ -1014,10 +1014,10 @@ function Ot(r, e) {
     reason_code: u(t.reason_code, `${e}.reason_code`),
     severity: u(t.severity, `${e}.severity`),
     explanation: u(t.explanation, `${e}.explanation`),
-    detail: Lt(t.detail, `${e}.detail`)
+    detail: Nt(t.detail, `${e}.detail`)
   };
 }
-function Lt(r, e) {
+function Nt(r, e) {
   const t = v(r, e), i = {};
   for (const [a, n] of Object.entries(t)) {
     if (!kt.has(a))
@@ -1039,9 +1039,9 @@ function Lt(r, e) {
   }
   return i;
 }
-function Nt(r) {
+function Ht(r) {
   const e = v(r, "activity");
-  z(e, "activity");
+  A(e, "activity");
   const t = u(e.order, "activity.order");
   if (t !== "newest" && t !== "oldest")
     throw new _(
@@ -1050,36 +1050,36 @@ function Nt(r) {
     );
   return {
     api_version: w,
-    total: x(e.total, "activity.total"),
-    offset: x(e.offset, "activity.offset"),
+    total: $(e.total, "activity.total"),
+    offset: $(e.offset, "activity.offset"),
     order: t,
     records: k(e.records, "activity.records").map(
-      (i, a) => Ot(i, `activity.records[${String(a)}]`)
+      (i, a) => Ut(i, `activity.records[${String(a)}]`)
     )
   };
 }
-function Ht(r, e) {
+function Lt(r, e) {
   const t = v(r, e);
   return {
-    ready: $(t.ready, `${e}.ready`),
-    qualification_percent: H(
+    ready: x(t.ready, `${e}.ready`),
+    qualification_percent: L(
       t.qualification_percent,
       `${e}.qualification_percent`
     ),
-    valid_evaluation_percent: H(
+    valid_evaluation_percent: L(
       t.valid_evaluation_percent,
       `${e}.valid_evaluation_percent`
     ),
-    elapsed_hours: H(t.elapsed_hours, `${e}.elapsed_hours`),
-    evaluated_decisions: x(
+    elapsed_hours: L(t.elapsed_hours, `${e}.elapsed_hours`),
+    evaluated_decisions: $(
       t.evaluated_decisions,
       `${e}.evaluated_decisions`
     ),
-    valid_evaluations: x(
+    valid_evaluations: $(
       t.valid_evaluations,
       `${e}.valid_evaluations`
     ),
-    minimum_material_transitions: x(
+    minimum_material_transitions: $(
       t.minimum_material_transitions,
       `${e}.minimum_material_transitions`
     ),
@@ -1095,9 +1095,9 @@ function Ht(r, e) {
 }
 function Rt(r) {
   const e = v(r, "shadow");
-  return z(e, "shadow"), {
+  return A(e, "shadow"), {
     api_version: w,
-    readiness: e.readiness === null ? null : Ht(e.readiness, "shadow.readiness"),
+    readiness: e.readiness === null ? null : Lt(e.readiness, "shadow.readiness"),
     history: k(e.history, "shadow.history").map((t, i) => {
       const a = `shadow.history[${String(i)}]`, n = v(t, a);
       return {
@@ -1111,28 +1111,52 @@ function Rt(r) {
         ),
         outcome: u(n.outcome, `${a}.outcome`),
         reason_code: u(n.reason_code, `${a}.reason_code`),
-        would_command: $(
+        would_command: x(
           n.would_command,
           `${a}.would_command`
-        )
+        ),
+        command: n.command === null ? null : (() => {
+          const s = v(n.command, `${a}.command`);
+          return {
+            kind: u(s.kind, `${a}.command.kind`),
+            target_c: C(
+              s.target_c,
+              `${a}.command.target_c`
+            ),
+            heat_target_c: C(
+              s.heat_target_c,
+              `${a}.command.heat_target_c`
+            ),
+            cool_target_c: C(
+              s.cool_target_c,
+              `${a}.command.cool_target_c`
+            ),
+            hvac_mode: s.hvac_mode === null ? null : u(
+              s.hvac_mode,
+              `${a}.command.hvac_mode`
+            ),
+            fan_mode: s.fan_mode === null ? null : u(s.fan_mode, `${a}.command.fan_mode`),
+            cause: u(s.cause, `${a}.command.cause`)
+          };
+        })()
       };
     })
   };
 }
 function qt(r) {
   const e = v(r, "observation");
-  if (z(e, "observation"), e.model_ready_history_available !== !1)
+  if (A(e, "observation"), e.model_ready_history_available !== !1)
     throw new _(
       "observation.model_ready_history_available",
       "Phase 2 must not claim model-ready history"
     );
   return {
     api_version: w,
-    collection_active: $(
+    collection_active: x(
       e.collection_active,
       "observation.collection_active"
     ),
-    observation_revision: x(
+    observation_revision: $(
       e.observation_revision,
       "observation.observation_revision"
     ),
@@ -1140,15 +1164,15 @@ function qt(r) {
       e.calculated_at_utc,
       "observation.calculated_at_utc"
     ),
-    usable_temperature_sources: x(
+    usable_temperature_sources: $(
       e.usable_temperature_sources,
       "observation.usable_temperature_sources"
     ),
-    degraded_zone_count: x(
+    degraded_zone_count: $(
       e.degraded_zone_count,
       "observation.degraded_zone_count"
     ),
-    presentation_history_hours: x(
+    presentation_history_hours: $(
       e.presentation_history_hours,
       "observation.presentation_history_hours"
     ),
@@ -1214,7 +1238,7 @@ function jt(r, e) {
     )
   };
 }
-function Gt(r, e) {
+function Bt(r, e) {
   const t = v(r, e);
   return {
     annotation_id: u(t.annotation_id, `${e}.annotation_id`),
@@ -1226,9 +1250,9 @@ function Gt(r, e) {
     )
   };
 }
-function Bt(r) {
+function Gt(r) {
   const e = v(r, "timeline");
-  if (z(e, "timeline"), e.indoor_prediction_available !== !1)
+  if (A(e, "timeline"), e.indoor_prediction_available !== !1)
     throw new _(
       "timeline.indoor_prediction_available",
       "Phase 2 must not claim indoor prediction"
@@ -1254,15 +1278,15 @@ function Bt(r) {
       (t, i) => jt(t, `timeline.series[${String(i)}]`)
     ),
     annotations: k(e.annotations, "timeline.annotations").map(
-      (t, i) => Gt(t, `timeline.annotations[${String(i)}]`)
+      (t, i) => Bt(t, `timeline.annotations[${String(i)}]`)
     )
   };
 }
 function Vt(r) {
   const e = v(r, "narrative");
-  return z(e, "narrative"), {
+  return A(e, "narrative"), {
     api_version: w,
-    template_version: x(
+    template_version: $(
       e.template_version,
       "narrative.template_version"
     ),
@@ -1270,16 +1294,16 @@ function Vt(r) {
     zone_id: u(e.zone_id, "narrative.zone_id"),
     control_state: u(e.control_state, "narrative.control_state"),
     reason_code: u(e.reason_code, "narrative.reason_code"),
-    temperature_c: E(
+    temperature_c: C(
       e.temperature_c,
       "narrative.temperature_c"
     ),
     hvac_action: Q(e.hvac_action, "narrative.hvac_action"),
-    scheduled_target_c: E(
+    scheduled_target_c: C(
       e.scheduled_target_c,
       "narrative.scheduled_target_c"
     ),
-    effective_target_c: E(
+    effective_target_c: C(
       e.effective_target_c,
       "narrative.effective_target_c"
     ),
@@ -1287,11 +1311,11 @@ function Vt(r) {
       e.next_transition_utc,
       "narrative.next_transition_utc"
     ),
-    source_degraded: $(
+    source_degraded: x(
       e.source_degraded,
       "narrative.source_degraded"
     ),
-    context_forecast_available: $(
+    context_forecast_available: x(
       e.context_forecast_available,
       "narrative.context_forecast_available"
     ),
@@ -1319,14 +1343,14 @@ class Yt {
   configuration() {
     return this.request(
       "intelligent_climate/config/get",
-      Mt
+      It
     );
   }
   snapshot() {
-    return this.request("intelligent_climate/snapshot/get", Ie);
+    return this.request("intelligent_climate/snapshot/get", Pe);
   }
   activity(e = 0, t = 100, i = "newest") {
-    return this.request("intelligent_climate/activity/list", Nt, {
+    return this.request("intelligent_climate/activity/list", Ht, {
       offset: e,
       limit: t,
       order: i
@@ -1347,7 +1371,7 @@ class Yt {
   todayTimeline(e) {
     return this.request(
       "intelligent_climate/timeline/today",
-      Bt,
+      Gt,
       { zone_id: e }
     );
   }
@@ -1381,9 +1405,15 @@ class Yt {
   saveSchedule(e, t) {
     return this.request(
       "intelligent_climate/schedule/save",
-      Pt,
+      Mt,
       { schedule: e, expected_revision: t }
     );
+  }
+  setOperatingMode(e) {
+    return this.hass.callService("intelligent_climate", "set_operating_mode", {
+      entry_id: this.entryId,
+      mode: e
+    });
   }
   async dashboardData() {
     const [e, t, i, a, n] = await Promise.all([
@@ -1397,7 +1427,7 @@ class Yt {
   }
   async subscribe(e) {
     return this.hass.connection.subscribeMessage(
-      (t) => e(Ie(t)),
+      (t) => e(Pe(t)),
       {
         type: "intelligent_climate/subscribe",
         api_version: w,
@@ -1488,7 +1518,7 @@ function Ye(r = globalThis.crypto) {
   );
   return `${t.slice(0, 4).join("")}-${t.slice(4, 6).join("")}-${t.slice(6, 8).join("")}-${t.slice(8, 10).join("")}-${t.slice(10).join("")}`;
 }
-const O = [
+const U = [
   "monday",
   "tuesday",
   "wednesday",
@@ -1504,7 +1534,7 @@ const O = [
   friday: "Friday",
   saturday: "Saturday",
   sunday: "Sunday"
-}, Kt = {
+}, Wt = {
   homeHeatC: 20.6,
   homeCoolC: 23.9,
   awayHeatC: 18.9,
@@ -1513,7 +1543,7 @@ const O = [
   sleepCoolC: 23.9
 }, ae = class ae extends I {
   constructor() {
-    super(...arguments), this.zoneSnapshots = [], this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Kt }, this.zoneChanged = (e) => {
+    super(...arguments), this.zoneSnapshots = [], this.validationMessage = "", this.saving = !1, this.dirty = !1, this.temperatureUnit = "°C", this.locale = "en-US", this.selectedZoneId = "", this.selectedProfileId = "", this.mobileDay = "monday", this.copySource = "monday", this.copyTargets = [], this.starterTargets = { ...Wt }, this.zoneChanged = (e) => {
       const t = e.currentTarget;
       if (!(t instanceof HTMLSelectElement)) return;
       this.selectedZoneId = t.value;
@@ -1583,24 +1613,24 @@ const O = [
   }
   render() {
     const e = this.currentZone(), t = this.currentProfile();
-    return e === void 0 || t === void 0 ? c`<p role="status">No schedule zone is available.</p>` : c`
+    return e === void 0 || t === void 0 ? l`<p role="status">No schedule zone is available.</p>` : l`
       <section class="editor-toolbar" aria-label="Schedule selection">
         <label>
           <span>Zone</span>
           <select .value=${this.selectedZoneId} @change=${this.zoneChanged}>
             ${Object.keys(this.document.zones).map(
-      (i) => c`<option value=${i}>${this.zoneName(i)}</option>`
+      (i) => l`<option value=${i}>${this.zoneName(i)}</option>`
     )}
           </select>
         </label>
-        ${e.profiles.length === 1 ? c`<div class="profile-summary">
+        ${e.profiles.length === 1 ? l`<div class="profile-summary">
                 <span>Schedule profile</span>
                 <strong>${t.name}</strong>
                 <small>
                   A profile is a complete weekly schedule. Additional profiles
                   can later support patterns such as Vacation or Guest.
                 </small>
-              </div>` : c`<label>
+              </div>` : l`<label>
                 <span>Schedule profile</span>
                 <select
                   .value=${this.selectedProfileId}
@@ -1608,7 +1638,7 @@ const O = [
                   aria-describedby="profile-help"
                 >
                   ${e.profiles.map(
-      (i) => c`<option value=${i.profile_id}>
+      (i) => l`<option value=${i.profile_id}>
                         ${i.name}
                       </option>`
     )}
@@ -1664,14 +1694,14 @@ const O = [
       <label class="mobile-day-picker">
         <span>Day to edit</span>
         <select .value=${this.mobileDay} @change=${this.mobileDayChanged}>
-          ${O.map(
-      (i) => c`<option value=${i}>${S[i]}</option>`
+          ${U.map(
+      (i) => l`<option value=${i}>${S[i]}</option>`
     )}
         </select>
       </label>
 
       <section class="week-grid" aria-label="Weekly schedule">
-        ${O.map((i) => this.renderDay(t, i))}
+        ${U.map((i) => this.renderDay(t, i))}
       </section>
 
       <section
@@ -1689,14 +1719,14 @@ const O = [
         <label>
           <span>Copy from</span>
           <select .value=${this.copySource} @change=${this.copySourceChanged}>
-            ${O.map(
-      (i) => c`<option value=${i}>${S[i]}</option>`
+            ${U.map(
+      (i) => l`<option value=${i}>${S[i]}</option>`
     )}
           </select>
         </label>
         <div class="copy-days">
-          ${O.filter((i) => i !== this.copySource).map(
-      (i) => c`<label>
+          ${U.filter((i) => i !== this.copySource).map(
+      (i) => l`<label>
                 <input
                   type="checkbox"
                   aria-label=${`Copy ${S[this.copySource]} to ${S[i]}`}
@@ -1739,7 +1769,7 @@ const O = [
           ${this.saving ? "Saving…" : "Validate & save"}
         </button>
       </section>
-      ${this.validationMessage.length === 0 ? g : c`<div class="validation" role="alert">
+      ${this.validationMessage.length === 0 ? h : l`<div class="validation" role="alert">
               <strong>Schedule needs attention</strong>
               <p>${this.validationMessage}</p>
             </div>`}
@@ -1747,7 +1777,7 @@ const O = [
   }
   renderDay(e, t) {
     const i = e.days[t], a = t === this.mobileDay ? "" : "mobile-hidden";
-    return c`<article class="day-column ${a}">
+    return l`<article class="day-column ${a}">
       <header>
         <div>
           <h3>${S[t]}</h3>
@@ -1783,7 +1813,7 @@ const O = [
           </button>
         </div>
       </header>
-      ${this.clearPendingDay === t ? c`<div class="clear-confirmation" role="alert">
+      ${this.clearPendingDay === t ? l`<div class="clear-confirmation" role="alert">
               <p>
                 Clear every ${S[t]} period? The final settings from
                 the prior configured day will continue until the next period.
@@ -1801,10 +1831,10 @@ const O = [
                   Clear ${S[t]}
                 </button>
               </div>
-            </div>` : g}
-      ${i.length === 0 ? c`<p class="inheritance">
+            </div>` : h}
+      ${i.length === 0 ? l`<p class="inheritance">
               ↺ Inherits the most recent period from an earlier day.
-            </p>` : i[0]?.local_start === "00:00" ? g : c`<p class="inheritance">
+            </p>` : i[0]?.local_start === "00:00" ? h : l`<p class="inheritance">
                 ↺ Midnight–${i[0]?.local_start}: previous period remains
                 active.
               </p>`}
@@ -1815,9 +1845,9 @@ const O = [
   }
   renderPeriod(e, t, i) {
     const a = this.preview?.zones.some(
-      (l) => l.period_id === t.period_id
+      (c) => c.period_id === t.period_id
     ), n = `days.${e}[${String(i)}]`, s = this.validationMessage.includes(n);
-    return c`<li
+    return l`<li
       class="period ${a ? "current" : ""} ${s ? "invalid" : ""}"
     >
       <div class="period-heading">
@@ -1848,7 +1878,7 @@ const O = [
           <input
             type="time"
             .value=${t.local_start}
-            @change=${(l) => this.periodTextChanged(e, i, "local_start", l)}
+            @change=${(c) => this.periodTextChanged(e, i, "local_start", c)}
           />
         </label>
         <label>
@@ -1857,14 +1887,14 @@ const O = [
             type="text"
             maxlength="64"
             .value=${t.label}
-            @input=${(l) => this.periodTextChanged(e, i, "label", l)}
+            @input=${(c) => this.periodTextChanged(e, i, "label", c)}
           />
         </label>
         <label>
           <span>Occupancy label</span>
           <select
             .value=${t.occupancy_label}
-            @change=${(l) => this.periodTextChanged(e, i, "occupancy_label", l)}
+            @change=${(c) => this.periodTextChanged(e, i, "occupancy_label", c)}
           >
             ${[
       "none",
@@ -1875,7 +1905,7 @@ const O = [
       "guest",
       "custom"
     ].map(
-      (l) => c`<option value=${l}>${this.titleCase(l)}</option>`
+      (c) => l`<option value=${c}>${this.titleCase(c)}</option>`
     )}
           </select>
         </label>
@@ -1883,7 +1913,7 @@ const O = [
           <span>Target type</span>
           <select
             .value=${t.target.kind}
-            @change=${(l) => this.targetKindChanged(e, i, l)}
+            @change=${(c) => this.targetKindChanged(e, i, c)}
           >
             <option value="single">Single target</option>
             <option value="range">Heat / cool range</option>
@@ -1895,7 +1925,7 @@ const O = [
       "target_c",
       "Target",
       t.target.target_c
-    ) : c`${this.temperatureInput(e, i, "heat_target_c", "Heat target", t.target.heat_target_c)}
+    ) : l`${this.temperatureInput(e, i, "heat_target_c", "Heat target", t.target.heat_target_c)}
               ${this.temperatureInput(e, i, "cool_target_c", "Cool target", t.target.cool_target_c)}`}
         <label>
           <span>Tolerance (${this.temperatureUnit})</span>
@@ -1905,16 +1935,16 @@ const O = [
             max=${this.temperatureUnit === "°F" ? "5" : "2.8"}
             step=${this.temperatureUnit === "°F", "0.1"}
             .value=${this.formatNumber(this.displayDelta(t.tolerance_c))}
-            @change=${(l) => this.toleranceChanged(e, i, l)}
+            @change=${(c) => this.toleranceChanged(e, i, c)}
           />
         </label>
       </div>
       ${this.targetModeWarning(t)}
-      ${s ? c`<p class="field-error">Review this period and the validation summary.</p>` : g}
+      ${s ? l`<p class="field-error">Review this period and the validation summary.</p>` : h}
     </li>`;
   }
   temperatureInput(e, t, i, a, n) {
-    return c`<label>
+    return l`<label>
       <span>${a} (${this.temperatureUnit})</span>
       <input
         type="number"
@@ -1927,7 +1957,7 @@ const O = [
   renderPreview(e) {
     const t = this.preview;
     if (t === void 0)
-      return c`<section class="preview-card">
+      return l`<section class="preview-card">
         <h3>Authoritative preview</h3>
         <p>
           Preview the unsaved draft to see the current target, next material
@@ -1939,7 +1969,7 @@ const O = [
     ), a = t.dst_warnings.filter(
       (n) => n.zone_id === e.zone_id
     );
-    return c`<section class="preview-card" aria-labelledby="preview-heading">
+    return l`<section class="preview-card" aria-labelledby="preview-heading">
       <div>
         <h3 id="preview-heading">Authoritative preview</h3>
         <span
@@ -1947,9 +1977,9 @@ const O = [
           ${t.time_zone}</span
         >
       </div>
-      ${i === void 0 ? c`<p>
+      ${i === void 0 ? l`<p>
               This zone is disabled, so it has no active scheduled target.
-            </p>` : c`<dl>
+            </p>` : l`<dl>
               <div>
                 <dt>Current target</dt>
                 <dd>${this.targetText(i.target)}</dd>
@@ -1973,12 +2003,12 @@ const O = [
                 </dd>
               </div>
             </dl>`}
-      ${a.length === 0 ? c`<p class="no-warning">
+      ${a.length === 0 ? l`<p class="no-warning">
               ✓ No scheduled boundary crosses a DST gap or repeated hour in this
               preview week.
-            </p>` : c`<ul class="dst-warnings">
+            </p>` : l`<ul class="dst-warnings">
               ${a.map(
-      (n) => c`<li>
+      (n) => l`<li>
                     <strong
                       >${n.kind === "gap" ? "Spring-forward gap" : "Repeated-hour fold"}</strong
                     >
@@ -2055,8 +2085,8 @@ const O = [
   periodTextChanged(e, t, i, a) {
     const n = a.currentTarget;
     (n instanceof HTMLInputElement || n instanceof HTMLSelectElement) && this.updateProfile((s) => {
-      const l = s.days[e][t];
-      l !== void 0 && (i === "occupancy_label" ? l.occupancy_label = n.value : l[i] = n.value, s.days[e].sort(
+      const c = s.days[e][t];
+      c !== void 0 && (i === "occupancy_label" ? c.occupancy_label = n.value : c[i] = n.value, s.days[e].sort(
         (o, p) => o.local_start.localeCompare(p.local_start)
       ));
     });
@@ -2083,8 +2113,8 @@ const O = [
     if (!(n instanceof HTMLInputElement) || n.value.length === 0)
       return;
     const s = Number(n.value);
-    Number.isFinite(s) && this.updateProfile((l) => {
-      const o = l.days[e][t];
+    Number.isFinite(s) && this.updateProfile((c) => {
+      const o = c.days[e][t];
       o !== void 0 && i !== "kind" && (o.target[i] = this.celsiusTemperature(s));
     });
   }
@@ -2093,8 +2123,8 @@ const O = [
     if (!(a instanceof HTMLInputElement)) return;
     const n = Number(a.value);
     Number.isFinite(n) && this.updateProfile((s) => {
-      const l = s.days[e][t];
-      l !== void 0 && (l.tolerance_c = this.celsiusDelta(n));
+      const c = s.days[e][t];
+      c !== void 0 && (c.tolerance_c = this.celsiusDelta(n));
     });
   }
   copyTargetChanged(e, t) {
@@ -2107,7 +2137,7 @@ const O = [
     t !== null && typeof t.scrollIntoView == "function" && t.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   applyTemplate(e) {
-    const t = e === "weekday" ? O.slice(0, 5) : O.slice(5), i = e === "weekday" ? [
+    const t = e === "weekday" ? U.slice(0, 5) : U.slice(5), i = e === "weekday" ? [
       ["06:30", "Morning", "homeHeatC", "homeCoolC"],
       ["08:30", "Away", "awayHeatC", "awayCoolC"],
       ["17:30", "Evening", "homeHeatC", "homeCoolC"],
@@ -2118,10 +2148,10 @@ const O = [
     ];
     this.updateProfile((a) => {
       for (const n of t)
-        a.days[n] = i.map(([s, l, o, p]) => ({
+        a.days[n] = i.map(([s, c, o, p]) => ({
           ...this.newPeriod(s),
-          label: l,
-          occupancy_label: l === "Sleep" ? "sleep" : l === "Away" ? "away" : "home",
+          label: c,
+          occupancy_label: c === "Sleep" ? "sleep" : c === "Away" ? "away" : "home",
           target: {
             kind: "range",
             target_c: null,
@@ -2132,14 +2162,14 @@ const O = [
     });
   }
   starterTargetInputs(e, t, i) {
-    return c`<fieldset>
+    return l`<fieldset>
       <legend>${e}</legend>
       ${this.starterTemperatureInput("Heat", t)}
       ${this.starterTemperatureInput("Cool", i)}
     </fieldset>`;
   }
   starterTemperatureInput(e, t) {
-    return c`<label>
+    return l`<label>
       <span>${e} (${this.temperatureUnit})</span>
       <input
         type="number"
@@ -2212,7 +2242,7 @@ const O = [
   renderModeGuidance() {
     const t = this.currentZoneSnapshot()?.thermostat_hvac_mode, i = t == null ? "Unavailable" : this.modeLabel(t);
     let a;
-    return t === "heat_cool" || t === "auto" ? a = "Use heat / cool ranges. A single target is ambiguous in this mode and Scheduled Control will remain blocked for that period." : t === "heat" ? a = "A single target is interpreted as heating. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "cool" ? a = "A single target is interpreted as cooling. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "off" ? a = "Schedules remain editable, but Scheduled Control is blocked while the thermostat is Off." : a = "Schedules remain editable, but Scheduled Control is blocked until the thermostat reports an unambiguous Heat, Cool, or Heat/Cool mode.", c`<section
+    return t === "heat_cool" || t === "auto" ? a = "Use heat / cool ranges. A single target is ambiguous in this mode and Scheduled Control will remain blocked for that period." : t === "heat" ? a = "A single target is interpreted as heating. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "cool" ? a = "A single target is interpreted as cooling. A heat / cool range requires Heat/Cool or Auto mode before Scheduled Control can use it." : t === "off" ? a = "Schedules remain editable, but Scheduled Control is blocked while the thermostat is Off." : a = "Schedules remain editable, but Scheduled Control is blocked until the thermostat reports an unambiguous Heat, Cool, or Heat/Cool mode.", l`<section
       class="mode-guidance"
       aria-labelledby="mode-guidance-heading"
     >
@@ -2228,17 +2258,17 @@ const O = [
     const t = this.currentZoneSnapshot(), i = t?.thermostat_hvac_mode;
     if (!(e.target.kind === "single" ? t?.supports_single_target === !0 : t?.supports_target_range === !0)) {
       const o = e.target.kind === "single" ? "Single targets are" : "Heat / cool ranges are";
-      return c`<p class="mode-warning" role="status">
+      return l`<p class="mode-warning" role="status">
         ${o} not supported by the current command-authority
         thermostat. This period remains visible, but it cannot be used for
         Scheduled Control.
       </p>`;
     }
-    if (e.target.kind === "single" && (i === "heat" || i === "cool") || e.target.kind === "range" && (i === "heat_cool" || i === "auto")) return g;
-    const s = e.target.kind === "single" ? "Single target" : "Heat / cool range", l = i == null ? "an unavailable mode" : this.modeLabel(i);
-    return c`<p class="mode-warning" role="status">
+    if (e.target.kind === "single" && (i === "heat" || i === "cool") || e.target.kind === "range" && (i === "heat_cool" || i === "auto")) return h;
+    const s = e.target.kind === "single" ? "Single target" : "Heat / cool range", c = i == null ? "an unavailable mode" : this.modeLabel(i);
+    return l`<p class="mode-warning" role="status">
       ${s} cannot be used for Scheduled Control while the thermostat
-      reports ${l}. It remains saved and visible; control will fail
+      reports ${c}. It remains saved and visible; control will fail
       closed.
     </p>`;
   }
@@ -2707,7 +2737,7 @@ ae.properties = {
 ];
 let he = ae;
 customElements.define("ic-schedule-editor", he);
-const Wt = {
+const Kt = {
   effective_temperature: "Indoor temperature",
   effective_humidity: "Indoor humidity",
   outdoor_temperature: "Outdoor temperature",
@@ -2741,12 +2771,12 @@ const Wt = {
   safe_fallback: "Safe fallback",
   paused: "Paused",
   degraded: "Degraded"
-}, X = 30, ee = 155, Jt = ee - X, Me = [30, 61.25, 92.5, 123.75, 155], Xt = 300 * 1e3, ei = 900 * 1e3;
-function Ke(r) {
-  return Wt[r] ?? r.replaceAll("_", " ");
-}
+}, X = 30, ee = 155, Jt = ee - X, Ie = [30, 61.25, 92.5, 123.75, 155], Xt = 300 * 1e3, ei = 900 * 1e3;
 function We(r) {
-  return typeof r == "string" ? Qt[r] ?? Ke(r) : String(r);
+  return Kt[r] ?? r.replaceAll("_", " ");
+}
+function Ke(r) {
+  return typeof r == "string" ? Qt[r] ?? We(r) : String(r);
 }
 function ti(r) {
   return r.filter(
@@ -2770,10 +2800,10 @@ function ai(r) {
     case "idle":
       return "Not running";
     default:
-      return We(r);
+      return Ke(r);
   }
 }
-function L(r) {
+function N(r) {
   return r.samples.filter(
     (e) => typeof e.value == "number"
   );
@@ -2801,16 +2831,16 @@ const re = class re extends I {
   }
   render() {
     if (this.timeline === void 0)
-      return c`<div class="empty" role="status">
+      return l`<div class="empty" role="status">
         Today’s timeline is not available yet. Observation continues normally.
       </div>`;
     const e = this.timeline, t = this.temperatureRange(e), i = this.chartWindow(e), a = this.renderedSeries(e, t, i), n = a.find(
       (d) => d.kind === "effective_temperature"
-    ), s = n?.sampleCount ?? 0, l = s >= 2, o = this.stateLanes(e, i), p = this.currentCursor(i), m = this.timeTicks(i, e);
-    return c`
+    ), s = n?.sampleCount ?? 0, c = s >= 2, o = this.stateLanes(e, i), p = this.currentCursor(i), m = this.timeTicks(i, e);
+    return l`
       <div class="legend" aria-label="Timeline legend">
         ${a.map(
-      (d) => c`<span class="legend-item">
+      (d) => l`<span class="legend-item">
               <span
                 class="swatch ${d.className}"
                 aria-hidden="true"
@@ -2820,9 +2850,9 @@ const re = class re extends I {
             </span>`
     )}
       </div>
-      ${a.length === 0 ? c`<div class="empty" role="status">
+      ${a.length === 0 ? l`<div class="empty" role="status">
               No numeric observations yet.
-            </div>` : l ? c`<div class="chart-wrap">
+            </div>` : c ? l`<div class="chart-wrap">
                 <svg
                   viewBox="0 0 1000 210"
                   role="img"
@@ -2837,11 +2867,11 @@ const re = class re extends I {
                     accessible table.
                   </desc>
                   <g class="grid" aria-hidden="true">
-                    ${Me.map(
-      (d) => A`<line x1="80" x2="970" y1=${d} y2=${d}></line>`
+                    ${Ie.map(
+      (d) => E`<line x1="80" x2="970" y1=${d} y2=${d}></line>`
     )}
                     ${m.map(
-      (d) => A`<line
+      (d) => E`<line
                           x1=${d.x}
                           x2=${d.x}
                           y1=${X}
@@ -2850,11 +2880,11 @@ const re = class re extends I {
     )}
                   </g>
                   <g class="y-axis-labels" aria-hidden="true">
-                    ${Me.map((d, h) => {
-      const [f, y] = t, C = y - (y - f) * h / 4;
-      return A`<text x="72" y=${d + 6} text-anchor="end">
+                    ${Ie.map((d, g) => {
+      const [f, y] = t, T = y - (y - f) * g / 4;
+      return E`<text x="72" y=${d + 6} text-anchor="end">
                         ${ie(
-        C,
+        T,
         this.temperatureUnit,
         this.locale
       )}
@@ -2862,22 +2892,22 @@ const re = class re extends I {
     })}
                   </g>
                   ${a.map(
-      (d) => A`<g class="series-group ${d.className}">
+      (d) => E`<g class="series-group ${d.className}">
                         <path
                           class="series ${d.className}"
                           d=${d.path}
                         ></path>
                         ${d.kind === "effective_temperature" && d.sampleCount <= 3 ? d.points.map(
-        (h) => A`<circle
+        (g) => E`<circle
                                     class="sample-point measured-temperature"
-                                    cx=${h.x}
-                                    cy=${h.y}
+                                    cx=${g.x}
+                                    cy=${g.y}
                                     r="4.5"
                                   ></circle>`
-      ) : g}
+      ) : h}
                       </g>`
     )}
-                  ${p === null ? g : A`<line
+                  ${p === null ? h : E`<line
                           class="now"
                           x1=${p}
                           x2=${p}
@@ -2885,18 +2915,18 @@ const re = class re extends I {
                           y2=${ee + 5}
                         ></line>`}
                   ${e.annotations.map((d) => {
-      const h = this.xPosition(
+      const g = this.xPosition(
         Date.parse(d.timestamp_utc),
         i
       );
-      return A`<g class="annotation" aria-hidden="true">
-                      <circle cx=${h} cy="15" r="6"></circle>
-                      <line x1=${h} x2=${h} y1="21" y2=${X + 6}></line>
+      return E`<g class="annotation" aria-hidden="true">
+                      <circle cx=${g} cy="15" r="6"></circle>
+                      <line x1=${g} x2=${g} y1="21" y2=${X + 6}></line>
                     </g>`;
     })}
                   <g class="axis-labels" aria-hidden="true">
                     ${m.map(
-      (d) => A`<text
+      (d) => E`<text
                           x=${d.x}
                           y="198"
                           text-anchor=${d.anchor}
@@ -2905,7 +2935,7 @@ const re = class re extends I {
                   </g>
                 </svg>
                 ${this.sampleSummary(n)}
-              </div>` : c`<div class="empty collecting" role="status">
+              </div>` : l`<div class="empty collecting" role="status">
                 <div>
                   <strong>Collecting climate history</strong>
                   <p>
@@ -2915,7 +2945,7 @@ const re = class re extends I {
                   ${this.sampleSummary(n)}
                 </div>
               </div>`}
-      ${o.length === 0 ? g : c`<div
+      ${o.length === 0 ? h : l`<div
               class="state-lanes-scroll"
               aria-label="Equipment and context state timeline"
             >
@@ -2942,7 +2972,7 @@ const re = class re extends I {
             </thead>
             <tbody>
               ${a.map(
-      (d) => c`<tr>
+      (d) => l`<tr>
                     <th scope="row">${d.label}</th>
                     <td>${d.valueKind}</td>
                     <td>${this.latestValue(d)}</td>
@@ -2958,9 +2988,9 @@ const re = class re extends I {
   }
   renderedSeries(e, t, i) {
     return this.visibleNumericSeries(e).filter(
-      (n) => L(n).length > 0 && n.unit !== "%"
+      (n) => N(n).length > 0 && n.unit !== "%"
     ).map((n) => {
-      const s = L(n), l = s.map((p) => ({
+      const s = N(n), c = s.map((p) => ({
         x: this.xPosition(Date.parse(p.timestamp_utc), i),
         y: this.yPosition(p.value, t)
       })), o = s.at(-1);
@@ -2969,18 +2999,18 @@ const re = class re extends I {
       return {
         kind: n.kind,
         valueKind: n.value_kind,
-        label: Ke(n.kind),
+        label: We(n.kind),
         className: `${n.value_kind} ${n.kind}`,
-        path: ri(l, n.value_kind !== "measured"),
-        points: l,
+        path: ri(c, n.value_kind !== "measured"),
+        points: c,
         latest: o.value,
         latestTimestamp: o.timestamp_utc,
         sampleCount: s.length,
-        coverage: `${G(
+        coverage: `${B(
           n.coverage_start_utc,
           this.locale,
           e.time_zone
-        )} – ${G(
+        )} – ${B(
           n.coverage_end_utc,
           this.locale,
           e.time_zone
@@ -3005,23 +3035,23 @@ const re = class re extends I {
     });
   }
   sameNumericSeries(e, t) {
-    const i = L(e), a = L(t);
+    const i = N(e), a = N(t);
     return i.length === a.length && i.every((n, s) => {
-      const l = a[s];
-      return n.timestamp_utc === l?.timestamp_utc && n.value === l.value;
+      const c = a[s];
+      return n.timestamp_utc === c?.timestamp_utc && n.value === c.value;
     });
   }
   temperatureRange(e) {
     return this.range(
       e.series.filter((t) => t.unit === "°C").flatMap(
-        (t) => L(t).map((i) => i.value)
+        (t) => N(t).map((i) => i.value)
       )
     );
   }
   sampleSummary(e) {
-    return e === void 0 ? g : c`<p class="sample-summary">
+    return e === void 0 ? h : l`<p class="sample-summary">
       Latest sample
-      ${G(
+      ${B(
       e.latestTimestamp,
       this.locale,
       this.timeline?.time_zone
@@ -3036,8 +3066,8 @@ const re = class re extends I {
       (o) => o.kind === "contact_state"
     ), s = e.series.find(
       (o) => o.kind === "control_context"
-    ), l = [];
-    return i !== void 0 && l.push(
+    ), c = [];
+    return i !== void 0 && c.push(
       this.buildStateLane(
         i,
         t,
@@ -3063,8 +3093,8 @@ const re = class re extends I {
         (o) => ["heating", "cooling", "drying", "fan"].includes(o),
         ai
       )
-    ), a !== void 0 && l.splice(
-      Math.min(2, l.length),
+    ), a !== void 0 && c.splice(
+      Math.min(2, c.length),
       0,
       this.buildStateLane(
         a,
@@ -3074,7 +3104,7 @@ const re = class re extends I {
         "fan-only",
         (o) => o === "on"
       )
-    ), n?.samples.some((o) => o.value !== "not_configured") === !0 && l.push(
+    ), n?.samples.some((o) => o.value !== "not_configured") === !0 && c.push(
       this.buildStateLane(
         n,
         t,
@@ -3085,7 +3115,7 @@ const re = class re extends I {
       )
     ), s?.samples.some(
       (o) => o.value !== "normal" && o.value !== "not_reported"
-    ) === !0 && l.push(
+    ) === !0 && c.push(
       this.buildStateLane(
         s,
         t,
@@ -3094,46 +3124,46 @@ const re = class re extends I {
         "context",
         (o) => o !== "normal" && o !== "not_reported"
       )
-    ), l;
+    ), c;
   }
-  buildStateLane(e, t, i, a, n, s, l = We) {
+  buildStateLane(e, t, i, a, n, s, c = Ke) {
     const o = ti(e.samples).filter(ii), p = Math.min(
       t.end,
       Date.parse(e.coverage_end_utc)
-    ), m = o.flatMap((d, h) => {
+    ), m = o.flatMap((d, g) => {
       if (!s(d.value)) return [];
       const f = Math.max(
         t.start,
         Date.parse(d.timestamp_utc)
-      ), y = o[h + 1], C = Math.min(
+      ), y = o[g + 1], T = Math.min(
         p,
         y === void 0 ? p : Date.parse(y.timestamp_utc)
       );
-      if (C <= f) return [];
+      if (T <= f) return [];
       const ce = t.end - t.start;
       return [
         {
           left: (f - t.start) / ce * 100,
-          width: (C - f) / ce * 100,
+          width: (T - f) / ce * 100,
           value: d.value,
-          label: l(d.value),
+          label: c(d.value),
           className: `${n} ${d.value}`,
           startsAt: this.stateTimestamp(new Date(f).toISOString()),
-          endsAt: this.stateTimestamp(new Date(C).toISOString())
+          endsAt: this.stateTimestamp(new Date(T).toISOString())
         }
       ];
     });
     return { label: i, detail: a, className: n, segments: m };
   }
   renderStateLane(e) {
-    return c`<div class="lane-row ${e.className}">
+    return l`<div class="lane-row ${e.className}">
       <span class="lane-label">
         <strong>${e.label}</strong>
         <small>${e.detail}</small>
       </span>
       <div class="lane-track">
         ${e.segments.map(
-      (t) => c`<span
+      (t) => l`<span
               class="lane-segment ${t.className}"
               style=${`inset-inline-start:${String(t.left)}%;inline-size:${String(t.width)}%`}
               tabindex="0"
@@ -3146,7 +3176,7 @@ const re = class re extends I {
     </div>`;
   }
   stateTimestamp(e) {
-    return G(e, this.locale, this.timeline?.time_zone);
+    return B(e, this.locale, this.timeline?.time_zone);
   }
   range(e) {
     if (e.length === 0)
@@ -3167,18 +3197,18 @@ const re = class re extends I {
   }
   chartWindow(e) {
     const t = Date.parse(e.day_start_utc), i = Date.parse(e.day_end_utc), a = e.series.filter((f) => f.unit !== "%").flatMap(
-      (f) => L(f).map(
+      (f) => N(f).map(
         (y) => Date.parse(y.timestamp_utc)
       )
     ).filter((f) => Number.isFinite(f));
     if (a.length === 0)
       return { start: t, end: i };
-    const n = Math.min(...a), s = Math.max(...a), l = i - t, o = Math.max(
+    const n = Math.min(...a), s = Math.max(...a), c = i - t, o = Math.max(
       ei,
       s - n + Xt * 2
-    ), p = Math.min(l, o), m = (n + s) / 2;
-    let d = m - p / 2, h = m + p / 2;
-    return d < t && (d = t, h = t + p), h > i && (h = i, d = i - p), { start: d, end: h };
+    ), p = Math.min(c, o), m = (n + s) / 2;
+    let d = m - p / 2, g = m + p / 2;
+    return d < t && (d = t, g = t + p), g > i && (g = i, d = i - p), { start: d, end: g };
   }
   timeTicks(e, t) {
     const i = e.end - e.start, a = i <= 30 * 6e4 ? 5 : i <= 90 * 6e4 ? 15 : i <= 180 * 6e4 ? 30 : i <= 480 * 6e4 ? 60 : 120, n = new Intl.DateTimeFormat("en-US", {
@@ -3189,24 +3219,24 @@ const re = class re extends I {
     }), s = new Intl.DateTimeFormat(this.locale, {
       hour: "numeric",
       timeZone: t.time_zone
-    }), l = new Intl.DateTimeFormat(this.locale, {
+    }), c = new Intl.DateTimeFormat(this.locale, {
       hour: "numeric",
       minute: "2-digit",
       timeZone: t.time_zone
     }), o = Date.parse(t.day_start_utc), p = Date.parse(t.day_end_utc), m = Math.min(a, 15) * 6e4, d = [];
-    for (let h = o; h < p && h < e.end; h += m) {
-      if (h < e.start) continue;
+    for (let g = o; g < p && g < e.end; g += m) {
+      if (g < e.start) continue;
       const f = Object.fromEntries(
-        n.formatToParts(new Date(h)).filter((Z) => Z.type === "hour" || Z.type === "minute").map((Z) => [Z.type, Number(Z.value)])
-      ), y = f.hour, C = f.minute;
-      if (y === void 0 || C === void 0) continue;
-      (y * 60 + C) % a === 0 && d.push(h);
+        n.formatToParts(new Date(g)).filter((Z) => Z.type === "hour" || Z.type === "minute").map((Z) => [Z.type, Number(Z.value)])
+      ), y = f.hour, T = f.minute;
+      if (y === void 0 || T === void 0) continue;
+      (y * 60 + T) % a === 0 && d.push(g);
     }
-    return d.map((h, f) => ({
-      timestamp: h,
-      x: this.xPosition(h, e),
-      label: a < 60 ? l.format(new Date(h)) : s.format(new Date(h)),
-      anchor: f === 0 && h === e.start ? "start" : f === d.length - 1 && h === e.end ? "end" : "middle"
+    return d.map((g, f) => ({
+      timestamp: g,
+      x: this.xPosition(g, e),
+      label: a < 60 ? c.format(new Date(g)) : s.format(new Date(g)),
+      anchor: f === 0 && g === e.start ? "start" : f === d.length - 1 && g === e.end ? "end" : "middle"
     }));
   }
   latestValue(e) {
@@ -3499,17 +3529,17 @@ function ci(r, e, t = /* @__PURE__ */ new Date()) {
   const i = ui(
     e.config.equipment_group,
     "config.equipment_group"
-  ), a = Oe(
+  ), a = Ue(
     i.equipment_group_id,
     "config.equipment_group.equipment_group_id"
-  ), n = Oe(
+  ), n = Ue(
     e.config.acknowledged_time_zone,
     "config.acknowledged_time_zone"
   ), s = {};
-  for (const l of e.zones) {
+  for (const c of e.zones) {
     const o = Ye();
-    s[l.zone_id] = {
-      zone_id: l.zone_id,
+    s[c.zone_id] = {
+      zone_id: c.zone_id,
       enabled: !1,
       selected_profile_id: o,
       profiles: [di(o)]
@@ -3525,7 +3555,7 @@ function ci(r, e, t = /* @__PURE__ */ new Date()) {
     saved_at_utc: t.toISOString()
   };
 }
-function Ue(r, e = /* @__PURE__ */ new Date()) {
+function Oe(r, e = /* @__PURE__ */ new Date()) {
   return { ...structuredClone(r), saved_at_utc: e.toISOString() };
 }
 function di(r) {
@@ -3544,7 +3574,7 @@ function ui(r, e) {
     throw new Error(`${e} is unavailable`);
   return r;
 }
-function Oe(r, e) {
+function Ue(r, e) {
   if (typeof r != "string" || r.length === 0)
     throw new Error(`${e} is unavailable`);
   return r;
@@ -3552,6 +3582,7 @@ function Oe(r, e) {
 const Qe = [
   { id: "overview", label: "Overview", icon: "⌂" },
   { id: "schedule", label: "Schedule", icon: "▦" },
+  { id: "control", label: "Control", icon: "◉" },
   { id: "sensors", label: "Sensors", icon: "◫" },
   { id: "activity", label: "Activity", icon: "↯" },
   { id: "settings", label: "Settings", icon: "⚙" }
@@ -3561,7 +3592,21 @@ function pi(r) {
 }
 const ne = class ne extends I {
   constructor() {
-    super(...arguments), this.narrow = !1, this.activeRoute = "overview", this.selectedEntryId = "", this.selectedZoneId = "", this.loading = !0, this.errorMessage = "", this.activityFilter = "all", this.temperatureUnitPreference = ni(), this.activityLoadingOlder = !1, this.scheduleLoading = !1, this.scheduleSaving = !1, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.loadGeneration = 0, this.detailLoadGeneration = 0, this.entryChanged = (e) => {
+    super(...arguments), this.narrow = !1, this.activeRoute = "overview", this.selectedEntryId = "", this.selectedZoneId = "", this.loading = !0, this.errorMessage = "", this.activityFilter = "all", this.temperatureUnitPreference = ni(), this.activityLoadingOlder = !1, this.scheduleLoading = !1, this.scheduleSaving = !1, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.scheduleAvailable = !1, this.controlBusy = !1, this.controlMessage = "", this.loadGeneration = 0, this.detailLoadGeneration = 0, this.cancelOperatingMode = () => {
+      this.controlPendingMode = void 0;
+    }, this.confirmOperatingMode = async () => {
+      if (this.client === void 0 || this.controlPendingMode === void 0 || this.controlBusy)
+        return;
+      const e = this.controlPendingMode;
+      this.controlBusy = !0, this.controlMessage = "";
+      try {
+        await this.client.setOperatingMode(e), this.controlPendingMode = void 0, await this.loadEntry(this.selectedEntryId), this.controlMessage = `${z(e)} is now selected. No HVAC service call was sent.`;
+      } catch (t) {
+        this.controlMessage = this.describeError(t);
+      } finally {
+        this.controlBusy = !1;
+      }
+    }, this.entryChanged = (e) => {
       const t = e.currentTarget;
       t instanceof HTMLSelectElement && this.confirmDiscard("overview") && (this.selectedEntryId = t.value, this.loadEntry(t.value));
     }, this.filterChanged = (e) => {
@@ -3611,7 +3656,7 @@ const ne = class ne extends I {
       if (!(this.client === void 0 || this.scheduleDocument === void 0)) {
         this.scheduleMessage = "";
         try {
-          const e = Ue(this.scheduleDocument);
+          const e = Oe(this.scheduleDocument);
           await this.client.validateSchedule(e), this.schedulePreview = await this.client.previewSchedule(e);
         } catch (e) {
           this.schedulePreview = void 0, this.scheduleMessage = this.describeScheduleError(e);
@@ -3621,7 +3666,7 @@ const ne = class ne extends I {
       if (!(this.client === void 0 || this.scheduleDocument === void 0 || this.scheduleSaving)) {
         this.scheduleSaving = !0, this.scheduleMessage = "", this.scheduleConflict = !1;
         try {
-          const e = this.scheduleDocument.revision, t = Ue(this.scheduleDocument);
+          const e = this.scheduleDocument.revision, t = Oe(this.scheduleDocument);
           await this.client.validateSchedule(t);
           const i = await this.client.saveSchedule(t, e);
           this.scheduleDocument = i.schedule, this.scheduleDirty = !1, this.schedulePreview = await this.client.previewSchedule(i.schedule);
@@ -3655,7 +3700,7 @@ const ne = class ne extends I {
   }
   render() {
     const e = this.entries();
-    return c`
+    return l`
       <div class="app-shell">
         <header class="topbar">
           <div class="brand">
@@ -3665,29 +3710,29 @@ const ne = class ne extends I {
               <p>See what your home is doing—and why.</p>
             </div>
           </div>
-          ${e.length > 1 ? c`<label class="entry-picker">
+          ${e.length > 1 ? l`<label class="entry-picker">
                   <span>Equipment group</span>
                   <select
                     .value=${this.selectedEntryId}
                     @change=${this.entryChanged}
                   >
                     ${e.map(
-      (t) => c`<option value=${t.entry_id}>
+      (t) => l`<option value=${t.entry_id}>
                           ${t.title}
                         </option>`
     )}
                   </select>
-                </label>` : c`<div class="entry-name">
+                </label>` : l`<div class="entry-name">
                   ${e[0]?.title ?? "Climate"}
                 </div>`}
         </header>
 
         <nav class="primary-nav" aria-label="Intelligent Climate sections">
           ${Qe.map(
-      (t) => c`<button
+      (t) => l`<button
                 type="button"
                 class=${this.activeRoute === t.id ? "active" : ""}
-                aria-current=${this.activeRoute === t.id ? "page" : g}
+                aria-current=${this.activeRoute === t.id ? "page" : h}
                 @click=${() => this.navigate(t.id)}
               >
                 <span aria-hidden="true">${t.icon}</span>
@@ -3703,14 +3748,14 @@ const ne = class ne extends I {
     `;
   }
   renderLoading() {
-    return c`<div class="loading" role="status" aria-live="polite">
+    return l`<div class="loading" role="status" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <strong>Loading your climate picture…</strong>
       <span>Connecting to the local Intelligent Climate data.</span>
     </div>`;
   }
   renderError() {
-    return c`<section class="error-card" role="alert">
+    return l`<section class="error-card" role="alert">
       <span class="error-icon" aria-hidden="true">!</span>
       <div>
         <h2>We couldn’t load Intelligent Climate</h2>
@@ -3727,6 +3772,8 @@ const ne = class ne extends I {
         return this.renderOverview();
       case "schedule":
         return this.renderSchedule();
+      case "control":
+        return this.renderControl();
       case "sensors":
         return this.renderSensors();
       case "activity":
@@ -3737,7 +3784,7 @@ const ne = class ne extends I {
   }
   renderSchedule() {
     const e = this.requireData();
-    return c`
+    return l`
       <section class="page-heading with-action">
         <div>
           <span class="eyebrow">Local weekly comfort schedule</span>
@@ -3750,7 +3797,7 @@ const ne = class ne extends I {
         </div>
         <span class="schedule-safety">Read-only control preview</span>
       </section>
-      ${this.scheduleLoading ? c`<div class="loading" role="status">Loading schedule…</div>` : this.scheduleDocument === void 0 ? c`<section class="error-card" role="alert">
+      ${this.scheduleLoading ? l`<div class="loading" role="status">Loading schedule…</div>` : this.scheduleDocument === void 0 ? l`<section class="error-card" role="alert">
                 <div>
                   <h3>Schedule is unavailable</h3>
                   <p>${this.scheduleMessage}</p>
@@ -3758,7 +3805,7 @@ const ne = class ne extends I {
                     Try again
                   </button>
                 </div>
-              </section>` : c`${this.scheduleConflict ? c`<section class="schedule-conflict" role="alert">
+              </section>` : l`${this.scheduleConflict ? l`<section class="schedule-conflict" role="alert">
                         <div>
                           <strong>A newer schedule revision exists.</strong>
                           <p>
@@ -3769,7 +3816,7 @@ const ne = class ne extends I {
                         <button type="button" @click=${this.reloadSchedule}>
                           Reload current schedule
                         </button>
-                      </section>` : g}
+                      </section>` : h}
                 <ic-schedule-editor
                   .document=${this.scheduleDocument}
                   .zones=${e.configuration.zones}
@@ -3786,12 +3833,181 @@ const ne = class ne extends I {
                 ></ic-schedule-editor>`}
     `;
   }
+  renderControl() {
+    const e = this.requireData(), t = this.currentOperatingMode(), i = e.shadow.readiness, a = [...e.shadow.history].reverse().slice(0, 8);
+    return l`
+      <section class="page-heading with-action">
+        <div>
+          <span class="eyebrow">Control readiness</span>
+          <h2>Control</h2>
+          <p>
+            Choose how Intelligent Climate evaluates your home. Every mode
+            available on this page is physically inert.
+          </p>
+        </div>
+        <span class="zero-command-badge">🛡 Zero HVAC service calls</span>
+      </section>
+
+      <section class="mode-grid" aria-label="Operating modes">
+        ${[
+      {
+        id: "observe_only",
+        title: "Observe Only",
+        description: "Keep all live climate, sensor, timeline, and activity reporting on with no automation.",
+        badge: "Zero commands"
+      },
+      {
+        id: "manual_control",
+        title: "Manual Control",
+        description: "Reserve the mode for future deliberate user commands. This package still has no active adapter.",
+        badge: "Zero commands in this release"
+      },
+      {
+        id: "scheduled_shadow",
+        title: "Scheduled Shadow",
+        description: "Evaluate the saved schedule and every available safety gate, then record what would happen without changing the thermostat.",
+        badge: "Recommended next step"
+      }
+    ].map(
+      (s) => l`<article
+              class="mode-card ${t === s.id ? "selected" : ""}"
+            >
+              <div class="mode-card-heading">
+                <h3>${s.title}</h3>
+                <span>${s.badge}</span>
+              </div>
+              <p>${s.description}</p>
+              <button
+                type="button"
+                class=${s.id === "scheduled_shadow" ? "primary-button" : "secondary-button"}
+                ?disabled=${this.controlBusy || t === s.id}
+                @click=${() => this.requestOperatingMode(s.id)}
+              >
+                ${t === s.id ? "Current mode" : s.id === "scheduled_shadow" ? "Start Scheduled Shadow" : `Switch to ${s.title}`}
+              </button>
+            </article>`
+    )}
+      </section>
+
+      ${this.controlPendingMode === void 0 ? h : l`<section
+              class="confirmation-card"
+              role="alertdialog"
+              aria-labelledby="confirm-mode-title"
+            >
+              <div>
+                <span class="eyebrow">Confirm operating-mode change</span>
+                <h3 id="confirm-mode-title">
+                  ${this.controlPendingMode === "scheduled_shadow" ? "Start Scheduled Shadow?" : `Switch to ${z(this.controlPendingMode)}?`}
+                </h3>
+                <p>
+                  ${this.controlPendingMode === "scheduled_shadow" ? "Intelligent Climate will evaluate your saved schedule against live thermostat and sensor data. It will record proposed targets and suppression reasons, but it cannot send a climate or fan service call. Starting a new run resets the readiness counters." : "Changing mode does not change the physical thermostat. Observation and activity remain available."}
+                </p>
+              </div>
+              <div class="confirmation-actions">
+                <button
+                  type="button"
+                  class="secondary-button"
+                  @click=${this.cancelOperatingMode}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="primary-button"
+                  ?disabled=${this.controlBusy}
+                  @click=${this.confirmOperatingMode}
+                >
+                  ${this.controlBusy ? "Applying…" : "Confirm"}
+                </button>
+              </div>
+            </section>`}
+      ${this.controlMessage.length === 0 ? h : l`<p class="control-message" role="status">
+              ${this.controlMessage}
+            </p>`}
+
+      <div class="control-grid">
+        <section class="card" aria-labelledby="control-readiness-heading">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">Mandatory qualification</span>
+              <h3 id="control-readiness-heading">Shadow readiness</h3>
+            </div>
+            <strong
+              >${i?.ready === !0 ? "Ready" : "Not ready"}</strong
+            >
+          </div>
+          ${t !== "scheduled_shadow" ? l`<p class="muted">
+                  Start Scheduled Shadow to collect the required 24 hours, 20
+                  decisions, two material transitions, and 95% valid
+                  evaluations.
+                </p>` : i === null ? l`<p class="muted">
+                    Waiting for the first live evaluation.
+                  </p>` : l`<dl class="readiness-facts">
+                    <div>
+                      <dt>Time</dt>
+                      <dd>${i.elapsed_hours.toFixed(1)} / 24 h</dd>
+                    </div>
+                    <div>
+                      <dt>Decisions</dt>
+                      <dd>${i.evaluated_decisions} / 20</dd>
+                    </div>
+                    <div>
+                      <dt>Valid</dt>
+                      <dd>
+                        ${i.valid_evaluation_percent.toFixed(0)}% / 95%
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Transitions</dt>
+                      <dd>${i.minimum_material_transitions} / 2</dd>
+                    </div>
+                  </dl>`}
+        </section>
+
+        <section class="card" aria-labelledby="shadow-history-heading">
+          <div class="card-heading">
+            <div>
+              <span class="eyebrow">Privacy-safe evidence</span>
+              <h3 id="shadow-history-heading">Recent Shadow decisions</h3>
+            </div>
+          </div>
+          ${a.length === 0 ? l`<p class="muted">
+                  No Shadow decisions have been recorded yet.
+                </p>` : l`<ol class="shadow-history">
+                  ${a.map(
+      (s) => l`<li>
+                        <time datetime=${s.evaluated_at_utc}
+                          >${this.time(s.evaluated_at_utc)}</time
+                        >
+                        <strong
+                          >${this.shadowCommandSummary(s.command)}</strong
+                        >
+                        <span>${z(s.reason_code)}</span>
+                      </li>`
+    )}
+                </ol>`}
+        </section>
+      </div>
+
+      <section class="boundary-note">
+        <span aria-hidden="true">🔒</span>
+        <div>
+          <strong>Scheduled Control is deliberately unavailable</strong>
+          <p>
+            Readiness is evidence, not permission. A later package and a
+            separate explicit confirmation are required before any physical
+            command path can exist.
+          </p>
+        </div>
+      </section>
+    `;
+  }
   renderOverview() {
     const e = this.requireData(), t = yt(e.snapshot.control_state), i = e.shadow.readiness, a = [
       "shadow_qualifying",
       "shadow_ready"
     ].includes(e.snapshot.control_state), n = this.selectedZone();
-    return c`
+    return l`
       <section
         class="status-hero tone-${t.tone}"
         aria-labelledby="status-title"
@@ -3808,7 +4024,7 @@ const ne = class ne extends I {
             <span>Revision ${e.snapshot.observation_revision}</span>
             <span>Updated ${this.time(e.snapshot.calculated_at_utc)}</span>
             <span
-              >${e.snapshot.reason_code === null ? "No current alert" : U(e.snapshot.reason_code)}</span
+              >${e.snapshot.reason_code === null ? "No current alert" : z(e.snapshot.reason_code)}</span
             >
           </div>
         </div>
@@ -3881,9 +4097,9 @@ const ne = class ne extends I {
               ↻
             </button>
           </div>
-          ${this.narrative === void 0 ? c`<p class="muted">
+          ${this.narrative === void 0 ? l`<p class="muted">
                   A current explanation is not available yet.
-                </p>` : c`<p class="narrative">${this.renderNarrative()}</p>`}
+                </p>` : l`<p class="narrative">${this.renderNarrative()}</p>`}
         </section>
 
         <section
@@ -3901,10 +4117,10 @@ const ne = class ne extends I {
               ${i?.ready === !0 ? "✓ Ready" : a ? "◌ Qualifying" : "○ Not started"}
             </span>
           </div>
-          ${a ? i === null ? c`<p class="muted">
+          ${a ? i === null ? l`<p class="muted">
                     Scheduled Shadow is starting. Qualification evidence will
                     appear after its first valid evaluation.
-                  </p>` : c`<div class="progress-row">
+                  </p>` : l`<div class="progress-row">
                       <div class="progress-label">
                         <span>Qualification</span
                         ><strong
@@ -3944,14 +4160,14 @@ const ne = class ne extends I {
                         <dd>${i.minimum_material_transitions} / 2</dd>
                       </div>
                     </dl>
-                    ${i.blocking_reasons.length === 0 ? g : c`<p class="blocking">
+                    ${i.blocking_reasons.length === 0 ? h : l`<p class="blocking">
                             <strong>Still needed:</strong>
                             ${i.blocking_reasons.map((s) => s.replaceAll("_", " ")).join(", ")}
                           </p>`}
-                    ${i.blocking_faults.length === 0 ? g : c`<p class="fault">
+                    ${i.blocking_faults.length === 0 ? h : l`<p class="fault">
                             <strong>Blocking fault:</strong>
                             ${i.blocking_faults.join(", ")}
-                          </p>`}` : c`<p class="muted">
+                          </p>`}` : l`<p class="muted">
                   <strong>Not started — Scheduled Shadow is not active.</strong>
                   Ordinary observation history is still being collected.
                 </p>`}
@@ -3994,13 +4210,13 @@ const ne = class ne extends I {
     `;
   }
   renderZoneSelector(e) {
-    return e.length < 2 ? g : c`<div
+    return e.length < 2 ? h : l`<div
       class="zone-tabs"
       role="tablist"
       aria-label="Climate zones"
     >
       ${e.map(
-      (t) => c`<button
+      (t) => l`<button
             type="button"
             role="tab"
             aria-selected=${this.selectedZoneId === t.zone_id}
@@ -4014,7 +4230,7 @@ const ne = class ne extends I {
   }
   renderSensors() {
     const e = this.requireData();
-    return c`
+    return l`
       <section class="page-heading">
         <div>
           <span class="eyebrow">Current readings and configured sources</span>
@@ -4045,7 +4261,7 @@ const ne = class ne extends I {
       const i = e.snapshot.zones.find(
         (n) => n.zone_id === t.zone_id
       ), a = i?.sensor_data_degraded === !0 || i?.thermostat_data_degraded === !0;
-      return c`<article class="card zone-health-card">
+      return l`<article class="card zone-health-card">
             <div class="card-heading">
               <div>
                 <span class="eyebrow">Zone</span>
@@ -4095,9 +4311,9 @@ const ne = class ne extends I {
                 <dd>${this.enabledBindingCount(t.fan_entity_ids)}</dd>
               </div>
             </dl>
-            ${i?.sensor_data_degraded === !0 ? c`<p class="warning-copy">Temperature source data is degraded.</p>` : g}
-            ${i?.thermostat_data_degraded === !0 ? c`<p class="warning-copy">Thermostat observation data is degraded.</p>` : g}
-            ${this.enabledSourceCount(t.humidity_sources) === 0 ? c`<p class="muted">Humidity is not configured for this zone. Reconfigure the zone to select a humidity sensor or thermostat.</p>` : g}
+            ${i?.sensor_data_degraded === !0 ? l`<p class="warning-copy">Temperature source data is degraded.</p>` : h}
+            ${i?.thermostat_data_degraded === !0 ? l`<p class="warning-copy">Thermostat observation data is degraded.</p>` : h}
+            ${this.enabledSourceCount(t.humidity_sources) === 0 ? l`<p class="muted">Humidity is not configured for this zone. Reconfigure the zone to select a humidity sensor or thermostat.</p>` : h}
           </article>`;
     })}
       </div>
@@ -4114,7 +4330,7 @@ const ne = class ne extends I {
     const e = this.requireData(), t = e.activity.records.filter(
       (i) => this.activityFilter === "all" || i.severity === this.activityFilter
     );
-    return c`
+    return l`
       <section class="page-heading with-action">
         <div>
           <span class="eyebrow">Newest activity first</span>
@@ -4139,49 +4355,49 @@ const ne = class ne extends I {
           Showing ${t.length} of ${e.activity.total} retained records
         </p>
         ${this.renderActivityRecords(t)}
-        ${e.activity.records.length < e.activity.total ? c`<button
+        ${e.activity.records.length < e.activity.total ? l`<button
                 type="button"
                 class="load-more"
                 ?disabled=${this.activityLoadingOlder}
                 @click=${this.loadOlderActivity}
               >
                 ${this.activityLoadingOlder ? "Loading…" : "Load older activity"}
-              </button>` : g}
+              </button>` : h}
       </section>
     `;
   }
   renderActivityRecords(e) {
-    return e.length === 0 ? c`<div class="empty-state" role="status">
+    return e.length === 0 ? l`<div class="empty-state" role="status">
         No matching material activity is available.
-      </div>` : c`<ol class="activity-list">
+      </div>` : l`<ol class="activity-list">
       ${e.map((t) => {
       const i = this.data?.configuration.zones.find(
         (n) => n.zone_id === t.zone_id
       ), a = this.activityFacts(t);
-      return c`<li>
+      return l`<li>
           <span
             class="activity-marker severity-${t.severity}"
             aria-hidden="true"
           ></span>
           <div class="activity-body">
             <div class="activity-title">
-              <strong>${U(t.activity_type)}</strong
+              <strong>${z(t.activity_type)}</strong
               ><time datetime=${t.timestamp_utc}
                 >${this.time(t.timestamp_utc)}</time
               >
             </div>
             <p>${t.explanation}</p>
-            ${a.length === 0 ? g : c`<dl class="activity-facts">
+            ${a.length === 0 ? h : l`<dl class="activity-facts">
                     ${a.map(
-        (n) => c`<div>
+        (n) => l`<div>
                           <dt>${n.label}</dt>
                           <dd>${n.value}</dd>
                         </div>`
       )}
                   </dl>`}
             <div class="activity-meta">
-              <span>${U(t.reason_code)}</span
-              >${i === void 0 ? g : c`<span>${i.name}</span>`}<span>${t.severity}</span>${this.repairRecordStatus(t)}
+              <span>${z(t.reason_code)}</span
+              >${i === void 0 ? h : l`<span>${i.name}</span>`}<span>${t.severity}</span>${this.repairRecordStatus(t)}
             </div>
           </div>
         </li>`;
@@ -4242,7 +4458,7 @@ const ne = class ne extends I {
         return typeof t.issue_code == "string" ? [
           {
             label: "Issue",
-            value: U(t.issue_code)
+            value: z(t.issue_code)
           }
         ] : [];
       default:
@@ -4258,7 +4474,7 @@ const ne = class ne extends I {
     ];
   }
   activityValue(e) {
-    return e == null ? "Unavailable" : typeof e != "string" ? String(e) : e === "heat_cool" ? "Heat/Cool" : U(e);
+    return e == null ? "Unavailable" : typeof e != "string" ? String(e) : e === "heat_cool" ? "Heat/Cool" : z(e);
   }
   activityTarget(e, t) {
     const i = e[`${t}_target_temperature_c`], a = e[`${t}_target_low_c`], n = e[`${t}_target_high_c`];
@@ -4273,7 +4489,7 @@ const ne = class ne extends I {
   }
   renderSettings() {
     const e = this.requireData(), t = e.configuration.config.automation_enabled === !0, i = e.configuration.options.safety_limits;
-    return c`
+    return l`
       <section class="page-heading">
         <div>
           <span class="eyebrow">Configuration & system health</span>
@@ -4432,6 +4648,17 @@ const ne = class ne extends I {
       (e) => e.zone_id === this.selectedZoneId
     );
   }
+  currentOperatingMode() {
+    const e = this.data?.configuration.config.desired_operating_mode;
+    return e === "manual_control" || e === "scheduled_shadow" ? e : "observe_only";
+  }
+  shadowCommandSummary(e) {
+    if (e === null) return "No command proposed";
+    const t = [];
+    return e.target_c !== null ? t.push(`set ${this.temperature(e.target_c)}`) : (e.heat_target_c !== null || e.cool_target_c !== null) && t.push(
+      `${this.temperature(e.heat_target_c)}–${this.temperature(e.cool_target_c)}`
+    ), e.hvac_mode !== null && t.push(z(e.hvac_mode)), e.fan_mode !== null && t.push(`fan ${z(e.fan_mode)}`), t.length === 0 ? `Would ${z(e.kind)}` : `Would ${t.join(" · ")}`;
+  }
   locale() {
     return this.hass.locale.language;
   }
@@ -4448,7 +4675,7 @@ const ne = class ne extends I {
     return t ? e === null ? "Unavailable" : `${new Intl.NumberFormat(this.locale(), { maximumFractionDigits: 1 }).format(e)}%` : "Not configured";
   }
   time(e) {
-    return G(e, this.locale(), this.timeline?.time_zone);
+    return B(e, this.locale(), this.timeline?.time_zone);
   }
   enabledSourceCount(e) {
     return e.filter((t) => t.enabled).length;
@@ -4470,7 +4697,7 @@ const ne = class ne extends I {
         emergency_paused: "Control is paused.",
         degraded: "Observation is continuing with degraded data.",
         reconciling: "Live state is being checked after startup."
-      }[e.control_state] ?? `Current status: ${U(e.control_state)}.`
+      }[e.control_state] ?? `Current status: ${z(e.control_state)}.`
     ], a = e.effective_target_c ?? e.scheduled_target_c;
     if (a !== null) {
       const n = e.next_transition_utc === null ? "" : ` until ${this.time(e.next_transition_utc)}`;
@@ -4488,9 +4715,9 @@ const ne = class ne extends I {
   }
   repairRecordStatus(e) {
     if (!e.activity_type.startsWith("repair_issue_"))
-      return g;
+      return h;
     const t = this.data?.configuration.active_repairs.includes(e.reason_code) === !0;
-    return c`<span class=${t ? "repair-active" : "repair-history"}
+    return l`<span class=${t ? "repair-active" : "repair-history"}
       >${t ? "Active repair" : "Historical record"}</span
     >`;
   }
@@ -4508,7 +4735,7 @@ const ne = class ne extends I {
   }
   async loadEntry(e) {
     const t = ++this.loadGeneration;
-    this.unsubscribe?.(), this.unsubscribe = void 0, this.loading = !0, this.errorMessage = "", this.data = void 0, this.timeline = void 0, this.narrative = void 0, this.scheduleDocument = void 0, this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1;
+    this.unsubscribe?.(), this.unsubscribe = void 0, this.loading = !0, this.errorMessage = "", this.data = void 0, this.timeline = void 0, this.narrative = void 0, this.scheduleDocument = void 0, this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleMessage = "", this.scheduleConflict = !1, this.scheduleAvailable = !1, this.controlPendingMode = void 0, this.controlMessage = "";
     const i = new Yt(this.hass, e);
     this.client = i;
     try {
@@ -4517,7 +4744,7 @@ const ne = class ne extends I {
         return;
       this.data = a;
       const n = a.configuration.zones[0];
-      if (this.selectedZoneId = n?.zone_id ?? "", this.selectedZoneId.length > 0 && await this.loadZoneDetails(t), this.activeRoute === "schedule" && await this.loadSchedule(t), t !== this.loadGeneration)
+      if (this.selectedZoneId = n?.zone_id ?? "", this.selectedZoneId.length > 0 && await this.loadZoneDetails(t), (this.activeRoute === "schedule" || this.activeRoute === "control") && await this.loadSchedule(t), t !== this.loadGeneration)
         return;
       this.unsubscribe = await i.subscribe((s) => {
         this.applySnapshot(s);
@@ -4536,10 +4763,10 @@ const ne = class ne extends I {
       try {
         const t = await this.client.schedule();
         if (e !== this.loadGeneration) return;
-        this.scheduleDocument = t.schedule ?? ci(this.selectedEntryId, this.data.configuration), this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleConflict = !1;
+        this.scheduleAvailable = t.schedule !== null, this.scheduleDocument = t.schedule ?? ci(this.selectedEntryId, this.data.configuration), this.schedulePreview = void 0, this.scheduleDirty = !1, this.scheduleConflict = !1;
       } catch (t) {
         if (e !== this.loadGeneration) return;
-        this.scheduleDocument = void 0, this.scheduleMessage = this.describeError(t);
+        this.scheduleDocument = void 0, this.scheduleAvailable = !1, this.scheduleMessage = this.describeError(t);
       } finally {
         e === this.loadGeneration && (this.scheduleLoading = !1);
       }
@@ -4561,7 +4788,14 @@ const ne = class ne extends I {
     return e instanceof _ ? `The backend returned data this frontend cannot safely display (${e.message}). Reload the integration or update the candidate.` : e instanceof Error ? e.message : "An unknown local data error occurred.";
   }
   navigate(e) {
-    this.confirmDiscard(e) && (this.activeRoute = e, window.history.replaceState(null, "", `/intelligent-climate/${e}`), this.shadowRoot?.querySelector("#main-content")?.focus(), e === "schedule" && this.scheduleDocument === void 0 && this.loadSchedule(this.loadGeneration));
+    this.confirmDiscard(e) && (this.activeRoute = e, window.history.replaceState(null, "", `/intelligent-climate/${e}`), this.shadowRoot?.querySelector("#main-content")?.focus(), (e === "schedule" || e === "control") && this.scheduleDocument === void 0 && this.loadSchedule(this.loadGeneration));
+  }
+  requestOperatingMode(e) {
+    if (this.controlMessage = "", e === "scheduled_shadow" && !this.scheduleAvailable) {
+      this.controlMessage = "Save and enable a valid schedule before starting Scheduled Shadow.";
+      return;
+    }
+    this.controlPendingMode = e;
   }
   selectZone(e) {
     this.selectedZoneId = e, this.loadZoneDetails(this.loadGeneration);
@@ -4600,7 +4834,11 @@ ne.properties = {
   scheduleSaving: { state: !0 },
   scheduleDirty: { state: !0 },
   scheduleMessage: { state: !0 },
-  scheduleConflict: { state: !0 }
+  scheduleConflict: { state: !0 },
+  scheduleAvailable: { state: !0 },
+  controlBusy: { state: !0 },
+  controlMessage: { state: !0 },
+  controlPendingMode: { state: !0 }
 }, ne.styles = [
   Ve,
   se`
@@ -5146,6 +5384,131 @@ ne.properties = {
         max-inline-size: 630px;
         line-height: 1.5;
       }
+      .zero-command-badge {
+        padding: 9px 13px;
+        border: 1px solid color-mix(in srgb, #18815f 35%, var(--ic-border));
+        border-radius: 999px;
+        background: color-mix(in srgb, #18815f 10%, var(--ic-surface));
+        color: #137255;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-block-end: 18px;
+      }
+      .mode-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-block-size: 235px;
+        padding: 22px;
+        border: 1px solid var(--ic-border);
+        border-radius: var(--ic-radius);
+        background: var(--ic-surface);
+        box-shadow: var(--ic-shadow);
+      }
+      .mode-card.selected {
+        border: 2px solid var(--ic-accent);
+        padding: 21px;
+      }
+      .mode-card-heading {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .mode-card-heading span {
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: var(--ic-surface-muted);
+        color: var(--secondary-text-color);
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-align: center;
+      }
+      .mode-card p {
+        flex: 1;
+        color: var(--secondary-text-color);
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+      .mode-card button,
+      .confirmation-actions button {
+        min-block-size: 44px;
+      }
+      .secondary-button {
+        padding-inline: 18px;
+        border: 1px solid var(--ic-border);
+        border-radius: 12px;
+        background: var(--ic-surface-muted);
+        color: var(--primary-text-color);
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.58;
+      }
+      .confirmation-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-block-end: 18px;
+        padding: 22px;
+        border: 2px solid var(--ic-accent);
+        border-radius: var(--ic-radius);
+        background: color-mix(in srgb, var(--ic-accent) 7%, var(--ic-surface));
+      }
+      .confirmation-card p {
+        max-inline-size: 850px;
+        margin-block-start: 8px;
+        color: var(--secondary-text-color);
+        line-height: 1.5;
+      }
+      .confirmation-actions {
+        display: flex;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+      .control-message {
+        margin-block-end: 18px;
+        padding: 12px 15px;
+        border-radius: 12px;
+        background: var(--ic-surface-muted);
+        font-weight: 650;
+      }
+      .control-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .shadow-history {
+        display: grid;
+        gap: 10px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .shadow-history li {
+        display: grid;
+        grid-template-columns: minmax(120px, auto) 1fr auto;
+        gap: 10px;
+        align-items: baseline;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--ic-surface-muted);
+        font-size: 0.78rem;
+      }
+      .shadow-history time,
+      .shadow-history span {
+        color: var(--secondary-text-color);
+      }
       .sensor-summary {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -5425,6 +5788,10 @@ ne.properties = {
         color: var(--secondary-text-color);
       }
       @media (max-width: 980px) {
+        .mode-grid,
+        .control-grid {
+          grid-template-columns: 1fr;
+        }
         .metric-grid {
           grid-template-columns: repeat(2, 1fr);
         }
@@ -5486,6 +5853,15 @@ ne.properties = {
         .page-heading.with-action {
           align-items: stretch;
           flex-direction: column;
+        }
+        .confirmation-card,
+        .confirmation-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .shadow-history li {
+          grid-template-columns: 1fr;
+          gap: 3px;
         }
         .source-counts {
           grid-template-columns: repeat(2, 1fr);

@@ -21,6 +21,7 @@ export const configuration: ConfigurationResponse = {
   api_version: 1,
   config: {
     automation_enabled: false,
+    desired_operating_mode: "observe_only",
     acknowledged_time_zone: "America/New_York",
     equipment_group: {
       equipment_group_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
