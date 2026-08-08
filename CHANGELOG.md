@@ -7,6 +7,20 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.20 - 2026-08-08
+
+### Fixed
+
+- Restored Home Assistant 2026.7 compatibility by keeping the newer entity
+  selector filter type out of runtime imports.
+- Added a minimum-version configuration-flow import gate so current dependency
+  updates cannot silently raise the supported Home Assistant baseline again.
+
+### Security
+
+- This compatibility-only hotfix changes no stored data, frontend behavior, or
+  Home Assistant service-call and physical-control authority.
+
 ## 0.0.19 - 2026-08-07
 
 ### Fixed
