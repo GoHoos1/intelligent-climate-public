@@ -513,6 +513,32 @@ async def test_range_target_requires_heat_cool_mode_for_shadow_plan(
     service_call.assert_not_called()
 
 
+async def test_cool_idle_nest_shape_qualifies_a_single_cooling_target(
+    hass: HomeAssistant,
+) -> None:
+    """Cool mode must not be rejected merely because ranges are also supported."""
+    runtime = Phase2CoordinatorRuntime(
+        migration=_migration(),
+        schedule_store=cast(ScheduleStore, _ScheduleStore(_schedule())),
+        presentation_trace=cast(PresentationTraceRuntime, _Trace()),
+        started_at_utc=NOW - timedelta(seconds=121),
+    )
+    snapshot = await runtime.async_process_snapshot(
+        _observation(
+            hvac_mode=HVACMode.COOL,
+            supported_hvac_modes=frozenset(
+                {HVACMode.OFF, HVACMode.HEAT, HVACMode.COOL, HVACMode.HEAT_COOL}
+            ),
+            hvac_action=HVACAction.IDLE,
+        )
+    )
+
+    decision = snapshot.zones[0].safety_decision
+    assert decision is not None
+    assert decision.reason_code.value == "shadow_only"
+    assert snapshot.zones[0].would_command
+
+
 async def test_missing_schedule_records_blocked_shadow_evidence_without_command(
     hass: HomeAssistant,
 ) -> None:
