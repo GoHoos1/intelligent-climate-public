@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from contextlib import suppress
+from dataclasses import replace
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
@@ -30,6 +31,7 @@ from .models import (
     EntryObservationSnapshot,
     EntryRuntimeConfiguration,
     ObservationSourceId,
+    Phase2ControlIntent,
     Phase2RuntimeStoreDocument,
     Phase2RuntimeZoneState,
     RuntimeStoreDocument,
@@ -522,6 +524,16 @@ class RuntimeStore:
         """Schedule persistence after a material Phase 2 runtime evaluation."""
         if self._phase2:
             self._mark_dirty()
+
+    def async_update_phase2_control_intent(self, intent: Phase2ControlIntent) -> None:
+        """Persist a newly selected inert mode without reloading the entry."""
+        if not self._phase2 or self._phase2_template is None:
+            return
+        self._phase2_template = replace(
+            self._phase2_template,
+            control_intent=intent,
+        )
+        self._mark_dirty()
 
     def _mark_dirty(self) -> None:
         if self._read_only:
