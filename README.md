@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.21 is a zero-command Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.22 is a zero-command Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,15 +14,19 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.21**. Intelligent Climate is pre-alpha software
+The current release is **0.0.22**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.21 adds an administrator-only Control route for zero-command
-Scheduled Shadow readiness. It can persist operating intent and explain exact
-would-command decisions, while active control remains forcibly unarmed and no
-physical equipment service-call path exists.
+Release 0.0.22 keeps the Control route mounted when changing zero-command modes
+and makes Cool-mode schedules use single cooling targets. Active control remains
+forcibly unarmed, and no physical equipment service-call path exists.
 
 ## Recent changes
 
+- **0.0.22**
+  - Keeps the Intelligent Climate Control route open when changing among the
+    three zero-command operating modes.
+  - Uses single cooling targets for Cool-mode schedules while retaining paired
+    ranges for Heat/Cool and Auto; incompatible saved periods fail closed.
 - **0.0.21**
   - Adds an administrator-only Control route for Observe Only, Manual Control,
     and Scheduled Shadow, with explicit confirmation and saved-schedule checks.
