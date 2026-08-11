@@ -25,6 +25,7 @@ def test_readme_recent_changes_is_near_top_and_links_full_changelog() -> None:
     recent_body = README[
         recent : _heading_position(README, "What Intelligent Climate does today")
     ]
+    assert "**0.0.23**" in recent_body
     assert "**0.0.22**" in recent_body
     assert "**0.0.21**" in recent_body
     assert "**0.0.20**" in recent_body
@@ -109,6 +110,7 @@ def test_changelog_contains_versioned_release_sections() -> None:
 
     assert headings == [
         "Unreleased",
+        "0.0.23 - 2026-08-11",
         "0.0.22 - 2026-08-08",
         "0.0.21 - 2026-08-08",
         "0.0.20 - 2026-08-08",
