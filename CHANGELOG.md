@@ -7,6 +7,21 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.23 - 2026-08-11
+
+### Fixed
+
+- Count fully safety-checked Semantic Deadband no-ops as valid, non-blocking
+  Scheduled Shadow qualification evidence.
+- Clear the current generic safety-evaluation fault after a valid deadband no-op
+  while retaining invalid history in the run's validity ratio.
+
+### Security
+
+- Deadband remains a suppressed zero-command result. Unavailable, stale,
+  unsupported, conflicting, and otherwise blocked evaluations remain invalid,
+  and this release adds no physical service-call path or control authority.
+
 ## 0.0.22 - 2026-08-08
 
 ### Fixed
