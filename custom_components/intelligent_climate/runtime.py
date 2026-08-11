@@ -784,7 +784,10 @@ def _faults_for_decision(
     decision: SafetyGateDecision,
     arbitration: SharedArbitrationDecision | None,
 ) -> tuple[ShadowBlockingFault, ...]:
-    if decision.reason_code is SafetyReasonCode.SHADOW_ONLY:
+    if decision.reason_code in {
+        SafetyReasonCode.SHADOW_ONLY,
+        SafetyReasonCode.SEMANTIC_DEADBAND,
+    }:
         return ()
     if (
         arbitration is not None

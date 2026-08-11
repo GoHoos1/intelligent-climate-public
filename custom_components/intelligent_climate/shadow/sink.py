@@ -12,7 +12,7 @@ from ..models.plan import (
     CommandSinkResult,
     validate_plan_safety_decision,
 )
-from ..models.safety import SafetyGateDecision, SafetyReasonCode
+from ..models.safety import SafetyDisposition, SafetyGateDecision, SafetyReasonCode
 from ..models.schema import SchemaValidationError
 from ..models.shadow import (
     ShadowBlockingFault,
@@ -108,7 +108,10 @@ class ShadowCommandSink:
         """Record one Shadow evaluation and update readiness deterministically."""
         now = self._clock.now_utc()
         validate_plan_safety_decision(safety_decision)
-        valid = plan is not None
+        valid = plan is not None or (
+            safety_decision.reason_code is SafetyReasonCode.SEMANTIC_DEADBAND
+            and safety_decision.disposition is SafetyDisposition.SUPPRESSED
+        )
         if plan is not None:
             if (
                 safety_decision.reason_code is not SafetyReasonCode.SHADOW_ONLY
