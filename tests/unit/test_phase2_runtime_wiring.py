@@ -129,6 +129,7 @@ def _thermostat(
     supported_hvac_modes: frozenset[HVACMode] | None = None,
     hvac_action: HVACAction | None = HVACAction.HEATING,
     fan_mode: str | None = None,
+    target_temperature_c: float | None = 19.0,
     target_low_c: float | None = None,
     target_high_c: float | None = None,
 ) -> ThermostatRuntimeSnapshot:
@@ -138,7 +139,7 @@ def _thermostat(
         hvac_mode=hvac_mode,
         hvac_action=hvac_action,
         current_temperature_c=19.0,
-        target_temperature_c=19.0,
+        target_temperature_c=target_temperature_c,
         target_low_c=target_low_c,
         target_high_c=target_high_c,
         current_humidity_pct=None,
@@ -197,6 +198,7 @@ def _observation(
     supported_hvac_modes: frozenset[HVACMode] | None = None,
     hvac_action: HVACAction | None = HVACAction.HEATING,
     fan_mode: str | None = None,
+    target_temperature_c: float | None = 19.0,
     target_low_c: float | None = None,
     target_high_c: float | None = None,
 ) -> EntryObservationSnapshot:
@@ -206,6 +208,7 @@ def _observation(
         supported_hvac_modes=supported_hvac_modes,
         hvac_action=hvac_action,
         fan_mode=fan_mode,
+        target_temperature_c=target_temperature_c,
         target_low_c=target_low_c,
         target_high_c=target_high_c,
     )
@@ -439,6 +442,35 @@ async def test_scheduled_shadow_runs_complete_safety_path_without_service_call(
     assert runtime.qualification.valid_evaluations == 1
     assert len(runtime.shadow_sink.history) == 1
     assert trace.calls[-1][1] is snapshot
+    service_call.assert_not_called()
+
+
+async def test_scheduled_shadow_deadband_is_valid_and_clears_blocking_fault(
+    hass: HomeAssistant,
+) -> None:
+    """An already-satisfied target is valid zero-command qualification evidence."""
+    runtime = Phase2CoordinatorRuntime(
+        migration=_migration(),
+        schedule_store=cast(ScheduleStore, _ScheduleStore(_schedule())),
+        presentation_trace=cast(PresentationTraceRuntime, _Trace()),
+        started_at_utc=NOW - timedelta(seconds=121),
+    )
+
+    with patch.object(type(hass.services), "async_call") as service_call:
+        snapshot = await runtime.async_process_snapshot(
+            _observation(target_temperature_c=21.0)
+        )
+
+    decision = snapshot.zones[0].safety_decision
+    assert decision is not None
+    assert decision.reason_code is SafetyReasonCode.SEMANTIC_DEADBAND
+    assert not snapshot.zones[0].would_command
+    assert runtime.qualification.evaluated_decisions == 1
+    assert runtime.qualification.valid_evaluations == 1
+    assert runtime.qualification.blocking_fault_codes == ()
+    assert runtime.shadow_sink.history[-1].reason_code is (
+        SafetyReasonCode.SEMANTIC_DEADBAND
+    )
     service_call.assert_not_called()
 
 
