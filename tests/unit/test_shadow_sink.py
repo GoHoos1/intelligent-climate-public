@@ -210,6 +210,30 @@ async def test_invalid_shadow_evaluation_is_bounded_and_blocks_readiness() -> No
     )
 
 
+async def test_semantic_deadband_is_valid_zero_command_evidence() -> None:
+    sink = _sink()
+    safety_id = SafetyEvaluationId.new()
+    decision = _decision(
+        safety_id,
+        reason=SafetyReasonCode.SEMANTIC_DEADBAND,
+        disposition=SafetyDisposition.SUPPRESSED,
+        hard=False,
+    )
+
+    snapshot = await sink.async_record_evaluation(
+        plan=None,
+        safety_decision=decision,
+        material_transition_zone_id=None,
+        active_faults=(),
+    )
+
+    assert snapshot.record.outcome is ShadowHistoryOutcome.SUPPRESSED
+    assert snapshot.record.would_command is None
+    assert sink.qualification.evaluated_decisions == 1
+    assert sink.qualification.valid_evaluations == 1
+    assert sink.qualification.blocking_fault_codes == ()
+
+
 async def test_sink_reaches_readiness_at_exact_package_requirements() -> None:
     clock = FakeClock(NOW - timedelta(hours=24))
     sink = _sink(clock)
