@@ -340,6 +340,22 @@ def _entity_id(hass: HomeAssistant, zone_id: str) -> str:
     return entity_id
 
 
+def _device_for_entry_identifier(
+    hass: HomeAssistant,
+    *,
+    entry_id: str,
+    identifier: tuple[str, str],
+) -> dr.DeviceEntry | None:
+    """Return one device by its config-entry-scoped identifier."""
+    matches = [
+        device
+        for device in dr.async_entries_for_config_entry(dr.async_get(hass), entry_id)
+        if identifier in device.identifiers
+    ]
+    assert len(matches) <= 1
+    return matches[0] if matches else None
+
+
 def _first_source_quality(entry: ConfigEntry) -> SourceQuality:
     """Read the coordinator's current first-source quality."""
     return cast(
@@ -566,12 +582,20 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
         f"{GROUP_ID}:thermostat_capability_status",
     }
 
-    group_device = device_registry.async_get_device(identifiers={(DOMAIN, GROUP_ID)})
+    group_device = _device_for_entry_identifier(
+        hass,
+        entry_id=entry.entry_id,
+        identifier=(DOMAIN, GROUP_ID),
+    )
     assert group_device is not None
     assert group_device.name == "Main Floor HVAC"
     assert group_device.config_entries_subentries[entry.entry_id] == {None}
     zone_devices = [
-        device_registry.async_get_device(identifiers={(DOMAIN, zone_id)})
+        _device_for_entry_identifier(
+            hass,
+            entry_id=entry.entry_id,
+            identifier=(DOMAIN, zone_id),
+        )
         for zone_id in ZONE_IDS
     ]
     assert all(device is not None for device in zone_devices)
@@ -591,7 +615,10 @@ async def test_inventory_order_identity_subentries_and_virtual_devices(
 
     integration_devices = [
         device
-        for device in device_registry.devices.values()
+        for device in dr.async_entries_for_config_entry(
+            device_registry,
+            entry.entry_id,
+        )
         if any(identifier[0] == DOMAIN for identifier in device.identifiers)
     ]
     assert len(integration_devices) == 3
@@ -834,7 +861,11 @@ async def test_awaiting_first_zone_creates_only_equipment_group_device(
         f"{GROUP_ID}:equipment_relationship",
         f"{GROUP_ID}:thermostat_capability_status",
     }
-    group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
+    group_device = _device_for_entry_identifier(
+        hass,
+        entry_id=entry.entry_id,
+        identifier=(DOMAIN, GROUP_ID),
+    )
     assert group_device is not None
     assert group_device.config_entries_subentries[entry.entry_id] == {None}
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -960,7 +991,14 @@ async def test_physical_device_is_not_claimed_and_no_source_device_is_created(
     assert physical_after is not None
     assert physical_after.identifiers == original_identifiers
     assert physical_after.config_entries == {foreign.entry_id}
-    assert device_registry.async_get_device(identifiers={(DOMAIN, SENSORS[0])}) is None
+    assert (
+        _device_for_entry_identifier(
+            hass,
+            entry_id=entry.entry_id,
+            identifier=(DOMAIN, SENSORS[0]),
+        )
+        is None
+    )
 
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -1024,8 +1062,10 @@ async def test_zone_rename_updates_device_name_without_unique_id_change(
     await hass.async_block_till_done()
 
     assert _entity_id(hass, ZONE_IDS[0]) == entity_id
-    zone_device = dr.async_get(hass).async_get_device(
-        identifiers={(DOMAIN, ZONE_IDS[0])}
+    zone_device = _device_for_entry_identifier(
+        hass,
+        entry_id=entry.entry_id,
+        identifier=(DOMAIN, ZONE_IDS[0]),
     )
     assert zone_device is not None
     assert zone_device.name == "Dining and Kitchen"

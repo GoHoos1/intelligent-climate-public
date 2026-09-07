@@ -10,17 +10,14 @@ from homeassistant.config_entries import ConfigSubentry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
+from .const import SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
-from .entity import IntelligentClimateZoneEntity
+from .entity import IntelligentClimateZoneEntity, build_zone_device_info
 from .models import RuntimeConfigurationState, ZoneConfig
 from .schema_compat import encode_active_observation_options
 from .type_aliases import IntelligentClimateConfigEntry
-
-_ZONE_MODEL = "Climate zone"
 
 
 async def async_setup_entry(
@@ -78,15 +75,8 @@ class IntelligentClimateObservationEnabledSwitch(
         zone: ZoneConfig,
     ) -> None:
         super().__init__(coordinator, zone)
-        group = coordinator.configuration.equipment_group
         self._attr_unique_id = f"{zone.zone_id}:observation_enabled"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(zone.zone_id))},
-            manufacturer=NAME,
-            model=_ZONE_MODEL,
-            name=zone.name,
-            via_device=(DOMAIN, str(group.equipment_group_id)),
-        )
+        self._attr_device_info = build_zone_device_info(coordinator, zone)
 
     @property
     @override

@@ -16,13 +16,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
-from .entity import IntelligentClimateZoneEntity
+from .entity import IntelligentClimateZoneEntity, build_zone_device_info
 from .models import RuntimeConfigurationState, ZoneConfig
 from .repairs import IssueCode
 from .type_aliases import IntelligentClimateConfigEntry
 
 _GROUP_MODEL = "Equipment group"
-_ZONE_MODEL = "Climate zone"
 
 
 async def async_setup_entry(
@@ -91,15 +90,8 @@ class _ZoneBinarySensor(IntelligentClimateZoneEntity, BinarySensorEntity):
         key: str,
     ) -> None:
         super().__init__(coordinator, zone)
-        group = coordinator.configuration.equipment_group
         self._attr_unique_id = f"{zone.zone_id}:{key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(zone.zone_id))},
-            manufacturer=NAME,
-            model=_ZONE_MODEL,
-            name=zone.name,
-            via_device=(DOMAIN, str(group.equipment_group_id)),
-        )
+        self._attr_device_info = build_zone_device_info(coordinator, zone)
 
 
 class IntelligentClimateSensorDataDegradedSensor(_ZoneBinarySensor):

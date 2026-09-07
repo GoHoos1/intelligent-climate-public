@@ -6,7 +6,7 @@ zone. It helps you understand current conditions and source health while you
 continue to control heating and cooling through the original thermostat.
 
 > [!IMPORTANT]
-> **Release 0.0.23 is a zero-command Phase 2 preview.** It can evaluate schedules
+> **Release 0.0.24 is a zero-command Phase 2 preview.** It can evaluate schedules
 > and record suppressed Shadow decisions, but it does not change a thermostat,
 > fan, switch, humidifier, dehumidifier, ventilation system, water heater, or
 > other physical equipment. The integration makes no climate-related service
@@ -14,14 +14,19 @@ continue to control heating and cooling through the original thermostat.
 
 ## Current release and maturity
 
-The current release is **0.0.23**. Intelligent Climate is pre-alpha software
+The current release is **0.0.24**. Intelligent Climate is pre-alpha software
 intended for careful evaluation on a current Home Assistant installation.
-Release 0.0.23 counts a fully safety-checked deadband no-op as valid Scheduled
-Shadow evidence without producing a command. Active control remains forcibly
-unarmed, and no physical equipment service-call path exists.
+Release 0.0.24 preserves zone-to-equipment-group device relationships across
+the supported Home Assistant versions. Active control remains forcibly unarmed,
+and no physical equipment service-call path exists.
 
 ## Recent changes
 
+- **0.0.24**
+  - Uses the supported parent-device reference on both Home Assistant 2026.7
+    and current Home Assistant releases.
+  - Preserves zone identifiers, names, and equipment-group placement without
+    changing schedules, selected sources, or HVAC behavior.
 - **0.0.23**
   - Counts an already-satisfied schedule target as valid, non-blocking Shadow
     qualification evidence after the complete safety evaluation passes.
@@ -198,16 +203,17 @@ supported way to change HVAC settings.
 
 ## What it deliberately does not do
 
-Release 0.0.21 does not provide:
+Release 0.0.24 does not provide:
 
-- Thermostat, fan, switch, humidity, ventilation, or other equipment control.
-- Scheduled Control, an active equipment adapter, active occupancy control, or
-  active window suspension.
-- Predictive control, adaptive start or stop, thermal models, or simulation.
-- Equipment arbitration, heat-pump optimization, or auxiliary-heat logic.
-- Predictive, model, schedule, override, fan-control, or simulation entities.
-- Dashboard cards or an active Phase 2 equipment-control interface.
-- Automatic repair actions or a configuration-changing Repairs flow.
+- Physical thermostat, fan, humidity, ventilation, or other equipment control.
+- Active Scheduled Control or physical Manual Control.
+- Predictive control, adaptive start/stop, thermal learning, or simulation.
+- Physical shared-equipment or heat-pump auxiliary-heat optimization.
+- Automatic repair or a configuration-changing Repairs flow.
+
+The sidebar, schedule editor, Control route, and suppressed Scheduled Shadow
+evaluation are available. They show observations and proposed decisions while
+leaving physical operation with the original thermostat.
 
 Unavailable or questionable observations are excluded instead of being
 replaced with invented values. Intelligent Climate never substitutes a stale

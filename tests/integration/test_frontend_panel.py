@@ -80,6 +80,7 @@ async def test_panel_tracks_loaded_entries_and_cleans_up(hass: HomeAssistant) ->
             "name": "intelligent-climate-panel",
             "embed_iframe": False,
             "trust_external": False,
+            "handle_safe_area": False,
             "module_url": f"{PANEL_STATIC_URL}?v={FRONTEND_VERSION}",
         },
     }

@@ -7,6 +7,26 @@ distribution repository. It does not assert that a public release tag exists.
 
 No unreleased changes.
 
+## 0.0.24 - 2026-09-07
+
+### Fixed
+
+- Preserve each virtual zone's equipment-group parent relationship on both the
+  minimum supported Home Assistant 2026.7 and current Home Assistant releases.
+- Replace deprecated device-registry test lookups with the public,
+  config-entry-scoped lookup.
+
+### Changed
+
+- Clarify that the sidebar, schedule editor, Control route, and suppressed
+  Scheduled Shadow evaluation already exist while physical control does not.
+
+### Security
+
+- Scheduled Shadow remains physically inert. This release adds no physical
+  service call, HVAC-mode change, schedule rewrite, selected-source change,
+  active adapter, or control authority.
+
 ## 0.0.23 - 2026-08-11
 
 ### Fixed

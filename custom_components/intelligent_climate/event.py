@@ -15,6 +15,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
+from .entity import build_zone_device_info
 from .models import (
     ActivityRecord,
     ActivityType,
@@ -25,7 +26,6 @@ from .models import (
 from .type_aliases import IntelligentClimateConfigEntry
 
 _GROUP_MODEL = "Equipment group"
-_ZONE_MODEL = "Climate zone"
 
 _GROUP_EVENT_TYPES = [
     ActivityType.LIFECYCLE.value,
@@ -171,12 +171,5 @@ class IntelligentClimateZoneActivityEvent(_ActivityEvent):
     ) -> None:
         """Initialize stable zone identity and child-device placement."""
         super().__init__(coordinator, zone_id=zone.zone_id)
-        group = coordinator.configuration.equipment_group
         self._attr_unique_id = f"{zone.zone_id}:activity"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(zone.zone_id))},
-            manufacturer=NAME,
-            model=_ZONE_MODEL,
-            name=zone.name,
-            via_device=(DOMAIN, str(group.equipment_group_id)),
-        )
+        self._attr_device_info = build_zone_device_info(coordinator, zone)
