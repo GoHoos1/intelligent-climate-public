@@ -266,6 +266,22 @@ def _entity_id(hass: HomeAssistant, platform: Platform, unique_id: str) -> str:
     return entity_id
 
 
+def _device_for_entry_identifier(
+    hass: HomeAssistant,
+    *,
+    entry_id: str,
+    identifier: tuple[str, str],
+) -> dr.DeviceEntry | None:
+    """Return one device by its config-entry-scoped identifier."""
+    matches = [
+        device
+        for device in dr.async_entries_for_config_entry(dr.async_get(hass), entry_id)
+        if identifier in device.identifiers
+    ]
+    assert len(matches) <= 1
+    return matches[0] if matches else None
+
+
 @pytest.mark.usefixtures("enable_custom_integrations")
 async def test_exact_inventory_devices_subentries_bus_and_startup_activity(
     hass: HomeAssistant,
@@ -312,8 +328,16 @@ async def test_exact_inventory_devices_subentries_bus_and_startup_activity(
         **dict.fromkeys(zone_unique_ids, f"{ENTRY_ID}-zone-subentry"),
     }
 
-    group_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, GROUP_ID)})
-    zone_device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, ZONE_ID)})
+    group_device = _device_for_entry_identifier(
+        hass,
+        entry_id=entry.entry_id,
+        identifier=(DOMAIN, GROUP_ID),
+    )
+    zone_device = _device_for_entry_identifier(
+        hass,
+        entry_id=entry.entry_id,
+        identifier=(DOMAIN, ZONE_ID),
+    )
     assert group_device is not None
     assert zone_device is not None
     assert zone_device.via_device_id == group_device.id

@@ -17,19 +17,17 @@ from homeassistant.const import PRECISION_TENTHS, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.temperature import display_temp
 
 from .const import DOMAIN, NAME, SUBENTRY_TYPE_ZONE
 from .coordinator import IntelligentClimateCoordinator
-from .entity import IntelligentClimateZoneEntity
+from .entity import IntelligentClimateZoneEntity, build_zone_device_info
 from .models import NormalizedClimateState, RuntimeConfigurationState, ZoneConfig
 from .type_aliases import IntelligentClimateConfigEntry
 
 _TARGET_AGREEMENT_C = 0.1
 _FLOAT_TOLERANCE = 1e-9
-_ZONE_MODEL = "Climate zone"
 _GROUP_MODEL = "Equipment group"
 
 
@@ -104,15 +102,8 @@ class IntelligentClimateZoneClimateEntity(
     ) -> None:
         """Initialize stable identity and virtual zone device information."""
         super().__init__(coordinator, zone)
-        equipment_group = coordinator.configuration.equipment_group
         self._attr_unique_id = f"{zone.zone_id}:zone"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, str(zone.zone_id))},
-            manufacturer=NAME,
-            model=_ZONE_MODEL,
-            name=zone.name,
-            via_device=(DOMAIN, str(equipment_group.equipment_group_id)),
-        )
+        self._attr_device_info = build_zone_device_info(coordinator, zone)
 
     @property
     @override
