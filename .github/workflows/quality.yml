@@ -1,3 +1,6 @@
+# cost-policy: allow-github-hosted
+# Public-repository validation intentionally stays on GitHub-hosted runners so
+# untrusted fork/PR code never executes on a home-network self-hosted runner.
 name: Quality
 
 on:
@@ -7,12 +10,17 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   minimum-home-assistant:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -38,6 +46,7 @@ jobs:
 
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
