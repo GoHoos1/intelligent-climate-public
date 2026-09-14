@@ -1,3 +1,6 @@
+# cost-policy: allow-github-hosted
+# Public-repository validation intentionally stays on GitHub-hosted runners so
+# untrusted fork/PR code never executes on a home-network self-hosted runner.
 name: Hassfest
 
 on:
@@ -7,16 +10,20 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: hassfest-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   hassfest:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
       - name: Run hassfest
         uses: home-assistant/actions/hassfest@master
-
