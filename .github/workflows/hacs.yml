@@ -1,3 +1,6 @@
+# cost-policy: allow-github-hosted
+# Public-repository validation intentionally stays on GitHub-hosted runners so
+# untrusted fork/PR code never executes on a home-network self-hosted runner.
 name: HACS
 
 on:
@@ -7,12 +10,17 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: hacs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   hacs:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Run HACS validation
         uses: hacs/action@main
